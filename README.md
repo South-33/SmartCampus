@@ -172,31 +172,28 @@ flowchart TD
 
 Radar cuts power when room is empty for 15 minutes.
 
-```mermaid
-flowchart TD
-    A[🔊 Radar scanning] --> B{Motion?}
-    
-    B -->|Yes| C[Power ON]
-    B -->|No| D[Start 15-min timer]
-    
-    C --> A
-    
-    D --> E{Timer done?}
-    E -->|Motion detected| C
-    E -->|Still empty| F[Power OFF]
-    
-    F --> G{Motion?}
-    G -->|Yes| H[Instant wake]
-    G -->|No| F
-    
-    H --> C
+```
+STATE MACHINE:
+
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│   ┌─────────┐    No motion     ┌─────────┐    15 min     ┌─────────┐
+│   │OCCUPIED │ ───────────────► │  GRACE  │ ────────────► │ STANDBY │
+│   │Power ON │                  │Power ON │               │Power OFF│
+│   └─────────┘                  └─────────┘               └─────────┘
+│        ▲                            │                         │
+│        │                            │ Motion                  │ Motion
+│        │                            ▼                         ▼
+│        └──────────────────── INSTANT RECOVERY ◄───────────────┘
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-| State | Power | Condition |
-|-------|-------|-----------|
-| OCCUPIED | ON | Motion detected |
-| GRACE | ON | No motion, timer < 15 min |
-| STANDBY | OFF | Timer expired |
+| State | Power | Trigger to next state |
+|-------|-------|----------------------|
+| **OCCUPIED** | ON | No motion → GRACE |
+| **GRACE** | ON | 15 min no motion → STANDBY |
+| **STANDBY** | OFF | Motion detected → OCCUPIED |
 
 ---
 

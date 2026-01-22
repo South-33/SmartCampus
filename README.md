@@ -260,29 +260,30 @@ System is **local-first**. No server calls during validation. Server only manage
 
 #### 1. Attendance Time Window
 
-Attendance only valid within a time window around class schedule:
+**Single scan only** (no scan OUT = no queue at end of class).
+
+Window: **15 min before class** → **mid-class** (50% of class duration)
 
 ```
-Class: 09:00 - 10:30
+Class: 09:00 - 10:30 (90 min)
 
-        VALID WINDOW
-    ◄──────────────────────►
-    
-08:00   09:00        10:30   11:30
-  │       │            │       │
-  ├───────┼────────────┼───────┤
-  │       │   CLASS    │       │
-  │ 1 hr  │            │ 1 hr  │
-  │BEFORE │            │ AFTER │
+            ATTENDANCE WINDOW
+        ◄─────────────────────►
+        
+08:45   09:00              09:45   10:30
+  │       │                  │       │
+  ├───────┼──────────────────┤       │
+  │15 min │     OPEN         │CLOSED │
+  │before │   (can scan)     │       │
 ```
 
-| Attempt Time | Class Time | Result |
-|--------------|------------|--------|
-| 08:30 | 09:00-10:30 | ✅ Valid (30 min before) |
-| 09:15 | 09:00-10:30 | ✅ Valid (during class) |
-| 11:00 | 09:00-10:30 | ✅ Valid (30 min after) |
-| 14:00 | 09:00-10:30 | ❌ Rejected (too late) |
-| 07:00 | 09:00-10:30 | ❌ Rejected (too early) |
+| Attempt Time | Class 09:00-10:30 | Result |
+|--------------|-------------------|--------|
+| 08:30 | Too early | ❌ Rejected |
+| 08:50 | 10 min before | ✅ Valid |
+| 09:15 | During class | ✅ Valid |
+| 09:45 | Mid-class cutoff | ✅ Valid (last chance) |
+| 10:00 | Past mid-class | ❌ Rejected |
 
 #### 2. Phone Internet Check
 

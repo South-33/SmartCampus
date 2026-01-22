@@ -369,6 +369,46 @@ function checkSuspiciousPatterns(studentId: string, logs: AttendanceLog[]) {
 | Attendance outside time window | ❌ Reject |
 | GPS > 100m from room | ⚠️ Flag to admin |
 | deviceTime vs espTime > 5 min | 🚨 Use espTime only |
+| **1 deviceId + 2 accounts in 12h** | 🚨 **Account sharing** |
+
+#### 5. Device Binding (Anti-Sharing)
+
+**Problem:** Student A logs into app, scans attendance, logs out, gives phone to Student B, who logs in and scans.
+
+**Solution:** Include `deviceId` in every payload. Server tracks which devices are used by which accounts.
+
+```json
+{
+  "studentId": "stu_123",
+  "deviceId": "E621E1F8-C36C-495A-93FC-0C247A3E6E5F",
+  "deviceTime": 1706012345,
+  "action": "ATTENDANCE"
+}
+```
+
+**Server-side check:**
+```typescript
+function checkDeviceSharing(deviceId: string, studentId: string) {
+  const recentScans = getScansInLast12Hours(deviceId);
+  const uniqueAccounts = new Set(recentScans.map(s => s.studentId));
+  
+  if (uniqueAccounts.size > 1) {
+    // 🚨 Same device, multiple accounts = sharing
+    alertAdmin({
+      type: "DEVICE_SHARING",
+      deviceId,
+      accounts: [...uniqueAccounts],
+      message: `Device used by ${uniqueAccounts.size} accounts in 12h`
+    });
+  }
+}
+```
+
+| Scenario | Result |
+|----------|--------|
+| 1 device, 1 account | ✅ OK |
+| 1 device, 2 accounts in 12h | 🚨 Flag both students |
+| 1 device, 2 accounts in 7 days | ⚠️ Maybe new phone, allow |
 
 #### 4. Scan Order (Position)
 

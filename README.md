@@ -206,24 +206,35 @@ System is **local-first**. No server calls during validation. Server only manage
 
 ### Architecture
 
-```mermaid
-flowchart TD
-    subgraph "SERVER (Convex)"
-        S1[Manage students]
-        S2[Manage rooms]
-        S3[Push whitelist updates]
-        S4[Receive logs]
-    end
-    
-    subgraph "ESP32 (Local)"
-        E1[Store room whitelist]
-        E2[Validate taps locally]
-        E3[Queue logs]
-    end
-    
-    S3 -->|Periodic sync| E1
-    E3 -->|When WiFi available| S4
+**Two-way sync between ESP32 and Server:**
+
+| Direction | What | When |
+|-----------|------|------|
+| **Server → ESP32** | Whitelist updates | Periodic (every hour) or on boot |
+| **ESP32 → Server** | Access logs + attendance | When WiFi available |
+
 ```
+┌────────────────────────────────────────────────────────────────┐
+│                     SERVER (Convex)                            │
+│  • Manage students & rooms                                     │
+│  • Push whitelist to each ESP32                                │
+│  • Receive logs from ESP32                                     │
+└───────────────────────────┬────────────────────────────────────┘
+                            │
+            ┌───────────────┴───────────────┐
+            │         WiFi Sync             │
+            │  (not during tap, only sync)  │
+            └───────────────┬───────────────┘
+                            │
+┌───────────────────────────┴────────────────────────────────────┐
+│                     ESP32 (Local)                              │
+│  • Store room whitelist in NVS                                 │
+│  • Validate taps LOCALLY (instant)                             │
+│  • Queue logs until WiFi available                             │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Key point:** Student taps → validated locally → door opens. No WiFi needed.
 
 ### What Happens When
 
@@ -358,15 +369,29 @@ Each ESP32 stores only students allowed in **its room**:
 
 ## Access Control Model
 
+### User Roles
+
+| Role | Door Access | Attendance | Notes |
+|------|-------------|------------|-------|
+| **Student** | Enrolled rooms only | ✅ Required | Biometric + GPS |
+| **Teacher** | All rooms | ✅ Logs teaching hours | Biometric + GPS |
+| **Cleaner/Staff** | All rooms | ❌ Not required | Access logged only |
+| **Admin** | All rooms + dashboard | ❌ Not required | Can manage everything |
+
+**How it works:**
+- `role: "student"` → Check `allowedRooms` array
+- `role: "teacher" | "cleaner" | "admin"` → Skip room check, allow all
+
 ### Database Schema
 
 ```typescript
-// students
+// users (students, teachers, cleaners, admins)
 {
-  _id: "stu_12345",
+  _id: "usr_12345",
   name: "John Doe",
+  role: "student" | "teacher" | "cleaner" | "admin",
   cardUID: "04:A3:2B:1C:7D:00:00",
-  allowedRooms: ["room_101", "room_102"]
+  allowedRooms: ["room_101", "room_102"]  // Only used if role = "student"
 }
 
 // rooms

@@ -471,23 +471,27 @@ Server sends push notifications based on class schedule:
 
 | Trigger | Time | Message |
 |---------|------|---------|
-| **Class starts** | Exact start time | "📚 CS101 has started in Room 101" |
-| **Not attended** | 10 min after start | "⚠️ You haven't checked in for CS101 yet" |
-| **Class ends** | Exact end time | "🔔 CS101 has ended" |
-| **Still not attended** | 15 min after end | "❌ You missed CS101 attendance today" |
+| **Window opens** | 15 min before class | "📚 CS101 attendance is now open" |
+| **Class starts** | Exact start time | "⏰ CS101 has started - scan now!" |
+| **Reminder** | 15 min after start | "⚠️ You haven't checked in for CS101" |
+| **Last chance** | Mid-class (cutoff) | "🚨 Last chance to scan for CS101!" |
+| **Missed** | After cutoff | "❌ You missed CS101 attendance" |
 
 ```mermaid
 flowchart TD
-    A[Class scheduled 09:00] --> B[09:00: Push 'Class started']
+    A[Class 09:00-10:30] --> B[08:45: 'Attendance open']
     B --> C{Attended?}
     C -->|Yes| D[No more reminders]
-    C -->|No| E[09:10: Push 'Not checked in yet']
+    C -->|No| E[09:00: 'Class started']
     E --> F{Attended?}
     F -->|Yes| D
-    F -->|No| G[10:30: Push 'Class ended']
+    F -->|No| G[09:15: 'Not checked in']
     G --> H{Attended?}
     H -->|Yes| D
-    H -->|No| I[10:45: Push 'Missed attendance']
+    H -->|No| I[09:45: 'Last chance!']
+    I --> J{Attended?}
+    J -->|Yes| D
+    J -->|No| K[09:46: 'Missed attendance']
 ```
 
 **Implementation:** Use scheduled push via Convex + Expo Push Notifications (or APNs).

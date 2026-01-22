@@ -1,4 +1,4 @@
-# 🏫 Smart Classroom System
+# Smart Classroom System
 
 A two-node wireless system for secure gate access and intelligent energy management.
 
@@ -113,6 +113,20 @@ flowchart TD
 ```
 
 **Payload:** `{ studentId, action: "OPEN_GATE" }`
+
+**App Screen States:**
+
+```mermaid
+flowchart LR
+    A[📱 Timer Screen] -->|Phone detects scan| B[✅ Success Screen]
+    A -->|60s expires| C[❌ Timeout Screen]
+```
+
+| State | UI | Trigger |
+|-------|-----|---------|
+| **Timer** | "⏱️ 47 seconds - Tap phone to reader" | User clicks Open Gate |
+| **Success** | "✅ Scanned! Door should open" | NFC write callback fires |
+| **Timeout** | "❌ Time expired, try again" | 60 seconds pass |
 
 ---
 

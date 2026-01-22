@@ -14,6 +14,44 @@ A two-node wireless system for secure gate access and intelligent energy managem
 
 ---
 
+## Tech Stack
+
+| Layer | Technology | Why |
+|-------|------------|-----|
+| **Mobile App** | React Native + Expo | Cross-platform, TypeScript, EAS cloud builds |
+| **Backend** | Convex | Real-time, TypeScript, scheduled functions |
+| **Firmware** | Arduino/PlatformIO | ESP32 HTTP client to Convex |
+
+### Mobile App Libraries
+
+| Feature | Library |
+|---------|---------|
+| NFC | `react-native-nfc-manager` |
+| Biometrics (FaceID) | `expo-local-authentication` |
+| GPS | `expo-location` |
+| Push Notifications | `expo-notifications` |
+
+### Architecture
+
+```
+┌─────────────────────────────────────────┐
+│           MOBILE APP                    │
+│   React Native + Expo                   │
+└────────────────┬────────────────────────┘
+                 │ TypeScript
+                 ▼
+┌─────────────────────────────────────────┐
+│            BACKEND                      │
+│   Convex (real-time + scheduled jobs)   │
+└────────────────┬────────────────────────┘
+                 │ HTTP
+                 ▼
+┌─────────────────────────────────────────┐
+│           HARDWARE                      │
+│   ESP32 + PN532 (local whitelist)       │
+└─────────────────────────────────────────┘
+```
+
 ## Hardware Inventory
 
 | Component | Qty | Function | Placement |

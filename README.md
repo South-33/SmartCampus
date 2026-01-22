@@ -65,72 +65,51 @@ flowchart TD
     E -->|Yes| F[Send to server]
     E -->|No| G[❌ Retry]
     F --> H[✅ Card linked!]
-    
-    style H fill:#c8e6c9
-    style G fill:#ffcdd2
 ```
 
 ---
 
 ### Flow 2: Physical Card Access
 
-Student taps card to open door. **Works offline.**
+Student taps card. **ALWAYS uses local whitelist (instant, no server call).**
 
 ```mermaid
 flowchart TD
     A[🎓 Tap card] --> B[PN532 reads UID]
-    B --> C{WiFi?}
+    B --> C[Check LOCAL whitelist]
+    C --> D{In list?}
     
-    C -->|Online| D[Validate with server]
-    C -->|Offline| E[Check local whitelist]
+    D -->|Yes| E[🔓 Door opens]
+    D -->|No| F[❌ Denied]
     
-    D --> F{Valid?}
-    E --> G{In list?}
-    
-    F -->|Yes| H[🔓 Door opens]
-    F -->|No| I[❌ Denied]
-    G -->|Yes| J[🔓 Door opens]
-    G -->|No| K[❌ Denied]
-    
-    H --> L[Log immediately]
-    J --> M[Queue log for sync]
-    
-    style H fill:#c8e6c9
-    style J fill:#c8e6c9
-    style I fill:#ffcdd2
-    style K fill:#ffcdd2
+    E --> G[Queue access log]
+    G --> H{WiFi?}
+    H -->|Yes| I[Sync log now]
+    H -->|No| J[Sync later]
 ```
+
+> 💡 **No server call during tap.** Whitelist is pre-synced from server.
 
 ---
 
 ### Flow 3: Phone Access (Open Gate Only)
 
-No biometric needed. Just open the door.
+No biometric needed. **ALWAYS uses local whitelist.**
 
 ```mermaid
 flowchart TD
     A[🎓 Open app] --> B[Tap 'Open Gate']
     B --> C[📱 NFC Writer mode]
-    C --> D[60 second timer starts]
+    C --> D[60 second timer]
     D --> E[Tap phone to reader]
-    E --> F[Phone writes: studentId + OPEN_GATE]
-    F --> G{WiFi?}
+    E --> F[Phone writes: studentId]
+    F --> G[ESP32 checks LOCAL whitelist]
+    G --> H{In list?}
     
-    G -->|Online| H[Server validates]
-    G -->|Offline| I[Local whitelist]
+    H -->|Yes| I[🔓 Door opens]
+    H -->|No| J[❌ Denied]
     
-    H --> J{Valid?}
-    I --> K{In list?}
-    
-    J -->|Yes| L[🔓 Door opens]
-    J -->|No| M[❌ Denied]
-    K -->|Yes| N[🔓 Door opens]
-    K -->|No| O[❌ Denied]
-    
-    style L fill:#c8e6c9
-    style N fill:#c8e6c9
-    style M fill:#ffcdd2
-    style O fill:#ffcdd2
+    I --> K[Queue log for sync]
 ```
 
 **Payload:** `{ studentId, action: "OPEN_GATE" }`
@@ -167,12 +146,6 @@ flowchart TD
     
     P --> R[🔓 Door + ✅ Attendance]
     Q --> S[🔓 Door + 📋 Queued]
-    
-    style D fill:#ffcdd2
-    style F fill:#fff3e0
-    style I fill:#ffcdd2
-    style R fill:#c8e6c9
-    style S fill:#c8e6c9
 ```
 
 **Payload:** `{ studentId, deviceTime, gps, action: "ATTENDANCE" }`
@@ -203,9 +176,6 @@ flowchart TD
     G -->|No| F
     
     H --> C
-    
-    style C fill:#c8e6c9
-    style F fill:#ffcdd2
 ```
 
 | State | Power | Condition |
@@ -218,23 +188,37 @@ flowchart TD
 
 ## Offline Mode
 
-System works **100% offline** for door access. Attendance queues for sync.
+System is **local-first**. No server calls during validation. Server only manages whitelist updates.
 
-### Decision Flow
+### Architecture
 
 ```mermaid
 flowchart TD
-    A[Student taps] --> B{WiFi?}
+    subgraph "SERVER (Convex)"
+        S1[Manage students]
+        S2[Manage rooms]
+        S3[Push whitelist updates]
+        S4[Receive logs]
+    end
     
-    B -->|Online| C[Server validates]
-    B -->|Offline| D[Local whitelist]
+    subgraph "ESP32 (Local)"
+        E1[Store room whitelist]
+        E2[Validate taps locally]
+        E3[Queue logs]
+    end
     
-    C --> E[timestampServer]
-    D --> F[timestampLocal]
-    
-    E --> G[Sync immediately]
-    F --> H[Queue for later]
+    S3 -->|Periodic sync| E1
+    E3 -->|When WiFi available| S4
 ```
+
+### What Happens When
+
+| Event | Action |
+|-------|--------|
+| **Student taps** | Check LOCAL whitelist → instant response |
+| **WiFi available** | Sync queued logs + check for whitelist updates |
+| **Admin adds student** | Server updates whitelist → ESP32 pulls on next sync |
+| **WiFi down** | Everything still works, logs queue locally |
 
 ### Timestamp Handling
 
@@ -247,7 +231,85 @@ flowchart TD
 
 ---
 
-### Scan Order: Anti-Cheat
+### Anti-Cheat Mechanisms
+
+#### 1. Attendance Time Window
+
+Attendance only valid within a time window around class schedule:
+
+```
+Class: 09:00 - 10:30
+
+        VALID WINDOW
+    ◄──────────────────────►
+    
+08:00   09:00        10:30   11:30
+  │       │            │       │
+  ├───────┼────────────┼───────┤
+  │       │   CLASS    │       │
+  │ 1 hr  │            │ 1 hr  │
+  │BEFORE │            │ AFTER │
+```
+
+| Attempt Time | Class Time | Result |
+|--------------|------------|--------|
+| 08:30 | 09:00-10:30 | ✅ Valid (30 min before) |
+| 09:15 | 09:00-10:30 | ✅ Valid (during class) |
+| 11:00 | 09:00-10:30 | ✅ Valid (30 min after) |
+| 14:00 | 09:00-10:30 | ❌ Rejected (too late) |
+| 07:00 | 09:00-10:30 | ❌ Rejected (too early) |
+
+#### 2. Phone Internet Check
+
+Phone includes its internet status in the payload:
+
+```json
+{
+  "studentId": "stu_123",
+  "deviceTime": 1706012345,
+  "timeSource": "ntp",      // "ntp" = internet time, "local" = device clock
+  "hasInternet": true,
+  "gps": { "lat": 13.7, "lng": 100.5 },
+  "action": "ATTENDANCE"
+}
+```
+
+| timeSource | Meaning | Trust Level |
+|------------|---------|-------------|
+| `ntp` | Phone fetched time from internet | ✅ High |
+| `local` | Phone used device clock | ⚠️ Low |
+
+#### 3. Suspicious Pattern Detection
+
+Flag students who consistently have "no internet":
+
+```typescript
+// Server-side check
+function checkSuspiciousPatterns(studentId: string, logs: AttendanceLog[]) {
+  const recentLogs = logs.filter(l => l.studentId === studentId && isWithinDays(l, 7));
+  const noInternetCount = recentLogs.filter(l => l.timeSource === "local").length;
+  const totalCount = recentLogs.length;
+  
+  // If >50% of attendance has no internet in past week → suspicious
+  if (noInternetCount / totalCount > 0.5) {
+    alertAdmin({
+      type: "SUSPICIOUS_PATTERN",
+      studentId,
+      message: `${noInternetCount}/${totalCount} scans with no internet this week`
+    });
+  }
+}
+```
+
+**Red flags to auto-detect:**
+| Pattern | Action |
+|---------|--------|
+| >50% "no internet" in 7 days | ⚠️ Flag to admin |
+| Attendance outside time window | ❌ Reject |
+| GPS > 100m from room | ⚠️ Flag to admin |
+| deviceTime vs espTime > 5 min | 🚨 Use espTime only |
+
+#### 4. Scan Order (Position)
 
 Students can lie about timestamp. They **cannot** lie about position in line.
 
@@ -361,6 +423,34 @@ Each ESP32 stores only students allowed in **its room**:
 - [ ] FaceID (LocalAuthentication)
 - [ ] GPS capture
 - [ ] Demo mode for App Store
+- [ ] Push notifications (see below)
+
+### Push Notifications
+
+Server sends push notifications based on class schedule:
+
+| Trigger | Time | Message |
+|---------|------|---------|
+| **Class starts** | Exact start time | "📚 CS101 has started in Room 101" |
+| **Not attended** | 10 min after start | "⚠️ You haven't checked in for CS101 yet" |
+| **Class ends** | Exact end time | "🔔 CS101 has ended" |
+| **Still not attended** | 15 min after end | "❌ You missed CS101 attendance today" |
+
+```mermaid
+flowchart TD
+    A[Class scheduled 09:00] --> B[09:00: Push 'Class started']
+    B --> C{Attended?}
+    C -->|Yes| D[No more reminders]
+    C -->|No| E[09:10: Push 'Not checked in yet']
+    E --> F{Attended?}
+    F -->|Yes| D
+    F -->|No| G[10:30: Push 'Class ended']
+    G --> H{Attended?}
+    H -->|Yes| D
+    H -->|No| I[10:45: Push 'Missed attendance']
+```
+
+**Implementation:** Use scheduled push via Convex + Expo Push Notifications (or APNs).
 
 ---
 

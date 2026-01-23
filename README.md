@@ -423,6 +423,34 @@ Students can lie about timestamp. They **cannot** lie about position in line.
 
 → Student #3 claims 08:55 but is position 3. **Use espTime as truth.**
 
+**Scan Order Memory (ESP32 NVS):**
+
+| Data per scan | Size |
+|---------------|------|
+| `scanOrder` (uint16) | 2 bytes |
+| `studentId` (8 chars) | 8 bytes |
+| `espTime` (uint32) | 4 bytes |
+| `synced` flag | 1 byte |
+| **Total per scan** | **~15 bytes** |
+
+| Scenario | Calculation | Result |
+|----------|-------------|--------|
+| 50 scans/day × 15 bytes | 750 bytes/day | Tiny |
+| NVS usable space | ~12-16 KB | Huge margin |
+| Days before overflow (no sync) | 16,000 ÷ 750 | **~21 days** |
+
+> 💡 With WiFi syncing every hour, you'll never hit NVS limits. If overflow occurs (rare), oldest records are deleted.
+
+**Flow:**
+```
+Class starts → scanOrder = 0
+Student 1 taps → scanOrder = 1, queued
+Student 2 taps → scanOrder = 2, queued
+...
+WiFi available → Batch upload all → Clear queue
+Next class → scanOrder = 0 (reset per class session)
+```
+
 ---
 
 ### Local Whitelist
@@ -447,12 +475,16 @@ Each ESP32 stores only students allowed in **its room**:
 
 ### User Roles
 
-| Role | Door Access | Attendance | Notes |
-|------|-------------|------------|-------|
-| **Student** | Enrolled rooms only | ✅ Required | Biometric + GPS |
-| **Teacher** | All rooms | ✅ Logs teaching hours | Biometric + GPS |
-| **Cleaner/Staff** | All rooms | ❌ Not required | Access logged only |
-| **Admin** | All rooms + dashboard | ❌ Not required | Can manage everything |
+| Role | Door Access | Scan IN | Scan OUT | Biometric | Notes |
+|------|-------------|---------|----------|-----------|-------|
+| **Student** | Enrolled rooms only | ✅ Required | ❌ Not required | IN only | GPS geofencing |
+| **Teacher** | All rooms | ✅ Required | ✅ Required | Both IN & OUT | Logs teaching hours |
+| **Cleaner/Staff** | All rooms | ❌ Optional | ❌ Optional | None | Access logged only |
+| **Admin** | All rooms + dashboard | ❌ Optional | ❌ Optional | None | Can manage everything |
+
+> 💡 **Why no student scan-out?** Students rush to leave class simultaneously. Requiring scan-out creates bottlenecks. Use radar occupancy detection instead if class duration data is needed.
+
+> ⚠️ **Biometric Clarification:** We use on-device authentication (FaceID/Fingerprint). The app receives `true/false` — **no biometric data is collected or transmitted**. Only GPS is collected for geofencing.
 
 **How it works:**
 - `role: "student"` → Check `allowedRooms` array
@@ -466,11 +498,14 @@ Each ESP32 stores only students allowed in **its room**:
   _id: "usr_12345",
   name: "John Doe",
   role: "student" | "teacher" | "cleaner" | "admin",
+  status: "enrolled" | "graduated" | "expelled",  // Never delete, just archive
   cardUID: "04:A3:2B:1C:7D:00:00",    // 1 account = 1 card (linking new card overwrites old)
   deviceId: "E621E1F8-C36C...",       // Bound phone for anti-sharing
   allowedRooms: ["room_101", "room_102"]  // Only used if role = "student"
 }
 ```
+
+> 💡 **Archiving Policy:** Users are never deleted. When a student graduates or is expelled, set `status` accordingly. Old attendance records remain for historical reference.
 
 > ⚠️ **1:1 Card Binding:** Each account can only have ONE linked NFC card. If a student links a new card, the old `cardUID` is overwritten. This prevents students from having multiple cards.
 
@@ -872,6 +907,202 @@ Admin can view and control every component in each room:
 | Dupont Wires | $3.99 |
 | NTAG215 Cards (10pcs) | $6.48 |
 | **Total** | **~$37** |
+
+---
+
+## Cost Projections (~100 students)
+
+| Service | Free Tier | Expected Usage | Monthly Cost |
+|---------|-----------|----------------|--------------|
+| **Convex** | 1M function calls | ~50k calls | **$0** |
+| **Expo Push** | Unlimited | ~10k/month | **$0** |
+| **EAS Build** | 15 builds/month | 2-3 builds | **$0** |
+| **Total** | | | **$0/month** |
+
+> 💡 Free tier covers up to ~500-1000 active users. After that, Convex is ~$25/month.
+
+---
+
+## Admin Notifications
+
+Server pushes alerts to admins for critical events:
+
+| Event | Alert | Priority |
+|-------|-------|----------|
+| **Device offline** | "Room 305 door is offline (15 min)" | 🔴 High |
+| **Suspicious activity** | "Student X flagged: 3 GPS mismatches this week" | 🟠 Medium |
+| **Device sharing** | "Device used by 2 accounts in 12h" | 🔴 High |
+| **Sensor malfunction** | "Room 201 radar not reporting" | 🟠 Medium |
+| **Firmware update failed** | "ESP32 A1B2C3 update stuck" | 🟡 Low |
+
+**Teacher notifications:**
+| Event | Alert |
+|-------|-------|
+| **Class starting** | "CS101 starting in 5 min, 8/30 students checked in" |
+| **Low attendance** | "Only 12/30 students checked in for CS101" |
+
+---
+
+## Accessibility
+
+| Feature | Implementation |
+|---------|----------------|
+| **Haptic feedback** | Vibration on successful scan |
+| **VoiceOver support** | All buttons properly labeled |
+| **High contrast** | Dark mode with clear status indicators |
+| **Large touch targets** | Minimum 44pt tap areas |
+
+---
+
+## Localization (i18n)
+
+| Language | Code | Status |
+|----------|------|--------|
+| **English** | `en` | Primary |
+| **Khmer** | `km` | Secondary |
+
+> 💡 Use `react-i18next` or Expo's `expo-localization` for language detection.
+
+---
+
+## Hardware Safety
+
+### Magnetic Door Lock (Fail-Safe)
+
+| Power State | Lock State | Reason |
+|-------------|------------|--------|
+| **Power ON** | 🔒 Locked | Normal operation |
+| **Power OFF** | 🔓 Unlocked | Fire safety compliance |
+
+> ⚠️ **Fail-safe design:** Magnetic locks require power to stay locked. On power outage, doors automatically unlock. This is intentional for fire safety — no UPS needed.
+
+---
+
+## Edge Cases
+
+### Substitute Teacher
+
+**Flow (designed for non-tech admins):**
+```
+1. Admin opens dashboard → "Add User"
+2. Enters: Name, Phone, Role: "Teacher", Status: "Temporary"
+3. System sends SMS/Email with login link
+4. Sub logs in → Can access all rooms for today
+5. End of day → Admin sets Status: "Inactive" (or auto-expires)
+```
+
+> 💡 **Keep it simple:** Same flow as adding any teacher, just mark as "Temporary". No special code needed.
+
+### Manual Attendance Override
+
+**When:** Student arrives late with valid excuse (doctor's note, etc.)
+
+**Teacher Flow:**
+```
+1. Teacher opens app → "My Classes" → "CS101"
+2. Views attendance roster for today
+3. Taps absent student → "Mark Present (Manual)"
+4. Enters reason: "Doctor's note"
+5. Server logs: { method: "manual", addedBy: "teacher_123", note: "Doctor's note" }
+```
+
+> 💡 Teachers can only edit attendance for their own classes. Admins can edit any class.
+
+### Data Migration
+
+**Phase 1 (Now):** Manual data entry for demo/pilot
+**Phase 2 (Later):** Import from existing MySQL system
+
+```
+Existing System (MySQL) → Export CSV → Convex Import Script → Our System
+```
+
+> ⚠️ **Deferred:** Data shape unknown. Focus on getting system working first, then work with school IT for migration.
+
+---
+
+## Demo Mode (App Store)
+
+> ⚠️ **REMINDER:** iOS App Store requires apps to be testable without real hardware.
+
+**Implementation:**
+- Add "Demo Mode" toggle in Settings (hidden, triple-tap logo to reveal)
+- Mock NFC scans with fake success responses
+- Skip biometric check (return `true`)
+- Show fake "Door Opened!" confirmation
+
+**For App Store Review:**
+- Include demo credentials in App Store notes
+- Reviewer can test full flow without ESP32 hardware
+
+---
+
+## In-App Issue Reporting
+
+### Automatic Prompt
+
+When user is waiting to scan (NFC writer mode active):
+
+```
+0-15 sec:  [Timer Screen] "⏱️ 45 seconds - Tap phone to reader"
+           └── Small "Having trouble?" link at bottom
+
+15-30 sec: [Timer Screen] "⏱️ 30 seconds - Tap phone to reader"
+           └── Button EXPANDS: "🆘 Having trouble? Tap here"
+
+After tap: [Issue Report Screen]
+           • What's wrong?
+             ○ Door not responding
+             ○ NFC not detecting my phone
+             ○ Reader seems broken
+             ○ Other: [text field]
+           • [Submit Report]
+```
+
+### What Happens
+
+```
+User submits report
+  └→ Push notification to admin: "🚨 Room 305: NFC issue reported by John Doe"
+  └→ Logged in dashboard with timestamp, user, room, issue type
+  └→ User sees: "✅ Admin notified. Try the next door or wait for help."
+```
+
+---
+
+## Remote Debugging
+
+### ESP32 Log Upload
+
+ESP32 sends debug logs to Convex for remote troubleshooting:
+
+```typescript
+// deviceLogs (Convex table)
+{
+  chipId: "A1B2C3D4E5F6",
+  timestamp: "2026-01-23T12:00:00Z",
+  level: "error" | "warn" | "info" | "debug",
+  message: "NFC read timeout after 5000ms",
+  metadata: { attempts: 3, lastUID: null }
+}
+```
+
+**What gets logged:**
+
+| Event | Level | Example |
+|-------|-------|---------|
+| NFC read success | `info` | "Card read: 04:A3:2B:..." |
+| NFC read timeout | `warn` | "NFC timeout after 5s" |
+| WiFi disconnect | `warn` | "WiFi lost, queuing logs" |
+| Relay actuation | `info` | "Door unlocked for 5s" |
+| Boot/restart | `info` | "Boot: v1.2.3, free mem: 45KB" |
+| Crash/exception | `error` | "Stack overflow in task X" |
+
+**Retention:** 7 days (auto-delete old logs to save space)
+
+**Admin Dashboard:** Filter logs by device, level, time range. Search for errors.
+
+> 💡 **Remote fix:** If you see "NFC timeout" errors spiking, you know something's wrong without being on-site.
 
 ---
 

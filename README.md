@@ -466,10 +466,15 @@ Each ESP32 stores only students allowed in **its room**:
   _id: "usr_12345",
   name: "John Doe",
   role: "student" | "teacher" | "cleaner" | "admin",
-  cardUID: "04:A3:2B:1C:7D:00:00",
+  cardUID: "04:A3:2B:1C:7D:00:00",    // 1 account = 1 card (linking new card overwrites old)
+  deviceId: "E621E1F8-C36C...",       // Bound phone for anti-sharing
   allowedRooms: ["room_101", "room_102"]  // Only used if role = "student"
 }
+```
 
+> ⚠️ **1:1 Card Binding:** Each account can only have ONE linked NFC card. If a student links a new card, the old `cardUID` is overwritten. This prevents students from having multiple cards.
+
+```typescript
 // rooms
 {
   _id: "room_101",

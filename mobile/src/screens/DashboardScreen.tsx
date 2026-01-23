@@ -21,6 +21,7 @@ interface DashboardScreenProps {
     onOpenGate: () => void;
     onAttendance: () => void;
     onProfile: () => void;
+    onViewAllClasses: () => void;
 }
 
 // Icons
@@ -66,7 +67,7 @@ const todayClasses = [
     },
 ];
 
-export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile }: DashboardScreenProps) => {
+export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAllClasses }: DashboardScreenProps) => {
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-GB', {
         weekday: 'long',
@@ -124,7 +125,9 @@ export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile }: Dashboa
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <HeadingSm>Today's Classes</HeadingSm>
-                        <BodySm style={styles.sectionLink}>View all</BodySm>
+                        <TouchableOpacity onPress={onViewAllClasses}>
+                            <BodySm style={styles.sectionLink}>View all</BodySm>
+                        </TouchableOpacity>
                     </View>
 
                     <View style={styles.classList}>

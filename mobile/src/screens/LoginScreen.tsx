@@ -5,9 +5,10 @@ import {
     SafeAreaView,
     KeyboardAvoidingView,
     Platform,
+    TouchableOpacity,
 } from 'react-native';
 import { colors, spacing } from '../theme';
-import { Button, Input, Wordmark, BodySm } from '../components';
+import { Button, Input, Wordmark, BodySm, Caption } from '../components';
 import Svg, { Path } from 'react-native-svg';
 
 export type UserRole = 'student' | 'teacher' | 'admin';
@@ -92,9 +93,33 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
                 <View style={styles.actions}>
                     <Button onPress={handleLogin}>Sign In</Button>
                     <BodySm style={styles.forgotLink}>Forgot password?</BodySm>
-                    <BodySm style={styles.hint}>
-                        Demo: try "student", "teacher", or "admin"
-                    </BodySm>
+                    
+                    <View style={styles.demoContainer}>
+                        <Caption style={styles.demoLabel}>Quick Access (Demo)</Caption>
+                        <View style={styles.demoButtons}>
+                            <TouchableOpacity 
+                                style={styles.demoChip} 
+                                onPress={() => onLogin('student')}
+                                activeOpacity={0.7}
+                            >
+                                <Caption style={styles.demoChipText}>Student</Caption>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={styles.demoChip} 
+                                onPress={() => onLogin('teacher')}
+                                activeOpacity={0.7}
+                            >
+                                <Caption style={styles.demoChipText}>Teacher</Caption>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={styles.demoChip} 
+                                onPress={() => onLogin('admin')}
+                                activeOpacity={0.7}
+                            >
+                                <Caption style={styles.demoChipText}>Admin</Caption>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
                 </View>
             </KeyboardAvoidingView>
         </SafeAreaView>
@@ -142,9 +167,32 @@ const styles = StyleSheet.create({
     forgotLink: {
         textAlign: 'center',
     },
-    hint: {
-        textAlign: 'center',
+    demoContainer: {
+        marginTop: spacing.md,
+        alignItems: 'center',
+        gap: spacing.xs,
+    },
+    demoLabel: {
+        fontSize: 10,
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
         color: colors.slate,
-        fontStyle: 'italic',
+        fontFamily: 'Inter-SemiBold',
+    },
+    demoButtons: {
+        flexDirection: 'row',
+        gap: spacing.xs,
+    },
+    demoChip: {
+        backgroundColor: colors.cream,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 100,
+        borderWidth: 1,
+        borderColor: colors.mist,
+    },
+    demoChipText: {
+        color: colors.cobalt,
+        fontFamily: 'Inter-Medium',
     },
 });

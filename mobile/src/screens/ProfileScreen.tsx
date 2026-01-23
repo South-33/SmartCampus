@@ -21,6 +21,10 @@ import Svg, { Path, Circle, Rect } from 'react-native-svg';
 interface ProfileScreenProps {
     onBack: () => void;
     onLinkCard: () => void;
+    onNotifications: () => void;
+    onPrivacy: () => void;
+    onHelp: () => void;
+    onSignOut: () => void;
 }
 
 // Icons
@@ -90,7 +94,14 @@ const userData = {
     cardLastDigits: '7D00',
 };
 
-export const ProfileScreen = ({ onBack, onLinkCard }: ProfileScreenProps) => {
+export const ProfileScreen = ({ 
+    onBack, 
+    onLinkCard, 
+    onNotifications, 
+    onPrivacy, 
+    onHelp,
+    onSignOut,
+}: ProfileScreenProps) => {
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView
@@ -167,7 +178,11 @@ export const ProfileScreen = ({ onBack, onLinkCard }: ProfileScreenProps) => {
                     <HeadingSm style={styles.sectionTitle}>Settings</HeadingSm>
 
                     <View style={styles.settingsList}>
-                        <TouchableOpacity style={styles.settingRow} activeOpacity={0.7}>
+                        <TouchableOpacity 
+                            style={styles.settingRow} 
+                            activeOpacity={0.7}
+                            onPress={onNotifications}
+                        >
                             <BellIcon />
                             <Body style={styles.settingText}>Notifications</Body>
                             <ChevronRightIcon />
@@ -175,7 +190,11 @@ export const ProfileScreen = ({ onBack, onLinkCard }: ProfileScreenProps) => {
 
                         <View style={styles.settingDivider} />
 
-                        <TouchableOpacity style={styles.settingRow} activeOpacity={0.7}>
+                        <TouchableOpacity 
+                            style={styles.settingRow} 
+                            activeOpacity={0.7}
+                            onPress={onPrivacy}
+                        >
                             <ShieldIcon />
                             <Body style={styles.settingText}>Privacy & Security</Body>
                             <ChevronRightIcon />
@@ -183,7 +202,11 @@ export const ProfileScreen = ({ onBack, onLinkCard }: ProfileScreenProps) => {
 
                         <View style={styles.settingDivider} />
 
-                        <TouchableOpacity style={styles.settingRow} activeOpacity={0.7}>
+                        <TouchableOpacity 
+                            style={styles.settingRow} 
+                            activeOpacity={0.7}
+                            onPress={onHelp}
+                        >
                             <HelpIcon />
                             <Body style={styles.settingText}>Help & Support</Body>
                             <ChevronRightIcon />
@@ -192,7 +215,7 @@ export const ProfileScreen = ({ onBack, onLinkCard }: ProfileScreenProps) => {
                 </View>
 
                 {/* Logout */}
-                <TouchableOpacity style={styles.logoutButton} activeOpacity={0.7}>
+                <TouchableOpacity style={styles.logoutButton} activeOpacity={0.7} onPress={onSignOut}>
                     <Body style={styles.logoutText}>Sign Out</Body>
                 </TouchableOpacity>
 

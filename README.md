@@ -711,6 +711,96 @@ Everything survives power loss:
 
 ---
 
+## Admin Dashboard
+
+### Core Features
+
+| Feature | Description |
+|---------|-------------|
+| **Device Management** | View all ESP32s, assign to rooms, see online/offline status |
+| **User Management** | Add/edit students, teachers, cleaners. Assign rooms. |
+| **Attendance Logs** | View, filter, export attendance data |
+| **Suspicious Activity** | View flagged students (GPS mismatch, device sharing, etc.) |
+| **Firmware Updates** | Upload new firmware, control rollout % |
+| **Audit Log** | Who did what when (all admin actions logged) |
+
+### Emergency Override
+
+Admin can bypass the system when needed:
+
+| Override | Effect |
+|----------|--------|
+| **Unlock Room X** | Opens door immediately (logged) |
+| **Disable Room X** | Door stays unlocked, attendance disabled |
+| **Lock All** | Emergency lockdown (all doors locked) |
+
+> ⚠️ All overrides are logged with admin ID and timestamp.
+
+---
+
+## Data Retention
+
+| Data Type | Retention | Reason |
+|-----------|-----------|--------|
+| Attendance logs | **4 years** | Academic records |
+| Access logs (door) | 1 year | Security |
+| Device heartbeats | 30 days | Debugging |
+| Audit logs | 4 years | Accountability |
+
+**Backup:** Monthly export to CSV/Excel stored offline.
+
+---
+
+## User Onboarding
+
+### New Student Flow
+
+```
+1. Admin creates account in dashboard
+   │
+   ▼
+2. Student receives login credentials (email/SMS)
+   │
+   ▼
+3. Student downloads app, logs in
+   │
+   ▼
+4. Student taps "Link Card" → Scans NFC card
+   │
+   ▼
+5. Card linked to account ✅ Ready to use
+```
+
+### Lost Card
+
+```
+1. Student reports to admin
+   │
+   ▼
+2. Admin gives new card
+   │
+   ▼
+3. Student scans new card in app
+   │
+   ▼
+4. Old card automatically unlinked (1:1 binding)
+```
+
+---
+
+## Deployment Strategy
+
+| Phase | Scope | Goal |
+|-------|-------|------|
+| **Phase 1** | Personal testing | Validate hardware works |
+| **Phase 2** | 1 classroom | End-to-end testing with real users |
+| **Phase 3** | 1 building/floor | Scale testing, iron out issues |
+| **Phase 4** | Campus-wide | Full deployment |
+
+> Start small. Fix issues. Expand gradually.
+
+---
+
 ## Development Phases
 
 ### Phase 1: Hardware ✅

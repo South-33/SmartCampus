@@ -578,6 +578,139 @@ flowchart TD
 
 ---
 
+## System Management
+
+### Device Registration (Chip ID)
+
+Each ESP32 has a unique hardware ID. Use this for automatic registration:
+
+```
+ESP32 first boot:
+   │
+   ├─► POST /register { chipId: "A1B2C3D4E5F6" }
+   │
+   ▼
+Server creates: { chipId: "A1B2C3D4E5F6", roomId: null, name: "Unassigned" }
+   │
+   ▼
+Admin dashboard: "New device! Assign to Room 305"
+   │
+   ▼
+Server updates: { chipId: "A1B2C3D4E5F6", roomId: "room_305" }
+```
+
+**Database schema:**
+```typescript
+// devices
+{
+  chipId: "A1B2C3D4E5F6",      // Permanent hardware ID
+  roomId: "room_305",          // Assigned from admin panel
+  name: "Room 305 Door",       // Human-readable
+  firmwareVersion: "1.2.3",
+  lastSeen: "2026-01-23T12:00:00Z",
+  status: "online"
+}
+```
+
+> ✅ Same firmware for all devices. Room assignment done in admin panel.
+
+---
+
+### WiFi Credential Management
+
+Server stores WiFi credentials. ESP32 pulls on boot:
+
+```typescript
+// wifiCredentials (single row)
+{
+  primary:   { ssid: "SchoolWiFi", pass: "current123" },
+  secondary: { ssid: "SchoolWiFi", pass: "newpass456" }
+}
+```
+
+**ESP32 connection logic:**
+1. Try `primary` → Connected? ✅ Done
+2. Failed? Try `secondary` → Connected? ✅ Report to server
+3. Both failed? Enter AP mode for manual config
+
+**Admin workflow to change WiFi password:**
+1. Add new password as `secondary` in dashboard
+2. Wait 1 hour (all ESP32s pull new creds)
+3. Change actual WiFi password on router
+4. ESP32s reconnect using `secondary`
+5. Promote `secondary` → `primary`
+
+> ✅ Zero downtime WiFi password changes.
+
+---
+
+### OTA Firmware Updates
+
+ESP32 pulls firmware updates on boot:
+
+| Component | Method | Downtime |
+|-----------|--------|----------|
+| ESP32 Firmware | HTTP OTA | ~30 sec reboot |
+| Mobile App (JS) | Expo Updates | 0 (instant) |
+| Backend | `npx convex deploy` | 0 |
+
+**Staged rollout for safety:**
+```typescript
+// firmwareVersions
+{
+  version: "1.2.3",
+  rolloutPercentage: 10,  // Start with 10%
+  url: "https://storage/.../v1.2.3.bin"
+}
+```
+
+- Day 1: 10% of devices update → Watch for errors
+- Day 2: 50% of devices update → Still OK?
+- Day 3: 100% of devices update
+
+> ⚠️ If bug found, set `rolloutPercentage: 0` to pause immediately.
+
+---
+
+### Heartbeat Monitoring
+
+ESP32 sends heartbeat every 5 minutes:
+
+```typescript
+POST /heartbeat {
+  chipId: "A1B2C3D4E5F6",
+  uptime: 12345,
+  freeMemory: 45000,
+  firmwareVersion: "1.2.3"
+}
+```
+
+**Scheduled job (every 10 min):**
+- Find devices where `lastSeen > 15 min ago`
+- Alert admin: "Room 305 is offline!"
+
+---
+
+### Power Failure Recovery
+
+Everything survives power loss:
+
+| Data | Storage | Survives Reboot? |
+|------|---------|------------------|
+| Whitelist | NVS (flash) | ✅ Yes |
+| Queued attendance | NVS (flash) | ✅ Yes |
+| Clock | NTP sync on boot | ✅ Yes |
+
+**On boot:**
+1. Connect WiFi (try primary, then secondary)
+2. Sync NTP time
+3. Check for firmware updates
+4. Pull latest whitelist
+5. Sync any queued logs
+6. Resume normal operation
+
+---
+
 ## Development Phases
 
 ### Phase 1: Hardware ✅

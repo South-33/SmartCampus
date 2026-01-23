@@ -736,6 +736,37 @@ Admin can bypass the system when needed:
 
 > ⚠️ All overrides are logged with admin ID and timestamp.
 
+### Room Control Panel
+
+Admin can view and control every component in each room:
+
+**Real-time Status (per room):**
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Room 305 - Computer Lab                                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  🔌 ESP32 (Door)      ● Online    v1.2.3    ↻ 2 min ago    │
+│  🔌 ESP32 (Radar)     ● Online    v1.2.3    ↻ 2 min ago    │
+│  📡 Radar Sensor      ● Detecting motion                    │
+│  🔒 Door Lock         ● Locked                              │
+│  💡 Power Relay       ● ON                                  │
+│  👥 Occupancy         ● 12 people (estimated)               │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  [🔓 Unlock]  [💡 Lights ON]  [💡 Lights OFF]  [⚠️ Override] │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Manual Controls:**
+| Control | Effect |
+|---------|--------|
+| **Unlock Door** | Opens door for 10 seconds |
+| **Lights ON** | Force power relay ON |
+| **Lights OFF** | Force power relay OFF (overrides radar) |
+| **Reset Radar** | Restart motion detection |
+| **Reboot ESP32** | Remote restart device |
+
 ---
 
 ## Data Retention

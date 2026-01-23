@@ -43,7 +43,11 @@ export const HelpScreen = ({ onBack }: HelpScreenProps) => {
 
                 <HeadingLg style={styles.title}>Help & Support</HeadingLg>
 
-                <ScrollView style={styles.scroll} alwaysBounceVertical={false}>
+                <ScrollView 
+                    style={styles.scroll} 
+                    contentContainerStyle={styles.scrollContent}
+                    alwaysBounceVertical={false}
+                >
                     <View style={styles.section}>
                         <HeadingSm style={styles.sectionTitle}>Resources</HeadingSm>
                         <View style={styles.settingCard}>
@@ -120,6 +124,9 @@ const styles = StyleSheet.create({
     },
     scroll: {
         flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: 72,
     },
     section: {
         marginBottom: spacing.xl,

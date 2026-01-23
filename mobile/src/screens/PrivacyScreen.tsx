@@ -48,7 +48,11 @@ export const PrivacyScreen = ({ onBack }: PrivacyScreenProps) => {
 
                 <HeadingLg style={styles.title}>Privacy & Security</HeadingLg>
 
-                <ScrollView style={styles.scroll} alwaysBounceVertical={false}>
+                <ScrollView 
+                    style={styles.scroll} 
+                    contentContainerStyle={styles.scrollContent}
+                    alwaysBounceVertical={false}
+                >
                     <View style={styles.section}>
                         <HeadingSm style={styles.sectionTitle}>Authentication</HeadingSm>
                         <View style={styles.settingCard}>
@@ -126,6 +130,9 @@ const styles = StyleSheet.create({
     },
     scroll: {
         flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: 72,
     },
     section: {
         marginBottom: spacing.xl,

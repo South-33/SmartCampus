@@ -394,6 +394,6 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
     footer: {
-        paddingBottom: spacing.lg,
+        paddingBottom: 60,
     },
 });

@@ -254,6 +254,6 @@ const styles = StyleSheet.create({
         maxWidth: 260,
     },
     footer: {
-        paddingBottom: spacing.lg,
+        paddingBottom: 60,
     },
 });

@@ -21,17 +21,17 @@ export const Button = ({
     disabled,
     ...props
 }: ButtonProps) => {
-    const buttonStyles: ViewStyle[] = [
+    const buttonStyles: any[] = [
         styles.base,
         styles[variant],
-        disabled && styles.disabled,
-        style as ViewStyle,
+        disabled ? styles.disabled : {},
+        style,
     ];
 
-    const textStyles: TextStyle[] = [
+    const textStyles: any[] = [
         styles.text,
-        styles[`${variant}Text` as keyof typeof styles] as TextStyle,
-        disabled && styles.disabledText,
+        styles[`${variant}Text` as keyof typeof styles],
+        disabled ? styles.disabledText : {},
     ];
 
     return (

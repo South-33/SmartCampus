@@ -1,17 +1,10 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     View,
     StyleSheet,
     SafeAreaView,
     ScrollView,
     TouchableOpacity,
-    Dimensions,
-    DimensionValue,
-    Modal,
-    Animated,
-    LayoutAnimation,
-    Platform,
-    UIManager,
 } from 'react-native';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
@@ -21,15 +14,12 @@ import {
     Body,
     BodySm,
     Caption,
+    ResponsiveContainer,
+    CalendarStrip,
+    AcademicCalendarModal,
 } from '../components';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-
-// Enable LayoutAnimation for Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-    UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-const { width } = Dimensions.get('window');
+import { getTermInfo } from '../data/academicUtils';
 
 interface ClassesScreenProps {
     onBack?: () => void;
@@ -47,24 +37,6 @@ const UserIcon = () => (
     <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
         <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
         <Circle cx="12" cy="7" r="4" />
-    </Svg>
-);
-
-const CloseIcon = () => (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
-        <Path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const ChevronLeftIcon = ({ size = 20, color = colors.charcoal }: { size?: number, color?: string }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
-        <Path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const ChevronRightIcon = ({ size = 20, color = colors.charcoal }: { size?: number, color?: string }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
-        <Path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
 );
 
@@ -108,57 +80,6 @@ const MapPinIcon = ({ size = 14, color = colors.slate }: { size?: number, color?
     </Svg>
 );
 
-// Enrollment period (4-year Bachelor's)
-const ENROLLMENT_START = { year: 2024, month: 8 }; // September 2024
-const ENROLLMENT_END = { year: 2028, month: 5 };   // June 2028
-
-// Month names
-const MONTH_NAMES = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-];
-
-// British academic terms (Oxford-style)
-const getTermInfo = (month: number, year: number) => {
-    if (month >= 9 && month <= 11) return { name: 'Michaelmas Term', color: colors.cobalt };
-    if (month >= 0 && month <= 2) return { name: 'Hilary Term', color: '#6366F1' };
-    if (month >= 3 && month <= 5) return { name: 'Trinity Term', color: '#8B5CF6' };
-    return { name: 'Summer Vacation', color: colors.slate };
-};
-
-// Generate academic data for a specific month/year
-const getAcademicData = (month: number, year: number) => {
-    const holidays: number[] = [];
-    const termDays: number[] = [];
-    const examDays: number[] = [];
-    
-    if (month === 11) holidays.push(24, 25, 26, 27, 28, 29, 30, 31);
-    if (month === 0) holidays.push(1, 2);
-    if (month === 2) holidays.push(29, 30, 31);
-    if (month === 3) holidays.push(1, 2, 3, 4, 5);
-    if (month === 4) holidays.push(6, 27);
-    if (month === 7) holidays.push(26);
-    
-    const termMonths = [0, 1, 2, 3, 4, 5, 9, 10, 11];
-    if (termMonths.includes(month)) {
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        for (let d = 1; d <= daysInMonth; d++) {
-            const dayOfWeek = new Date(year, month, d).getDay();
-            if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.includes(d)) {
-                termDays.push(d);
-            }
-        }
-    }
-    
-    if (month === 0) examDays.push(13, 14, 15, 16, 17, 20, 21, 22, 23, 24);
-    if (month === 4 || month === 5) {
-        if (month === 4) examDays.push(19, 20, 21, 22, 23, 26, 27, 28, 29, 30);
-        if (month === 5) examDays.push(2, 3, 4, 5, 6, 9, 10, 11, 12, 13);
-    }
-    
-    return { holidays, termDays, examDays };
-};
-
 // --- Mock Data ---
 
 const nextClass = {
@@ -169,22 +90,12 @@ const nextClass = {
     minutesUntil: 47,
 };
 
-const weekDays = [
-    { day: 'Mon', date: 19, classCount: 2, active: false },
-    { day: 'Tue', date: 20, classCount: 1, active: false },
-    { day: 'Wed', date: 21, classCount: 3, active: true },
-    { day: 'Thu', date: 22, classCount: 2, active: false },
-    { day: 'Fri', date: 23, classCount: 1, active: false },
-    { day: 'Sat', date: 24, classCount: 0, active: false },
-    { day: 'Sun', date: 25, classCount: 0, active: false },
-];
-
 const attendanceMetrics = {
     currentStreak: 12,
     weekAttended: 4,
     weekTotal: 5,
     overallPercent: 92.4,
-    status: 'good', // 'good' | 'warning' | 'at-risk'
+    status: 'good',
 };
 
 const enrolledCourses = [
@@ -294,20 +205,7 @@ const attendanceAlerts = [
 
 const CourseCard = ({ course }: { course: typeof enrolledCourses[0] }) => {
     const [expanded, setExpanded] = useState(false);
-    const animation = useRef(new Animated.Value(0)).current;
     
-    const toggleExpand = () => {
-        const toValue = expanded ? 0 : 1;
-        setExpanded(!expanded);
-        
-        Animated.spring(animation, {
-            toValue,
-            useNativeDriver: false,
-            friction: 8,
-            tension: 40
-        }).start();
-    };
-
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'present': return colors.success;
@@ -317,20 +215,10 @@ const CourseCard = ({ course }: { course: typeof enrolledCourses[0] }) => {
         }
     };
 
-    const contentHeight = animation.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 480], // Max height for expanded content
-    });
-
-    const contentOpacity = animation.interpolate({
-        inputRange: [0, 0.5, 1],
-        outputRange: [0, 0, 1],
-    });
-
     return (
         <TouchableOpacity 
             style={[styles.courseCard, expanded && styles.courseCardExpanded]} 
-            onPress={toggleExpand}
+            onPress={() => setExpanded(!expanded)}
             activeOpacity={0.9}
         >
             <View style={styles.courseTop}>
@@ -346,16 +234,9 @@ const CourseCard = ({ course }: { course: typeof enrolledCourses[0] }) => {
                     </View>
                     <HeadingMd style={styles.courseName}>{course.name}</HeadingMd>
                 </View>
-                <Animated.View style={{ 
-                    transform: [{ 
-                        rotate: animation.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ['0deg', '180deg']
-                        }) 
-                    }] 
-                }}>
+                <View style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}>
                     <ChevronDownIcon color={colors.slate} />
-                </Animated.View>
+                </View>
             </View>
 
             <View style={styles.courseMeta}>
@@ -384,17 +265,13 @@ const CourseCard = ({ course }: { course: typeof enrolledCourses[0] }) => {
             <View style={styles.attendanceSection}>
                 <View style={styles.progressContainer}>
                     <View style={styles.progressBar}>
-                        <View style={[styles.progressFill, { width: `${course.attendancePercent}%` as DimensionValue, backgroundColor: course.color }]} />
+                        <View style={[styles.progressFill, { width: `${course.attendancePercent}%`, backgroundColor: course.color }]} />
                     </View>
                     <BodySm style={[styles.attendancePercent, { color: course.color }]}>{course.attendancePercent}%</BodySm>
                 </View>
             </View>
 
-            <Animated.View style={{ 
-                maxHeight: contentHeight, 
-                opacity: contentOpacity,
-                overflow: 'hidden'
-            }}>
+            {expanded && (
                 <View style={styles.expandedContent}>
                     <View style={styles.expandedSection}>
                         <HeadingSm style={styles.expandedSectionTitle}>WEEKLY SCHEDULE</HeadingSm>
@@ -440,7 +317,7 @@ const CourseCard = ({ course }: { course: typeof enrolledCourses[0] }) => {
                         ))}
                     </View>
                 </View>
-            </Animated.View>
+            )}
         </TouchableOpacity>
     );
 };
@@ -449,325 +326,117 @@ export const ClassesScreen = () => {
     const [selectedDate, setSelectedDate] = useState(21);
     const [showCalendar, setShowCalendar] = useState(false);
     
-    // Animation refs
-    const slideAnim = useRef(new Animated.Value(0)).current;
-    const fadeAnim = useRef(new Animated.Value(1)).current;
-    const yearSlideAnim = useRef(new Animated.Value(0)).current;
-    const yearFadeAnim = useRef(new Animated.Value(1)).current;
+    const viewMonth = 9; // October
+    const viewYear = 2024;
     
-    // Current viewing month/year in calendar
-    const [viewMonth, setViewMonth] = useState(9); // October
-    const [viewYear, setViewYear] = useState(2024);
-
-    const animateTransition = (direction: 'next' | 'prev', updateFn: () => void, animateYear = false) => {
-        const outAnimations = [
-            Animated.timing(slideAnim, {
-                toValue: direction === 'next' ? -30 : 30,
-                duration: 180,
-                useNativeDriver: true,
-            }),
-            Animated.timing(fadeAnim, {
-                toValue: 0,
-                duration: 180,
-                useNativeDriver: true,
-            }),
-        ];
-
-        if (animateYear) {
-            outAnimations.push(
-                Animated.timing(yearSlideAnim, {
-                    toValue: direction === 'next' ? -20 : 20,
-                    duration: 180,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(yearFadeAnim, {
-                    toValue: 0,
-                    duration: 180,
-                    useNativeDriver: true,
-                })
-            );
-        }
-
-        Animated.parallel(outAnimations).start(() => {
-            updateFn();
-            
-            slideAnim.setValue(direction === 'next' ? 30 : -30);
-            if (animateYear) {
-                yearSlideAnim.setValue(direction === 'next' ? 20 : -20);
-            }
-
-            const inAnimations = [
-                Animated.timing(slideAnim, {
-                    toValue: 0,
-                    duration: 220,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(fadeAnim, {
-                    toValue: 1,
-                    duration: 220,
-                    useNativeDriver: true,
-                }),
-            ];
-
-            if (animateYear) {
-                inAnimations.push(
-                    Animated.timing(yearSlideAnim, {
-                        toValue: 0,
-                        duration: 220,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(yearFadeAnim, {
-                        toValue: 1,
-                        duration: 220,
-                        useNativeDriver: true,
-                    })
-                );
-            }
-
-            Animated.parallel(inAnimations).start();
-        });
-    };
-    
-    const today = new Date();
     const termInfo = useMemo(() => getTermInfo(viewMonth, viewYear), [viewMonth, viewYear]);
-    const academicData = useMemo(() => getAcademicData(viewMonth, viewYear), [viewMonth, viewYear]);
-
-    const calendarDays = useMemo(() => {
-        const days: (null | { day: number; isHoliday: boolean; isTermDay: boolean; isExamDay: boolean; isSelected: boolean; isToday: boolean })[] = [];
-        const firstDay = new Date(viewYear, viewMonth, 1).getDay();
-        const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
-        const padding = firstDay === 0 ? 6 : firstDay - 1;
-        
-        for (let i = 0; i < padding; i++) days.push(null);
-        for (let i = 1; i <= daysInMonth; i++) {
-            const isToday = today.getDate() === i && today.getMonth() === viewMonth && today.getFullYear() === viewYear;
-            days.push({
-                day: i,
-                isHoliday: academicData.holidays.includes(i),
-                isTermDay: academicData.termDays.includes(i),
-                isExamDay: academicData.examDays.includes(i),
-                isSelected: i === selectedDate && viewMonth === 9 && viewYear === 2024,
-                isToday,
-            });
-        }
-        while (days.length < 42) days.push(null);
-        return days;
-    }, [viewYear, viewMonth, selectedDate, academicData]);
-
-    const goToPrevMonth = () => {
-        if (viewYear === ENROLLMENT_START.year && viewMonth <= ENROLLMENT_START.month) return;
-        animateTransition('prev', () => {
-            if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1); }
-            else setViewMonth(viewMonth - 1);
-        }, viewMonth === 0);
-    };
-
-    const goToNextMonth = () => {
-        if (viewYear === ENROLLMENT_END.year && viewMonth >= ENROLLMENT_END.month) return;
-        animateTransition('next', () => {
-            if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1); }
-            else setViewMonth(viewMonth + 1);
-        }, viewMonth === 11);
-    };
-
-    const goToPrevYear = () => {
-        if (viewYear > ENROLLMENT_START.year) {
-            animateTransition('prev', () => setViewYear(viewYear - 1), true);
-        }
-    };
-
-    const goToNextYear = () => {
-        if (viewYear < ENROLLMENT_END.year) {
-            animateTransition('next', () => setViewYear(viewYear + 1), true);
-        }
-    };
-
-    const canGoPrevYear = viewYear > ENROLLMENT_START.year;
-    const canGoNextYear = viewYear < ENROLLMENT_END.year;
-
-    const canGoPrev = !(viewYear === ENROLLMENT_START.year && viewMonth <= ENROLLMENT_START.month);
-    const canGoNext = !(viewYear === ENROLLMENT_END.year && viewMonth >= ENROLLMENT_END.month);
     const currentAcademicYear = viewYear.toString();
 
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView 
-                style={styles.scroll} 
-                contentContainerStyle={styles.scrollContent} 
-                showsVerticalScrollIndicator={false}
-                stickyHeaderIndices={[1]}
-            >
-                {/* Header - Now scrolls away */}
-                <View style={styles.header}>
-                    <View>
-                        <Caption style={styles.headerSubtitle}>Academic Year {currentAcademicYear}</Caption>
-                        <HeadingLg style={styles.headerTitle}>{termInfo.name}</HeadingLg>
-                    </View>
-                    <TouchableOpacity style={styles.calendarButton} onPress={() => setShowCalendar(true)}>
-                        <CalendarIcon />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Week Strip - Sticky */}
-                <View style={styles.calendarStrip}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.weekContent}>
-                        {weekDays.map((d) => (
-                            <TouchableOpacity key={d.date} style={[styles.dayCard, selectedDate === d.date && styles.dayCardActive]} onPress={() => setSelectedDate(d.date)}>
-                                <Caption style={[styles.dayName, selectedDate === d.date && styles.textCobalt]}>{d.day}</Caption>
-                                <Body style={[styles.dayDate, selectedDate === d.date && styles.textCobalt]}>{d.date}</Body>
-                                {d.classCount > 0 && (
-                                    <View style={styles.dayIndicators}>
-                                        {[...Array(Math.min(d.classCount, 3))].map((_, i) => (
-                                            <View key={i} style={[styles.indicatorDot, selectedDate === d.date && styles.indicatorDotActive]} />
-                                        ))}
-                                    </View>
-                                )}
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-
-                <View style={styles.mainContent}>
-                    {/* Next Class Countdown Section - Now below the sticky strip */}
-                    <View style={styles.nextClassContainer}>
-                        <View style={styles.nextClassBadge}>
-                            <ClockIcon size={12} color={colors.cobalt} />
-                            <Caption style={styles.nextClassBadgeText}>NEXT CLASS IN {nextClass.minutesUntil} MIN</Caption>
+            <ResponsiveContainer>
+                <ScrollView 
+                    style={styles.scroll} 
+                    contentContainerStyle={styles.scrollContent} 
+                    showsVerticalScrollIndicator={false}
+                    stickyHeaderIndices={[1]}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    <View style={styles.header}>
+                        <View>
+                            <Caption style={styles.headerSubtitle}>Academic Year {currentAcademicYear}</Caption>
+                            <HeadingLg style={styles.headerTitle}>{termInfo.name}</HeadingLg>
                         </View>
-                        <View style={styles.nextClassInfo}>
-                            <HeadingSm style={styles.nextClassName}>{nextClass.code} • {nextClass.name}</HeadingSm>
-                            <Caption style={styles.nextClassRoom}>{nextClass.room} @ {nextClass.startTime}</Caption>
-                        </View>
+                        <TouchableOpacity style={styles.calendarButton} onPress={() => setShowCalendar(true)}>
+                            <CalendarIcon />
+                        </TouchableOpacity>
                     </View>
 
-                    {/* Enhanced Attendance Overview */}
-                    <View style={styles.academicOverview}>
-                        <View style={styles.overviewHeader}>
-                            <HeadingSm style={styles.overviewTitle}>ATTENDANCE OVERVIEW</HeadingSm>
-                            <View style={styles.statusBadgeLarge}>
-                                <View style={[styles.statusDot, { backgroundColor: attendanceMetrics.status === 'good' ? colors.success : colors.error }]} />
-                                <Caption style={[styles.statusTextLarge, { color: attendanceMetrics.status === 'good' ? colors.success : colors.error }]}>
-                                    {attendanceMetrics.status === 'good' ? 'In Good Standing' : 'At Risk'}
-                                </Caption>
+                    <CalendarStrip 
+                        selectedDate={selectedDate}
+                        onSelectDate={setSelectedDate}
+                    />
+
+                    <View style={styles.mainContent}>
+                        <View style={styles.nextClassContainer}>
+                            <View style={styles.nextClassBadge}>
+                                <ClockIcon size={12} color={colors.cobalt} />
+                                <Caption style={styles.nextClassBadgeText}>NEXT CLASS IN {nextClass.minutesUntil} MIN</Caption>
+                            </View>
+                            <View style={styles.nextClassInfo}>
+                                <HeadingSm style={styles.nextClassName}>{nextClass.code} • {nextClass.name}</HeadingSm>
+                                <Caption style={styles.nextClassRoom}>{nextClass.room} @ {nextClass.startTime}</Caption>
                             </View>
                         </View>
-                        <View style={styles.statsGrid}>
-                            <View style={styles.statBox}>
-                                <View style={styles.statValueRow}>
-                                    <FlameIcon size={18} />
-                                    <HeadingMd style={styles.statValue}>{attendanceMetrics.currentStreak}</HeadingMd>
-                                </View>
-                                <Caption>Streak</Caption>
-                            </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.statBox}>
-                                <HeadingMd style={styles.statValue}>{attendanceMetrics.weekAttended}/{attendanceMetrics.weekTotal}</HeadingMd>
-                                <Caption>This Week</Caption>
-                            </View>
-                            <View style={styles.statDivider} />
-                            <View style={styles.statBox}>
-                                <HeadingMd style={[styles.statValue, { color: colors.cobalt }]}>{attendanceMetrics.overallPercent}%</HeadingMd>
-                                <Caption>Overall</Caption>
-                            </View>
-                        </View>
-                    </View>
 
-                    {/* Attendance Alerts Section */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <HeadingSm style={styles.sectionTitle}>ATTENDANCE ALERTS</HeadingSm>
-                        </View>
-                        <View style={styles.alertsContainer}>
-                            {attendanceAlerts.map((alert) => (
-                                <View key={alert.id} style={[styles.alertCard, { borderColor: alert.type === 'warning' ? colors.error + '30' : colors.success + '30' }]}>
-                                    {alert.type === 'warning' ? <AlertCircleIcon size={16} /> : <CheckCircleIcon size={16} />}
-                                    <View style={styles.alertContent}>
-                                        <BodySm style={styles.alertCourse}>{alert.course}</BodySm>
-                                        <Caption style={styles.alertMessage}>{alert.message}</Caption>
-                                    </View>
-                                </View>
-                            ))}
-                        </View>
-                    </View>
-
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <HeadingSm style={styles.sectionTitle}>Course Catalog</HeadingSm>
-                            <Caption style={styles.filterLink}>Filter by Dept</Caption>
-                        </View>
-                        {enrolledCourses.map((course) => (
-                            <CourseCard key={course.id} course={course} />
-                        ))}
-                    </View>
-                </View>
-            </ScrollView>
-
-            <Modal visible={showCalendar} transparent animationType="fade" onRequestClose={() => setShowCalendar(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.calendarModal}>
-                        <View style={styles.modalHeader}>
-                            <View style={styles.modalTitleArea}>
-                                <Caption style={styles.modalSub}>ACADEMIC CALENDAR</Caption>
-                                <View style={styles.yearSwitcher}>
-                                    <TouchableOpacity 
-                                        onPress={goToPrevYear} 
-                                        disabled={!canGoPrevYear} 
-                                        style={[styles.yearNavArrow, !canGoPrevYear && styles.navArrowDisabled]}
-                                    >
-                                        <ChevronLeftIcon size={16} />
-                                    </TouchableOpacity>
-                                    <Animated.View style={{ opacity: yearFadeAnim, transform: [{ translateX: yearSlideAnim }] }}>
-                                        <HeadingSm style={styles.yearSwitcherText}>{currentAcademicYear}</HeadingSm>
-                                    </Animated.View>
-                                    <TouchableOpacity 
-                                        onPress={goToNextYear} 
-                                        disabled={!canGoNextYear} 
-                                        style={[styles.yearNavArrow, !canGoNextYear && styles.navArrowDisabled]}
-                                    >
-                                        <ChevronRightIcon size={16} />
-                                    </TouchableOpacity>
+                        <View style={styles.academicOverview}>
+                            <View style={styles.overviewHeader}>
+                                <HeadingSm style={styles.overviewTitle}>ATTENDANCE OVERVIEW</HeadingSm>
+                                <View style={styles.statusBadgeLarge}>
+                                    <View style={[styles.statusDot, { backgroundColor: attendanceMetrics.status === 'good' ? colors.success : colors.error }]} />
+                                    <Caption style={[styles.statusTextLarge, { color: attendanceMetrics.status === 'good' ? colors.success : colors.error }]}>
+                                        {attendanceMetrics.status === 'good' ? 'In Good Standing' : 'At Risk'}
+                                    </Caption>
                                 </View>
                             </View>
-                            <TouchableOpacity onPress={() => setShowCalendar(false)} style={styles.closeBtn}><CloseIcon /></TouchableOpacity>
-                        </View>
-                        <ScrollView showsVerticalScrollIndicator={false} alwaysBounceVertical={false}>
-                            <Animated.View style={{ opacity: fadeAnim, transform: [{ translateX: slideAnim }] }}>
-                                <View style={styles.monthNav}>
-                                    <TouchableOpacity style={[styles.navArrow, !canGoPrev && styles.navArrowDisabled]} onPress={goToPrevMonth} disabled={!canGoPrev}><ChevronLeftIcon /></TouchableOpacity>
-                                    <View style={styles.monthDisplay}>
-                                        <HeadingMd>{MONTH_NAMES[viewMonth]} {viewYear}</HeadingMd>
-                                        <Caption style={[styles.termBadge, { backgroundColor: termInfo.color + '15' }]}><BodySm style={{ color: termInfo.color, fontSize: 10 }}>{termInfo.name}</BodySm></Caption>
+                            <View style={styles.statsGrid}>
+                                <View style={styles.statBox}>
+                                    <View style={styles.statValueRow}>
+                                        <FlameIcon size={18} />
+                                        <HeadingMd style={styles.statValue}>{attendanceMetrics.currentStreak}</HeadingMd>
                                     </View>
-                                    <TouchableOpacity style={[styles.navArrow, !canGoNext && styles.navArrowDisabled]} onPress={goToNextMonth} disabled={!canGoNext}><ChevronRightIcon /></TouchableOpacity>
+                                    <Caption>Streak</Caption>
                                 </View>
-                                <View style={styles.monthGrid}>
-                                    <View style={styles.weekHeader}>
-                                        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (<Caption key={i} style={styles.weekDayLabel}>{d}</Caption>))}
-                                    </View>
-                                    <View style={styles.daysGrid}>
-                                        {calendarDays.map((d, i) => (
-                                            <View key={i} style={styles.dayCell}>
-                                                {d && (
-                                                <TouchableOpacity style={[styles.dayInner, d.isSelected && styles.daySelected, d.isHoliday && styles.dayHoliday, d.isExamDay && styles.dayExam, d.isToday && !d.isSelected && styles.dayToday]} onPress={() => setSelectedDate(d.day)}>
-                                                    <BodySm style={[styles.dayText, d.isSelected && styles.textWhite, d.isHoliday && !d.isSelected && styles.textError, d.isExamDay && !d.isSelected && styles.textExam, d.isToday && !d.isSelected && styles.textCobalt]}>{d.day}</BodySm>
-                                                    {d.isTermDay && !d.isSelected && !d.isHoliday && !d.isExamDay && (<View style={styles.termDot} />)}
-                                                </TouchableOpacity>
-                                                )}
-                                            </View>
-                                        ))}
-                                    </View>
+                                <View style={styles.statDivider} />
+                                <View style={styles.statBox}>
+                                    <HeadingMd style={styles.statValue}>{attendanceMetrics.weekAttended}/{attendanceMetrics.weekTotal}</HeadingMd>
+                                    <Caption>This Week</Caption>
                                 </View>
-                            </Animated.View>
-                            <View style={styles.legend}>
-                                <View style={styles.legendItem}><View style={styles.termDotLegend} /><Caption>Term Day</Caption></View>
-                                <View style={styles.legendItem}><View style={[styles.legendBox, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]} /><Caption>Holiday</Caption></View>
-                                <View style={styles.legendItem}><View style={[styles.legendBox, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]} /><Caption>Exam</Caption></View>
+                                <View style={styles.statDivider} />
+                                <View style={styles.statBox}>
+                                    <HeadingMd style={[styles.statValue, { color: colors.cobalt }]}>{attendanceMetrics.overallPercent}%</HeadingMd>
+                                    <Caption>Overall</Caption>
+                                </View>
                             </View>
-                            <View style={styles.quickJump}><TouchableOpacity style={styles.quickJumpBtn} onPress={() => { setViewMonth(today.getMonth()); setViewYear(today.getFullYear()); }}><Caption style={styles.quickJumpText}>Today</Caption></TouchableOpacity></View>
-                        </ScrollView>
+                        </View>
+
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <HeadingSm style={styles.sectionTitle}>ATTENDANCE ALERTS</HeadingSm>
+                            </View>
+                            <View style={styles.alertsContainer}>
+                                {attendanceAlerts.map((alert) => (
+                                    <View key={alert.id} style={[styles.alertCard, { borderColor: alert.type === 'warning' ? colors.error + '30' : colors.success + '30' }]}>
+                                        {alert.type === 'warning' ? <AlertCircleIcon size={16} /> : <CheckCircleIcon size={16} />}
+                                        <View style={styles.alertContent}>
+                                            <BodySm style={styles.alertCourse}>{alert.course}</BodySm>
+                                            <Caption style={styles.alertMessage}>{alert.message}</Caption>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        </View>
+
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <HeadingSm style={styles.sectionTitle}>Enrolled Classes</HeadingSm>
+                            </View>
+                            <View style={styles.classList}>
+                                {enrolledCourses.map((course) => (
+                                    <CourseCard key={course.id} course={course} />
+                                ))}
+                            </View>
+                        </View>
                     </View>
-                </View>
-            </Modal>
+                </ScrollView>
+            </ResponsiveContainer>
+
+            <AcademicCalendarModal 
+                visible={showCalendar}
+                onClose={() => setShowCalendar(false)}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+            />
         </SafeAreaView>
     );
 };
@@ -776,6 +445,13 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.ivory,
+    },
+    scroll: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingTop: spacing.lg,
+        paddingBottom: 72, 
     },
     header: {
         flexDirection: 'row',
@@ -834,65 +510,6 @@ const styles = StyleSheet.create({
     },
     nextClassRoom: {
         fontSize: 12,
-    },
-    calendarStrip: {
-        paddingVertical: spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.mist,
-        backgroundColor: colors.ivory,
-    },
-    weekContent: {
-        paddingHorizontal: spacing.lg,
-        gap: 12,
-    },
-    dayCard: {
-        width: 52,
-        height: 70,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#FFF',
-        borderRadius: radius.sm,
-        borderWidth: 1,
-        borderColor: colors.mist,
-        gap: 4,
-    },
-    dayCardActive: {
-        borderColor: colors.cobalt,
-        borderWidth: 2,
-    },
-    dayName: {
-        fontSize: 10,
-        textTransform: 'uppercase',
-        fontFamily: 'Inter-Medium',
-        color: colors.slate,
-    },
-    dayDate: {
-        fontFamily: 'PlayfairDisplay-Medium',
-        fontSize: 18,
-        color: colors.charcoal,
-    },
-    dayIndicators: {
-        flexDirection: 'row',
-        gap: 2,
-    },
-    indicatorDot: {
-        width: 4,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: colors.mist,
-    },
-    indicatorDotActive: {
-        backgroundColor: colors.cobalt,
-    },
-    textCobalt: {
-        color: colors.cobalt,
-    },
-    scroll: {
-        flex: 1,
-    },
-    scrollContent: {
-        paddingTop: spacing.lg,
-        paddingBottom: 120, 
     },
     mainContent: {
         paddingHorizontal: spacing.lg,
@@ -977,10 +594,6 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         color: colors.slate,
     },
-    filterLink: {
-        color: colors.cobalt,
-        fontFamily: 'Inter-Medium',
-    },
     alertsContainer: {
         gap: spacing.sm,
     },
@@ -1002,6 +615,9 @@ const styles = StyleSheet.create({
     },
     alertMessage: {
         fontSize: 11,
+    },
+    classList: {
+        gap: spacing.sm,
     },
     courseCard: {
         backgroundColor: '#FFF',
@@ -1193,203 +809,5 @@ const styles = StyleSheet.create({
     logStatusText: {
         fontSize: 9,
         fontFamily: 'Inter-Bold',
-    },
-    divider: {
-        height: 1,
-        backgroundColor: colors.ivory,
-        marginHorizontal: spacing.md,
-    },
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(26, 26, 26, 0.4)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: spacing.lg,
-    },
-    calendarModal: {
-        width: '100%',
-        maxWidth: 460,
-        maxHeight: '85%',
-        backgroundColor: colors.ivory,
-        borderRadius: radius.md,
-        padding: spacing.lg,
-        borderWidth: 1,
-        borderColor: colors.mist,
-        ...shadows.card,
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: spacing.md,
-    },
-    modalTitleArea: {
-        flex: 1,
-    },
-    modalSub: {
-        fontSize: 10,
-        letterSpacing: 1,
-        color: colors.slate,
-        marginBottom: 6,
-    },
-    yearSwitcher: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    yearSwitcherText: {
-        color: colors.cobalt,
-        fontFamily: 'Inter-SemiBold',
-        fontSize: 16,
-    },
-    yearNavArrow: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: colors.cream,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    closeBtn: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: colors.cream,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    monthNav: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: spacing.lg,
-    },
-    navArrow: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: '#FFF',
-        borderWidth: 1,
-        borderColor: colors.mist,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    navArrowDisabled: {
-        opacity: 0.3,
-    },
-    monthDisplay: {
-        alignItems: 'center',
-        gap: 4,
-    },
-    termBadge: {
-        paddingVertical: 4,
-        paddingHorizontal: 10,
-        borderRadius: 100,
-    },
-    monthGrid: {
-        marginBottom: spacing.md,
-    },
-    weekHeader: {
-        flexDirection: 'row',
-        marginBottom: spacing.sm,
-    },
-    weekDayLabel: {
-        flex: 1,
-        textAlign: 'center',
-        color: colors.slate,
-        fontSize: 10,
-    },
-    daysGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-    },
-    dayCell: {
-        width: '14.28%',
-        height: 52,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 2,
-    },
-    dayInner: {
-        width: '100%',
-        height: '100%',
-        borderRadius: 10,
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-    },
-    daySelected: {
-        backgroundColor: colors.cobalt,
-    },
-    dayHoliday: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    },
-    dayExam: {
-        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-    },
-    dayToday: {
-        borderWidth: 2,
-        borderColor: colors.cobalt,
-    },
-    dayText: {
-        fontFamily: 'Inter-Medium',
-        fontSize: 14,
-    },
-    textWhite: {
-        color: '#FFF',
-    },
-    textError: {
-        color: colors.error,
-    },
-    textExam: {
-        color: '#D97706',
-    },
-    termDot: {
-        position: 'absolute',
-        bottom: 6,
-        width: 3,
-        height: 3,
-        borderRadius: 1.5,
-        backgroundColor: colors.cobalt,
-    },
-    legend: {
-        flexDirection: 'row',
-        gap: spacing.md,
-        paddingTop: spacing.md,
-        borderTopWidth: 1,
-        borderTopColor: colors.mist,
-    },
-    legendItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    legendBox: {
-        width: 14,
-        height: 14,
-        borderRadius: 4,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.05)',
-    },
-    termDotLegend: {
-        width: 4,
-        height: 4,
-        borderRadius: 2,
-        backgroundColor: colors.cobalt,
-        marginHorizontal: 5,
-    },
-    quickJump: {
-        marginTop: spacing.md,
-        alignItems: 'center',
-    },
-    quickJumpBtn: {
-        paddingVertical: 8,
-        paddingHorizontal: 20,
-        borderRadius: 100,
-        backgroundColor: colors.cream,
-    },
-    quickJumpText: {
-        color: colors.cobalt,
-        fontFamily: 'Inter-Medium',
     },
 });

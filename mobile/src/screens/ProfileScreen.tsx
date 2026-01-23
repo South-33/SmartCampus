@@ -15,6 +15,7 @@ import {
     BodySm,
     Caption,
     Button,
+    ResponsiveContainer,
 } from '../components';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
@@ -76,13 +77,6 @@ const HelpIcon = () => (
     </Svg>
 );
 
-const LogoutIcon = () => (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.error} strokeWidth={2}>
-        <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" strokeLinejoin="round" />
-        <Path d="M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
 // Sample user data
 const userData = {
     name: 'Jonathan Doe',
@@ -104,124 +98,127 @@ export const ProfileScreen = ({
 }: ProfileScreenProps) => {
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView
-                style={styles.scroll}
-                contentContainerStyle={styles.content}
-                alwaysBounceVertical={false}
-            >
-                {/* Back Button */}
-                <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                    <BackIcon />
-                    <BodySm>Back</BodySm>
-                </TouchableOpacity>
-
-                {/* Profile Header */}
-                <View style={styles.profileHeader}>
-                    <View style={styles.avatar}>
-                        <HeadingLg style={styles.avatarText}>
-                            {userData.name.split(' ').map(n => n[0]).join('')}
-                        </HeadingLg>
-                    </View>
-                    <HeadingLg style={styles.userName}>{userData.name}</HeadingLg>
-                    <BodySm style={styles.userEmail}>{userData.email}</BodySm>
-                    <View style={styles.badge}>
-                        <Caption style={styles.badgeText}>{userData.studentId}</Caption>
-                    </View>
-                </View>
-
-                {/* Student Info Card */}
-                <View style={styles.infoCard}>
-                    <View style={styles.infoRow}>
-                        <BodySm style={styles.infoLabel}>Department</BodySm>
-                        <Body style={styles.infoValue}>{userData.department}</Body>
-                    </View>
-                    <View style={styles.divider} />
-                    <View style={styles.infoRow}>
-                        <BodySm style={styles.infoLabel}>Academic Year</BodySm>
-                        <Body style={styles.infoValue}>{userData.year}</Body>
-                    </View>
-                </View>
-
-                {/* NFC Card Section */}
-                <View style={styles.section}>
-                    <HeadingSm style={styles.sectionTitle}>Access Card</HeadingSm>
-
-                    <TouchableOpacity
-                        style={styles.cardRow}
-                        onPress={onLinkCard}
-                        activeOpacity={0.7}
-                    >
-                        <View style={styles.cardIconContainer}>
-                            <CardIcon />
-                        </View>
-                        <View style={styles.cardInfo}>
-                            <Body style={styles.cardTitle}>
-                                {userData.cardLinked ? 'NFC Card Linked' : 'Link Your Card'}
-                            </Body>
-                            {userData.cardLinked ? (
-                                <View style={styles.cardStatus}>
-                                    <CheckCircleIcon />
-                                    <Caption style={styles.cardStatusText}>
-                                        •••• {userData.cardLastDigits}
-                                    </Caption>
-                                </View>
-                            ) : (
-                                <Caption>Tap to scan your student card</Caption>
-                            )}
-                        </View>
-                        <ChevronRightIcon />
+            <ResponsiveContainer>
+                <ScrollView
+                    style={styles.scroll}
+                    contentContainerStyle={styles.content}
+                    alwaysBounceVertical={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {/* Back Button */}
+                    <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                        <BackIcon />
+                        <BodySm>Back</BodySm>
                     </TouchableOpacity>
-                </View>
 
-                {/* Settings Section */}
-                <View style={styles.section}>
-                    <HeadingSm style={styles.sectionTitle}>Settings</HeadingSm>
+                    {/* Profile Header */}
+                    <View style={styles.profileHeader}>
+                        <View style={styles.avatar}>
+                            <HeadingLg style={styles.avatarText}>
+                                {userData.name.split(' ').map(n => n[0]).join('')}
+                            </HeadingLg>
+                        </View>
+                        <HeadingLg style={styles.userName}>{userData.name}</HeadingLg>
+                        <BodySm style={styles.userEmail}>{userData.email}</BodySm>
+                        <View style={styles.badge}>
+                            <Caption style={styles.badgeText}>{userData.studentId}</Caption>
+                        </View>
+                    </View>
 
-                    <View style={styles.settingsList}>
-                        <TouchableOpacity 
-                            style={styles.settingRow} 
+                    {/* Student Info Card */}
+                    <View style={styles.infoCard}>
+                        <View style={styles.infoRow}>
+                            <BodySm style={styles.infoLabel}>Department</BodySm>
+                            <Body style={styles.infoValue}>{userData.department}</Body>
+                        </View>
+                        <View style={styles.divider} />
+                        <View style={styles.infoRow}>
+                            <BodySm style={styles.infoLabel}>Academic Year</BodySm>
+                            <Body style={styles.infoValue}>{userData.year}</Body>
+                        </View>
+                    </View>
+
+                    {/* NFC Card Section */}
+                    <View style={styles.section}>
+                        <HeadingSm style={styles.sectionTitle}>Access Card</HeadingSm>
+
+                        <TouchableOpacity
+                            style={styles.cardRow}
+                            onPress={onLinkCard}
                             activeOpacity={0.7}
-                            onPress={onNotifications}
                         >
-                            <BellIcon />
-                            <Body style={styles.settingText}>Notifications</Body>
-                            <ChevronRightIcon />
-                        </TouchableOpacity>
-
-                        <View style={styles.settingDivider} />
-
-                        <TouchableOpacity 
-                            style={styles.settingRow} 
-                            activeOpacity={0.7}
-                            onPress={onPrivacy}
-                        >
-                            <ShieldIcon />
-                            <Body style={styles.settingText}>Privacy & Security</Body>
-                            <ChevronRightIcon />
-                        </TouchableOpacity>
-
-                        <View style={styles.settingDivider} />
-
-                        <TouchableOpacity 
-                            style={styles.settingRow} 
-                            activeOpacity={0.7}
-                            onPress={onHelp}
-                        >
-                            <HelpIcon />
-                            <Body style={styles.settingText}>Help & Support</Body>
+                            <View style={styles.cardIconContainer}>
+                                <CardIcon />
+                            </View>
+                            <View style={styles.cardInfo}>
+                                <Body style={styles.cardTitle}>
+                                    {userData.cardLinked ? 'NFC Card Linked' : 'Link Your Card'}
+                                </Body>
+                                {userData.cardLinked ? (
+                                    <View style={styles.cardStatus}>
+                                        <CheckCircleIcon />
+                                        <Caption style={styles.cardStatusText}>
+                                            •••• {userData.cardLastDigits}
+                                        </Caption>
+                                    </View>
+                                ) : (
+                                    <Caption>Tap to scan your student card</Caption>
+                                )}
+                            </View>
                             <ChevronRightIcon />
                         </TouchableOpacity>
                     </View>
-                </View>
 
-                {/* Logout */}
-                <TouchableOpacity style={styles.logoutButton} activeOpacity={0.7} onPress={onSignOut}>
-                    <Body style={styles.logoutText}>Sign Out</Body>
-                </TouchableOpacity>
+                    {/* Settings Section */}
+                    <View style={styles.section}>
+                        <HeadingSm style={styles.sectionTitle}>Settings</HeadingSm>
 
-                {/* Version */}
-                <Caption style={styles.version}>Version 1.0.0</Caption>
-            </ScrollView>
+                        <View style={styles.settingsList}>
+                            <TouchableOpacity 
+                                style={styles.settingRow} 
+                                activeOpacity={0.7}
+                                onPress={onNotifications}
+                            >
+                                <BellIcon />
+                                <Body style={styles.settingText}>Notifications</Body>
+                                <ChevronRightIcon />
+                            </TouchableOpacity>
+
+                            <View style={styles.settingDivider} />
+
+                            <TouchableOpacity 
+                                style={styles.settingRow} 
+                                activeOpacity={0.7}
+                                onPress={onPrivacy}
+                            >
+                                <ShieldIcon />
+                                <Body style={styles.settingText}>Privacy & Security</Body>
+                                <ChevronRightIcon />
+                            </TouchableOpacity>
+
+                            <View style={styles.settingDivider} />
+
+                            <TouchableOpacity 
+                                style={styles.settingRow} 
+                                activeOpacity={0.7}
+                                onPress={onHelp}
+                            >
+                                <HelpIcon />
+                                <Body style={styles.settingText}>Help & Support</Body>
+                                <ChevronRightIcon />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Logout */}
+                    <TouchableOpacity style={styles.logoutButton} activeOpacity={0.7} onPress={onSignOut}>
+                        <Body style={styles.logoutText}>Sign Out</Body>
+                    </TouchableOpacity>
+
+                    {/* Version */}
+                    <Caption style={styles.version}>Version 1.0.0</Caption>
+                </ScrollView>
+            </ResponsiveContainer>
         </SafeAreaView>
     );
 };
@@ -237,7 +234,7 @@ const styles = StyleSheet.create({
     content: {
         paddingHorizontal: spacing.lg,
         paddingTop: spacing.xl,
-        paddingBottom: 0,
+        paddingBottom: 96,
     },
     backButton: {
         flexDirection: 'row',

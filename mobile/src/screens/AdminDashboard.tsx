@@ -5,6 +5,7 @@ import {
     SafeAreaView,
     ScrollView,
     TouchableOpacity,
+    useWindowDimensions,
 } from 'react-native';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
@@ -14,6 +15,7 @@ import {
     Body,
     BodySm,
     Caption,
+    ResponsiveContainer,
 } from '../components';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
@@ -96,110 +98,113 @@ export const AdminDashboard = ({ onProfile }: AdminDashboardProps) => {
 
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView
-                style={styles.scroll}
-                contentContainerStyle={styles.content}
-                alwaysBounceVertical={false}
-            >
-                {/* Header */}
-                <View style={styles.header}>
-                    <View style={styles.greeting}>
-                        <HeadingSm>Admin Panel</HeadingSm>
-                        <HeadingLg>Kingsford</HeadingLg>
-                        <BodySm style={styles.date}>{dateStr}</BodySm>
-                    </View>
-                    <TouchableOpacity style={styles.avatar} onPress={onProfile} activeOpacity={0.8}>
-                        <HeadingMd style={styles.avatarText}>A</HeadingMd>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Stats Row */}
-                <View style={styles.statsRow}>
-                    {stats.map((stat, idx) => (
-                        <View key={idx} style={styles.statCard}>
-                            <Caption>{stat.label}</Caption>
-                            <HeadingMd style={styles.statValue}>{stat.value}</HeadingMd>
-                            {stat.change && (
-                                <Caption style={styles.statChange}>{stat.change}</Caption>
-                            )}
+            <ResponsiveContainer>
+                <ScrollView
+                    style={styles.scroll}
+                    contentContainerStyle={styles.content}
+                    alwaysBounceVertical={false}
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {/* Header */}
+                    <View style={styles.header}>
+                        <View style={styles.greeting}>
+                            <HeadingSm>Admin Panel</HeadingSm>
+                            <HeadingLg>Kingsford</HeadingLg>
+                            <BodySm style={styles.date}>{dateStr}</BodySm>
                         </View>
-                    ))}
-                </View>
-
-                {/* Quick Actions Grid */}
-                <View style={styles.actionsGrid}>
-                    <TouchableOpacity style={[styles.actionCard, styles.actionCardResponsive]} activeOpacity={0.85}>
-                        <DeviceIcon />
-                        <BodySm>Devices</BodySm>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionCard, styles.actionCardResponsive]} activeOpacity={0.85}>
-                        <UsersIcon />
-                        <BodySm>Users</BodySm>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionCard, styles.actionCardResponsive]} activeOpacity={0.85}>
-                        <LogsIcon />
-                        <BodySm>Logs</BodySm>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionCard, styles.actionCardResponsive]} activeOpacity={0.85}>
-                        <UnlockIcon />
-                        <BodySm>Unlock</BodySm>
-                    </TouchableOpacity>
-                </View>
-
-                {/* Alerts Section */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <HeadingSm>Alerts</HeadingSm>
-                        <View style={styles.alertBadge}>
-                            <Caption style={styles.alertBadgeText}>{alerts.length}</Caption>
-                        </View>
+                        <TouchableOpacity style={styles.avatar} onPress={onProfile} activeOpacity={0.8}>
+                            <HeadingMd style={styles.avatarText}>A</HeadingMd>
+                        </TouchableOpacity>
                     </View>
 
-                    <View style={styles.alertsList}>
-                        {alerts.map((alert) => (
-                            <TouchableOpacity key={alert.id} style={styles.alertCard} activeOpacity={0.8}>
-                                <View style={[
-                                    styles.alertIcon,
-                                    alert.priority === 'high' && styles.alertIconHigh,
-                                ]}>
-                                    <AlertIcon />
-                                </View>
-                                <View style={styles.alertContent}>
-                                    <Body style={styles.alertMessage}>{alert.message}</Body>
-                                    <Caption>{alert.time}</Caption>
-                                </View>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                </View>
-
-                {/* Devices Section */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <HeadingSm>Devices</HeadingSm>
-                        <BodySm style={styles.sectionLink}>View all</BodySm>
-                    </View>
-
-                    <View style={styles.devicesList}>
-                        {devices.map((device) => (
-                            <View key={device.id} style={styles.deviceRow}>
-                                <View style={[
-                                    styles.statusDot,
-                                    device.status === 'online' && styles.statusOnline,
-                                    device.status === 'offline' && styles.statusOffline,
-                                ]} />
-                                <View style={styles.deviceInfo}>
-                                    <Body>{device.name}</Body>
-                                    <Caption>{device.lastSeen}</Caption>
-                                </View>
-                                <TouchableOpacity style={styles.deviceAction}>
-                                    <PowerIcon />
-                                </TouchableOpacity>
+                    {/* Stats Row */}
+                    <View style={styles.statsRow}>
+                        {stats.map((stat, idx) => (
+                            <View key={idx} style={styles.statCard}>
+                                <Caption style={styles.statLabel} numberOfLines={1}>{stat.label}</Caption>
+                                <HeadingMd style={styles.statValue} numberOfLines={1}>{stat.value}</HeadingMd>
+                                {stat.change && (
+                                    <Caption style={styles.statChange} numberOfLines={1}>{stat.change}</Caption>
+                                )}
                             </View>
                         ))}
                     </View>
-                </View>
-            </ScrollView>
+
+                    {/* Quick Actions Grid */}
+                    <View style={styles.actionsGrid}>
+                        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85}>
+                            <DeviceIcon />
+                            <BodySm>Devices</BodySm>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85}>
+                            <UsersIcon />
+                            <BodySm>Users</BodySm>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85}>
+                            <LogsIcon />
+                            <BodySm>Logs</BodySm>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85}>
+                            <UnlockIcon />
+                            <BodySm>Unlock</BodySm>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Alerts Section */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <HeadingSm>Alerts</HeadingSm>
+                            <View style={styles.alertBadge}>
+                                <Caption style={styles.alertBadgeText}>{alerts.length}</Caption>
+                            </View>
+                        </View>
+
+                        <View style={styles.alertsList}>
+                            {alerts.map((alert) => (
+                                <TouchableOpacity key={alert.id} style={styles.alertCard} activeOpacity={0.8}>
+                                    <View style={[
+                                        styles.alertIcon,
+                                        alert.priority === 'high' && styles.alertIconHigh,
+                                    ]}>
+                                        <AlertIcon />
+                                    </View>
+                                    <View style={styles.alertContent}>
+                                        <Body style={styles.alertMessage}>{alert.message}</Body>
+                                        <Caption>{alert.time}</Caption>
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+
+                    {/* Devices Section */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <HeadingSm>Devices</HeadingSm>
+                            <BodySm style={styles.sectionLink}>View all</BodySm>
+                        </View>
+
+                        <View style={styles.devicesList}>
+                            {devices.map((device) => (
+                                <View key={device.id} style={styles.deviceRow}>
+                                    <View style={[
+                                        styles.statusDot,
+                                        device.status === 'online' && styles.statusOnline,
+                                        device.status === 'offline' && styles.statusOffline,
+                                    ]} />
+                                    <View style={styles.deviceInfo}>
+                                        <Body>{device.name}</Body>
+                                        <Caption>{device.lastSeen}</Caption>
+                                    </View>
+                                    <TouchableOpacity style={styles.deviceAction}>
+                                        <PowerIcon />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                </ScrollView>
+            </ResponsiveContainer>
         </SafeAreaView>
     );
 };
@@ -215,7 +220,7 @@ const styles = StyleSheet.create({
     content: {
         paddingHorizontal: spacing.lg,
         paddingTop: spacing.xl,
-        paddingBottom: 0,
+        paddingBottom: 72,
     },
     header: {
         flexDirection: 'row',
@@ -241,31 +246,56 @@ const styles = StyleSheet.create({
     },
     statsRow: {
         flexDirection: 'row',
-        gap: spacing.sm,
+        justifyContent: 'space-between',
         marginBottom: spacing.lg,
     },
     statCard: {
-        flex: 1,
+        width: '31.5%',
         backgroundColor: '#FFF',
         borderWidth: 1,
         borderColor: colors.mist,
         borderRadius: radius.md,
-        padding: spacing.md,
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.xs,
         alignItems: 'center',
+        justifyContent: 'center',
         ...shadows.subtle,
     },
+    statLabel: {
+        textAlign: 'center',
+        fontSize: 10,
+        width: '100%',
+    },
     statValue: {
-        fontSize: 20,
+        fontSize: 16,
         marginTop: 4,
+        textAlign: 'center',
+        width: '100%',
     },
     statChange: {
         color: colors.success,
         fontFamily: 'Inter-Medium',
+        textAlign: 'center',
+        fontSize: 10,
+        width: '100%',
+    },
+    layoutContainer: {
+        gap: spacing.lg,
+    },
+    wideLayout: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    column: {
+        flex: 1,
+    },
+    fullWidth: {
+        width: '100%',
     },
     actionsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: spacing.sm,
+        justifyContent: 'space-between',
         marginBottom: spacing.xl,
     },
     actionCard: {
@@ -277,11 +307,9 @@ const styles = StyleSheet.create({
         borderColor: colors.mist,
         borderRadius: radius.md,
         padding: spacing.md,
+        width: '48.5%',
+        marginBottom: spacing.sm,
         ...shadows.subtle,
-    },
-    actionCardResponsive: {
-        minWidth: '45%',
-        flexGrow: 1,
     },
     section: {
         marginBottom: spacing.xl,
@@ -352,8 +380,7 @@ const styles = StyleSheet.create({
         borderBottomColor: colors.mist,
     },
     statusDot: {
-        width: 10,
-        height: 10,
+        width: 10, height: 10,
         borderRadius: 5,
         marginRight: spacing.md,
     },

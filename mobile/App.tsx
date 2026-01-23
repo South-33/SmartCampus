@@ -25,15 +25,18 @@ import {
   PrivacyScreen,
   HelpScreen,
   ClassesScreen,
+  TeacherClassesScreen,
+  ClassDetailScreen,
+  TeachingHoursScreen,
 } from './src/screens';
 import { UserRole } from './src/screens/LoginScreen';
 import { colors, spacing, shadows } from './src/theme';
 import { Caption } from './src/components';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 
 SplashScreen.preventAutoHideAsync();
 
-type Screen = 'login' | 'dashboard' | 'attendance' | 'opengate' | 'profile' | 'linkcard' | 'notifications' | 'privacy' | 'help' | 'classes';
+type Screen = 'login' | 'dashboard' | 'attendance' | 'opengate' | 'profile' | 'linkcard' | 'notifications' | 'privacy' | 'help' | 'classes' | 'teacher-classes' | 'teacher-hours' | 'class-detail';
 
 // Simple Tab Bar Icons
 const HomeIcon = ({ active }: { active: boolean }) => (
@@ -50,10 +53,18 @@ const ClassesIcon = ({ active }: { active: boolean }) => (
   </Svg>
 );
 
+const HoursIcon = ({ active }: { active: boolean }) => (
+  <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={active ? colors.cobalt : colors.slate} strokeWidth={2}>
+    <Circle cx="12" cy="12" r="10" />
+    <Path d="M12 6v6l4 2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>('login');
   const [displayedScreen, setDisplayedScreen] = useState<Screen>('login');
   const [userRole, setUserRole] = useState<UserRole>('student');
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const tabFadeAnim = useRef(new Animated.Value(0)).current;
@@ -67,7 +78,8 @@ export default function App() {
     'PlayfairDisplay-Italic': PlayfairDisplay_400Regular_Italic,
   });
 
-  const showTabBar = currentScreen === 'dashboard' || currentScreen === 'classes';
+  const mainScreens = ['dashboard', 'classes', 'teacher-classes', 'teacher-hours'];
+  const showTabBar = mainScreens.includes(currentScreen);
 
   React.useEffect(() => {
     Animated.timing(tabFadeAnim, {
@@ -109,6 +121,11 @@ export default function App() {
     navigateTo('dashboard');
   };
 
+  const handleViewClass = (classId: string) => {
+    setSelectedClassId(classId);
+    navigateTo('class-detail');
+  };
+
   const renderDashboard = () => {
     switch (userRole) {
       case 'student':
@@ -124,7 +141,10 @@ export default function App() {
         return (
           <TeacherDashboard
             onOpenGate={() => navigateTo('opengate')}
+            onAttendance={() => navigateTo('attendance')}
             onProfile={() => navigateTo('profile')}
+            onViewClass={handleViewClass}
+            onViewHours={() => navigateTo('teacher-hours')}
           />
         );
       case 'admin':
@@ -167,6 +187,12 @@ export default function App() {
         return <HelpScreen onBack={() => navigateTo('profile')} />;
       case 'classes':
         return <ClassesScreen />;
+      case 'teacher-classes':
+        return <TeacherClassesScreen onViewClass={handleViewClass} />;
+      case 'teacher-hours':
+        return <TeachingHoursScreen />;
+      case 'class-detail':
+        return <ClassDetailScreen classId={selectedClassId || '1'} onBack={() => navigateTo(userRole === 'teacher' ? 'teacher-classes' : 'dashboard')} />;
       default:
         return null;
     }
@@ -202,12 +228,25 @@ export default function App() {
 
           <TouchableOpacity 
             style={styles.tabItem} 
-            onPress={() => navigateTo('classes')}
+            onPress={() => navigateTo(userRole === 'teacher' ? 'teacher-classes' : 'classes')}
             activeOpacity={0.7}
           >
-            <ClassesIcon active={currentScreen === 'classes'} />
-            <Caption style={[styles.tabLabel, currentScreen === 'classes' && styles.tabLabelActive]}>Classes</Caption>
+            <ClassesIcon active={currentScreen === 'classes' || currentScreen === 'teacher-classes'} />
+            <Caption style={[styles.tabLabel, (currentScreen === 'classes' || currentScreen === 'teacher-classes') && styles.tabLabelActive]}>
+              {userRole === 'teacher' ? 'Schedule' : 'Classes'}
+            </Caption>
           </TouchableOpacity>
+
+          {userRole === 'teacher' && (
+            <TouchableOpacity 
+              style={styles.tabItem} 
+              onPress={() => navigateTo('teacher-hours')}
+              activeOpacity={0.7}
+            >
+              <HoursIcon active={currentScreen === 'teacher-hours'} />
+              <Caption style={[styles.tabLabel, currentScreen === 'teacher-hours' && styles.tabLabelActive]}>Hours</Caption>
+            </TouchableOpacity>
+          )}
         </Animated.View>
       )}
     </View>

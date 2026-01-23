@@ -48,7 +48,11 @@ export const NotificationsScreen = ({ onBack }: NotificationsScreenProps) => {
 
                 <HeadingLg style={styles.title}>Notifications</HeadingLg>
 
-                <ScrollView style={styles.scroll} alwaysBounceVertical={false}>
+                <ScrollView 
+                    style={styles.scroll} 
+                    contentContainerStyle={styles.scrollContent}
+                    alwaysBounceVertical={false}
+                >
                     <View style={styles.section}>
                         <View style={styles.settingCard}>
                             <View style={styles.settingRow}>
@@ -123,6 +127,9 @@ const styles = StyleSheet.create({
     },
     scroll: {
         flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: 72,
     },
     section: {
         marginBottom: spacing.xl,

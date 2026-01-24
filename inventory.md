@@ -29,7 +29,7 @@
 
 ## Part 1: Hardware Inventory
 
-### What You Bought (AliExpress Cart - $42.43)
+### What You Bought (AliExpress Cart - $55.51)
 
 | # | Item | Store | Qty | Unit | Total | Status |
 |---|------|-------|-----|------|-------|--------|
@@ -38,10 +38,11 @@
 | 3 | ESP32 WROOM-32D (CH340C TYPE-C) | A+ Dropship | 2 | $4.65 | $9.29 | In cart |
 | 4 | PN532 NFC RFID Module V3 (2pcs set) | EGBO Store | 1 | $8.37 | $8.37 | In cart |
 | 5 | 5V 1-Channel Relay Module (2pcs) | TZT 123 Official | 2 | $0.66 | $1.32 | In cart |
-| 6 | 20Pin Dupont Wire F-F (10cm) | Shop1103734083 | 1 | $3.99 | $3.99 | In cart |
+| 6 | 20Pin Dupont Wire F-F (30cm) | Shop1103734083 | 1 | $4.16 | $4.16 | In cart |
 | 7 | NTAG215 Rewritable NFC Cards (10pcs) | nerina Store | 1 | $6.48 | $6.48 | In cart |
+| 8 | 80W Soldering Iron (220V EU Plug) | Firsour Tools | 1 | $12.91 | $12.91 | In cart |
 
-**Subtotal:** $42.31 + $0.32 shipping - $0.20 discount = **$42.43**
+**Subtotal:** $55.39 + $0.32 shipping - $0.20 discount = **$55.51**
 
 ---
 
@@ -147,7 +148,7 @@
      |  GPIO 16 [UART2 RX]---> Radar TX         | USED
      |  GPIO 17 [UART2 TX]---> Radar RX         | USED
      |                                          |
-     |  GPIO 5  [DIGITAL]----> Relay #2 IN      | USED
+     |  GPIO 5  [DIGITAL]----> Relay #2 IN      | USED (strapping pin*)
      |                                          |
      |  GPIO 4  [DIGITAL]----> (available)      | FREE
      |  GPIO 18 [DIGITAL]----> (available)      | FREE
@@ -225,7 +226,7 @@ GPIO 5 ------------------------------------> IN
 DUPONT WIRE INVENTORY
 =====================
 
-Have:     20 wires (10cm F-F)
+Have:     20 wires (30cm F-F)
 Used:     14 wires
 Spare:    6 wires
 ```
@@ -265,7 +266,7 @@ GND Bus (common ground):
 
 | Address | Device | Node |
 |---------|--------|------|
-| 0x24 | PN532 NFC | A |
+| 0x48 | PN532 NFC | A |
 | (free) | - | B |
 
 ---
@@ -287,6 +288,14 @@ GND Bus (common ground):
 - [ ] Test door lock actuation
 - [ ] Test radar motion detection
 - [ ] Verify ESP-NOW communication
+
+---
+
+## Notes
+
+**\* Strapping pin:** GPIO 5 is an ESP32 strapping pin (per Espressif docs). It may output a brief signal during boot. The relay may click momentarily on ESP32 reboot.
+
+**I2C pull-ups:** PN532 I2C mode requires external pull-up resistors on SDA/SCL (per Adafruit guide). ESP32 internal pull-ups (~45K) may work for short wires, but 4.7K external resistors are recommended if I2C is unreliable.
 
 ---
 

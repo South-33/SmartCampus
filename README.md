@@ -8,7 +8,7 @@ A two-node wireless system for secure gate access and intelligent energy managem
 
 | Node | Role | Components |
 |------|------|------------|
-| **Node A (Gatekeeper)** | Door access control | ESP32 + PN532 NFC + Relay |
+| **Node A (Gatekeeper)** | Door access control | ESP32 + PN532 NFC + Finger Vein + Relay |
 | **Node B (Watchman)** | Occupancy monitoring & power control | ESP32 + HLK-LD2410C Radar + Relay |
 | **Communication** | ESP-NOW (direct ESP-to-ESP) | ~50m indoor range |
 
@@ -57,32 +57,50 @@ A two-node wireless system for secure gate access and intelligent energy managem
 | Component | Qty | Function | Placement |
 |-----------|-----|----------|-----------|
 | ESP32 WROOM-32 | 2 | Microcontrollers | Door frame / Ceiling |
-| PN532 NFC Module | 1 | Reader/Tag Emulation | Outside door |
+| PN532 NFC Module | 2 | Reader/Tag Emulation | Outside door (1 spare) |
 | HLK-LD2410C | 1 | mmWave Presence Sensor | Ceiling (facing room) |
 | 5V Relay Module | 2 | Lock control / Power switch | Door frame / Electrical box |
+| Waveshare Finger Vein | 1 | Biometric authentication | Door frame (beside NFC) |
+| HLK-TX510 Face Recognition | 1 | Secondary biometric | Door frame |
 | NTAG215 Cards | 10 | Physical student keys | Student possession |
 
 ---
 
 ## Wiring Diagrams
 
-### Node A: Gatekeeper (Door)
+### Node A: Gatekeeper (Door) - UPDATED (SAFE)
 
-| PN532 NFC | ESP32 Pin | Relay #1 | ESP32 Pin |
-|-----------|-----------|----------|-----------|
-| VCC | VIN (5V) | VCC | VIN (5V) |
-| GND | GND | GND | GND |
-| SDA | GPIO 21 | IN | GPIO 4 |
-| SCL | GPIO 22 | — | — |
+| Component | Pin | ESP32 Pin | Notes |
+|-----------|-----|-----------|-------|
+| **PN532 NFC** | VCC | **VIN (5V)** | Has onboard 3.3V regulator |
+| | GND | GND | |
+| | SDA | GPIO 21 | Direct connect OK (3.3V I2C) |
+| | SCL | GPIO 22 | Direct connect OK (3.3V I2C) |
+| **Relay #1** | IN | **GPIO 25** | *Safe pin (not GPIO 4)* |
+| **Finger Vein** | VCC | **3V3** | Module requires 3.3V |
+| | GND | GND | |
+| | TX | GPIO 16 | Direct connect OK (3.3V UART) |
+| | RX | GPIO 17 | Direct connect OK (3.3V UART) |
+| **TX510 Face** | VCC | **5V Rail** | From USB-C breakout (~1A peak) |
+| | GND | GND | |
+| | TX | GPIO 4 | Via level shifter (optional) |
+| | RX | GPIO 5 | Via level shifter (optional) |
 
-### Node B: Watchman (Ceiling)
+> **Note on Level Shifters:**
+> - **PN532**: NOT required - uses 3.3V I2C logic despite 5V VCC input
+> - **Finger Vein**: NOT required - native 3.3V module
+> - **TX510**: UNCERTAIN - Blakadder connected ESP directly without issues, but we have level shifters as cheap insurance
+> - Add **4.7K pull-up resistors** on I2C lines (SDA/SCL) for reliable PN532 communication
 
-| HLK-LD2410C | ESP32 Pin | Relay #2 | ESP32 Pin |
-|-------------|-----------|----------|-----------|
-| VCC | VIN (5V) | VCC | VIN (5V) |
-| GND | GND | GND | GND |
-| TX | GPIO 16 (RX2) | IN | GPIO 5 |
-| RX | GPIO 17 (TX2) | — | — |
+### Node B: Watchman (Ceiling) - UPDATED (SAFE)
+
+| Component | Pin | ESP32 Pin | Notes |
+|-----------|-----|-----------|-------|
+| **HLK-LD2410** | VCC | **VIN (5V)** | MUST be 5V. 3.3V will not work. |
+| | GND | GND | |
+| | TX | GPIO 16 | Direct connect OK |
+| | RX | GPIO 17 | Direct connect OK |
+| **Relay #2** | IN | **GPIO 26** | *Moved from GPIO 5 (Boot risk)* |
 
 > ⚠️ **Critical:** Node B must be powered by a separate always-on circuit. If Relay #2 controls its own power, opening it kills the ESP32.
 
@@ -560,6 +578,7 @@ Each ESP32 stores only students allowed in **its room**:
 ## Software Components
 
 ### Firmware (ESP32)
+- [x] Finger Vein library (enroll, verify, delete users)
 - [ ] NFC read/write handling
 - [ ] Local whitelist validation
 - [ ] Attendance queue (NVS)
@@ -875,6 +894,7 @@ Admin can view and control every component in each room:
 ### Phase 2: Validation
 - [ ] ESP32 + PN532 (I2C)
 - [ ] ESP32 + HLK-LD2410C (UART)
+- [x] ESP32 + Waveshare Finger Vein (UART) - Library created: `firmware/lib/FingerVein/`
 - [ ] ESP-NOW between nodes
 - [ ] Relay actuation
 
@@ -899,14 +919,33 @@ Admin can view and control every component in each room:
 
 | Item | Price |
 |------|-------|
-| USB-C Cables (2) | $5.33 |
-| HLK-LD2410C Radar | $2.20 |
 | ESP32 WROOM-32 (2pcs) | $9.29 |
 | PN532 NFC Module (2pcs) | $8.37 |
+| HLK-LD2410C Radar | $2.52 |
 | 5V Relay Module (2pcs) | $1.32 |
-| Dupont Wires | $3.99 |
 | NTAG215 Cards (10pcs) | $6.48 |
-| **Total** | **~$37** |
+| Dupont Wires F-F (20pin) | $4.16 |
+| USB-C Cables (2) | $5.33 |
+| Soldering Iron 80W | $12.91 |
+| **Order 1 Subtotal** | **$55.51** |
+| | |
+| Waveshare Finger Vein | $29.14 |
+| HLK-TX510 Face Recognition | $42.71 |
+| Dupont Wires M-M (20pin) | $4.26 |
+| Dupont Wires F-F (20pin) | $4.16 |
+| Logic Level Converters (10pcs) | $1.94 |
+| 4.7K Resistors (100pcs) | $0.80 |
+| USB-C Breakout (5pcs) | $4.32 |
+| Waterproof Box IP65 | $12.25 |
+| Cable Glands PG7 (10pcs) | $4.79 |
+| Protoboard 7x9cm (3pcs) | $2.91 |
+| Protoboard 5x7cm (3pcs) | $2.10 |
+| Heat Shrink Kit (164pcs) | $1.78 |
+| MB-102 Breadboard Kit | $5.44 |
+| ANENG SZ308 Multimeter | $6.80 |
+| **Order 2 Subtotal** | **~$123** |
+| | |
+| **GRAND TOTAL** | **~$178** |
 
 ---
 
@@ -1112,3 +1151,6 @@ ESP32 sends debug logs to Convex for remote troubleshooting:
 - [PN532 Library](https://github.com/adafruit/Adafruit-PN532)
 - [HLK-LD2410 Library](https://github.com/ncmreynolds/ld2410)
 - [Convex Docs](https://docs.convex.dev/)
+- [Waveshare Finger Vein Wiki](https://www.waveshare.com/wiki/Finger_Vein_Scanner_Module_(A))
+- [Finger Vein Protocol Manual (PDF)](https://files.waveshare.com/wiki/Finger_Vein_Scanner_Module_B/Finger_Vein_Module_Communication_Protocol_EN.pdf)
+- [Finger Vein Python Demo](https://github.com/waveshareteam/Finger_Vein_Demo_Code)

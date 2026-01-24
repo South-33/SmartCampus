@@ -111,12 +111,6 @@ These items are in your AliExpress cart, not yet ordered.
 
 ---
 
-## Part 3: Get Locally
-
-No items - everything is in cart now.
-
----
-
 ## Part 4: Component Allocation Map
 
 ### Node Assignment Diagram

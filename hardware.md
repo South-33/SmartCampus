@@ -69,7 +69,7 @@ These items are ordered and cannot be changed.
 
 ---
 
-## Part 2: In Cart - To Order (~$112)
+## Part 2: In Cart - To Order (~$123)
 
 These items are in your AliExpress cart, not yet ordered.
 

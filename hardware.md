@@ -340,10 +340,12 @@ VERDICT: Sufficient wires for the project.
 | **Finger Vein (A)** | 3.3V | 3.3V UART | NO | 57600 | Waveshare Wiki |
 | **PN532 NFC V3** | 3.3-5V VCC | 3.3V I2C | NO | - | Adafruit docs |
 | **HLK-LD2410C** | 5V | 3.3V UART | NO | 256000 | HiLink docs |
-| **HLK-TX510** | 5V/1A | 3.3V UART | OPTIONAL | 115200 | Official datasheet + Blakadder |
-| **5V Relay** | 5V | 3.3V trigger OK | NO | - | Common spec |
+| **HLK-TX510** | 5V/1A | ⚠️ VERIFY | RECOMMENDED | 115200 | Blakadder + verify on arrival |
+| **5V Relay** | 5V | ⚠️ VERIFY | NO | - | Check trigger mode on arrival |
 
-> **Note on TX510:** Specs verified from official HiLink datasheet (Jan 2026). UART is confirmed 3.3V logic (tolerant 2.8V-3.3V). Level shifter included as cheap insurance but not strictly required. Recognition time: 200-600ms. Stores up to 1000 faces.
+> **⚠️ VERIFY ON ARRIVAL:**
+> - **TX510 Logic Level:** Conflicting info (some sources say 5V TTL, others say 3.3V tolerant). Blakadder connected ESP32 directly and it worked. **Test:** Measure TX pin voltage with multimeter. Use level shifter as safe default.
+> - **Relay Trigger Mode:** May be low-level trigger (pull IN to GND to activate = inverted logic). Check for H/L jumper on board. Test before coding.
 
 ### I2C Address Map
 
@@ -390,6 +392,26 @@ The ESP32's onboard voltage regulator can only supply ~500mA safely. The TX510 m
 - Unstable operation
 
 The USB-C breakout provides clean 5V directly from the power source, bypassing the ESP32's limitations.
+
+### 🔴 CRITICAL: USB-C Breakout Requires CC Resistors!
+
+**You MUST solder 5.1kΩ resistors from CC1 and CC2 pins to GND.**
+
+This is USB-C specification — without CC pull-downs, the upstream USB-C host will NOT supply 5V on VBUS.
+
+```
+USB-C Breakout Wiring:
+
+  VBUS ──────► 5V Rail
+  GND ───────► Ground
+  CC1 ──┬──► 5.1kΩ ──► GND
+  CC2 ──┴──► 5.1kΩ ──► GND
+  D+/D- ────► (unused)
+```
+
+> **Note:** If your breakout board already has CC resistors built-in, verify with multimeter (should read ~5.1kΩ between CC1/CC2 and GND). Most cheap breakouts do NOT include these.
+>
+> **💡 Workaround:** You own **4.7kΩ resistors**. If you don't have 5.1kΩ, you can try using your 4.7kΩ ones. They are slightly out of spec but usually work for simple 5V requests. If that fails, you'll need to buy 5.1kΩ.
 
 ---
 
@@ -446,14 +468,28 @@ The USB-C breakout provides clean 5V directly from the power source, bypassing t
 
 ## Documentation Links
 
+### Official Datasheets
+
 | Component | Documentation |
 |-----------|---------------|
-| Waveshare Finger Vein | [Wiki](https://www.waveshare.com/wiki/Finger_Vein_Scanner_Module_(A)) |
-| Finger Vein Protocol | [PDF](https://files.waveshare.com/wiki/Finger_Vein_Scanner_Module_B/Finger_Vein_Module_Communication_Protocol_EN.pdf) |
-| HLK-TX510 | [GitHub Repo](https://github.com/blakadder/HLK-TX510) |
-| HLK-TX510 Review | [Blakadder](https://blakadder.com/hlk-tx510/) |
-| PN532 Library | [Adafruit](https://github.com/adafruit/Adafruit-PN532) |
-| HLK-LD2410 Library | [GitHub](https://github.com/ncmreynolds/ld2410) |
+| ESP32 WROOM-32D | [Datasheet (PDF)](https://www.sigmaelectronica.net/wp-content/uploads/2021/11/ESP32-WROOM-32D_pdf.pdf) |
+| PN532 NFC | [Adafruit Wiring Guide](https://learn.adafruit.com/adafruit-pn532-rfid-nfc/breakout-wiring) |
+| HLK-LD2410C | [HiLink Product Page](https://www.hlktech.net/index.php?id=1095) |
+| HLK-LD2410C Protocol | [Serial Protocol (PDF)](http://h.hlktech.com/download/HLK-LD2410C-24G/1/LD2410C%20%E4%B8%B2%E5%8F%A3%E9%80%9A%E4%BF%A1%E5%8D%8F%E8%AE%AE%20V1.09.pdf) |
+| Waveshare Finger Vein | [Product Page](https://www.waveshare.com/finger-vein-scanner-module-a.htm) |
+| Finger Vein Protocol | [Protocol PDF](https://files.waveshare.com/wiki/Finger_Vein_Scanner_Module_B/Finger_Vein_Module_Communication_Protocol_EN.pdf) |
+| HLK-TX510 | [Blakadder Review](https://blakadder.com/hlk-tx510/) |
+| HLK-TX510 | [Blakadder GitHub](https://github.com/blakadder/HLK-TX510) |
+| Relay Module | [Datasheet (PDF)](https://handsontec.com/dataspecs/relay/1Ch-relay.pdf) |
+| Logic Level Converter | [Adafruit Product](https://www.adafruit.com/product/757) |
+| NTAG215 | [NXP Datasheet (PDF)](https://www.nxp.com/docs/zh/data-sheet/NTAG213_215_216.pdf) |
+
+### Libraries & Code
+
+| Component | Library |
+|-----------|---------------|
+| PN532 NFC | [Adafruit-PN532](https://github.com/adafruit/Adafruit-PN532) |
+| HLK-LD2410 | [ld2410 Library](https://github.com/ncmreynolds/ld2410) |
 | ESP-NOW | [Espressif Docs](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_now.html) |
 
 ---

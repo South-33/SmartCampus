@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import {
     View,
     StyleSheet,
-    SafeAreaView,
     TouchableOpacity,
     Animated,
+    Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius } from '../theme';
 import {
     HeadingLg,
     HeadingMd,
+    ResponsiveContainer,
     Body,
     BodySm,
     Caption,
@@ -51,6 +53,7 @@ const PhoneIcon = () => (
 );
 
 export const LinkCardScreen = ({ onBack, onSuccess }: LinkCardScreenProps) => {
+    const insets = useSafeAreaInsets();
     const [status, setStatus] = useState<'ready' | 'scanning' | 'success'>('ready');
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
     const scanLineAnim = React.useRef(new Animated.Value(0)).current;
@@ -123,121 +126,131 @@ export const LinkCardScreen = ({ onBack, onSuccess }: LinkCardScreenProps) => {
     });
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.content}>
-                {/* Back Button */}
-                <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                    <BackIcon />
-                    <BodySm>Back</BodySm>
-                </TouchableOpacity>
+        <View style={styles.container}>
+            <ResponsiveContainer>
+                <View style={[
+                    styles.content,
+                    { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                ]}>
+                    {/* Header Row */}
+                    <View style={styles.header}>
+                        <View style={styles.headerRow}>
+                            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                                <BackIcon />
+                                <BodySm>Back</BodySm>
+                            </TouchableOpacity>
+                            
+                            <HeadingMd style={styles.headerTitle}>Link Your Card</HeadingMd>
+                            
+                            {/* Spacer for centering */}
+                            <View style={styles.headerSpacer} />
+                        </View>
+                        
+                        <BodySm style={styles.headerMeta}>
+                            Connect your physical NFC card to your account
+                        </BodySm>
+                    </View>
 
-                {/* Header */}
-                <View style={styles.header}>
-                    <HeadingLg>Link Your Card</HeadingLg>
-                    <BodySm style={styles.headerMeta}>
-                        Connect your physical NFC card to your account
-                    </BodySm>
-                </View>
-
-                {/* Scan Area */}
-                <View style={styles.scanArea}>
-                    {status === 'ready' && (
-                        <>
-                            <View style={styles.cardPreview}>
-                                <CardScanIcon />
-                            </View>
-                            <HeadingMd style={styles.promptTitle}>Ready to Scan</HeadingMd>
-                            <BodySm style={styles.promptDesc}>
-                                Place your student NFC card on the back of your phone to link it to your account.
-                            </BodySm>
-
-                            {/* Instructions */}
-                            <View style={styles.instructions}>
-                                <View style={styles.instructionItem}>
-                                    <View style={styles.instructionNumber}>
-                                        <Caption style={styles.instructionNumberText}>1</Caption>
-                                    </View>
-                                    <BodySm>Hold your card ready</BodySm>
+                    {/* Scan Area */}
+                    <View style={styles.scanArea}>
+                        {status === 'ready' && (
+                            <>
+                                <View style={styles.cardPreview}>
+                                    <CardScanIcon />
                                 </View>
-                                <View style={styles.instructionItem}>
-                                    <View style={styles.instructionNumber}>
-                                        <Caption style={styles.instructionNumberText}>2</Caption>
-                                    </View>
-                                    <BodySm>Tap "Start Scanning" below</BodySm>
-                                </View>
-                                <View style={styles.instructionItem}>
-                                    <View style={styles.instructionNumber}>
-                                        <Caption style={styles.instructionNumberText}>3</Caption>
-                                    </View>
-                                    <BodySm>Place card on phone back</BodySm>
-                                </View>
-                            </View>
-                        </>
-                    )}
+                                <HeadingMd style={styles.promptTitle}>Ready to Scan</HeadingMd>
+                                <BodySm style={styles.promptDesc}>
+                                    Place your student NFC card on the back of your phone to link it to your account.
+                                </BodySm>
 
-                    {status === 'scanning' && (
-                        <>
-                            <Animated.View
-                                style={[
-                                    styles.scanningCard,
-                                    { transform: [{ scale: pulseAnim }] }
-                                ]}
-                            >
-                                <CardScanIcon />
-                                {/* Scan line effect */}
+                                {/* Instructions */}
+                                <View style={styles.instructions}>
+                                    <View style={styles.instructionItem}>
+                                        <View style={styles.instructionNumber}>
+                                            <Caption style={styles.instructionNumberText}>1</Caption>
+                                        </View>
+                                        <BodySm>Hold your card ready</BodySm>
+                                    </View>
+                                    <View style={styles.instructionItem}>
+                                        <View style={styles.instructionNumber}>
+                                            <Caption style={styles.instructionNumberText}>2</Caption>
+                                        </View>
+                                        <BodySm>Tap "Start Scanning" below</BodySm>
+                                    </View>
+                                    <View style={styles.instructionItem}>
+                                        <View style={styles.instructionNumber}>
+                                            <Caption style={styles.instructionNumberText}>3</Caption>
+                                        </View>
+                                        <BodySm>Place card on phone back</BodySm>
+                                    </View>
+                                </View>
+                            </>
+                        )}
+
+                        {status === 'scanning' && (
+                            <>
                                 <Animated.View
                                     style={[
-                                        styles.scanLine,
-                                        { transform: [{ translateY: scanLineTranslate }] }
+                                        styles.scanningCard,
+                                        { transform: [{ scale: pulseAnim }] }
                                     ]}
-                                />
-                            </Animated.View>
-                            <HeadingMd style={styles.promptTitle}>Scanning...</HeadingMd>
-                            <BodySm style={styles.promptDesc}>
-                                Hold the card steady against the back of your phone
-                            </BodySm>
+                                >
+                                    <CardScanIcon />
+                                    {/* Scan line effect */}
+                                    <Animated.View
+                                        style={[
+                                            styles.scanLine,
+                                            { transform: [{ translateY: scanLineTranslate }] }
+                                        ]}
+                                    />
+                                </Animated.View>
+                                <HeadingMd style={styles.promptTitle}>Scanning...</HeadingMd>
+                                <BodySm style={styles.promptDesc}>
+                                    Hold the card steady against the back of your phone
+                                </BodySm>
 
-                            <View style={styles.phoneHint}>
-                                <PhoneIcon />
-                                <Caption style={styles.phoneHintText}>
-                                    NFC is usually near the top of your phone
-                                </Caption>
-                            </View>
-                        </>
-                    )}
+                                <View style={styles.phoneHint}>
+                                    <PhoneIcon />
+                                    <Caption style={styles.phoneHintText}>
+                                        NFC is usually near the top of your phone
+                                    </Caption>
+                                </View>
+                            </>
+                        )}
 
-                    {status === 'success' && (
-                        <View style={styles.successState}>
-                            <View style={styles.successIcon}>
-                                <CheckmarkIcon />
-                            </View>
-                            <HeadingMd style={styles.successTitle}>Card Linked!</HeadingMd>
-                            <BodySm style={styles.successDesc}>
-                                Your NFC card is now connected to your account. You can use it to access doors.
-                            </BodySm>
+                        {status === 'success' && (
+                            <View style={styles.successState}>
+                                <View style={styles.successIcon}>
+                                    <CheckmarkIcon />
+                                </View>
+                                <HeadingMd style={styles.successTitle}>Card Linked!</HeadingMd>
+                                <BodySm style={styles.successDesc}>
+                                    Your NFC card is now connected to your account. You can use it to access doors.
+                                </BodySm>
 
-                            <View style={styles.cardInfo}>
-                                <Caption style={styles.cardInfoLabel}>Card ID</Caption>
-                                <Body style={styles.cardInfoValue}>•••• •••• 7D00</Body>
+                                <View style={styles.cardInfo}>
+                                    <Caption style={styles.cardInfoLabel}>Card ID</Caption>
+                                    <Body style={styles.cardInfoValue}>•••• •••• 7D00</Body>
+                                </View>
                             </View>
-                        </View>
-                    )}
+                        )}
+                    </View>
+
+                    {/* Action */}
+                    <View style={styles.footer}>
+                        {status === 'ready' && (
+                            <Button onPress={handleStartScan}>Start Scanning</Button>
+                        )}
+                        {status === 'scanning' && (
+                            <Button variant="secondary" onPress={onBack}>Cancel</Button>
+                        )}
+                        {status === 'success' && (
+                            <Button onPress={handleDone}>Done</Button>
+                        )}
+                    </View>
                 </View>
-
-                {/* Action */}
-                <View style={styles.footer}>
-                    {status === 'ready' && (
-                        <Button onPress={handleStartScan}>Start Scanning</Button>
-                    )}
-                    {status === 'scanning' && (
-                        <Button variant="secondary" onPress={onBack}>Cancel</Button>
-                    )}
-                    {status === 'success' && (
-                        <Button onPress={handleDone}>Done</Button>
-                    )}
-                </View>
-            </View>
-        </SafeAreaView>
+            </ResponsiveContainer>
+        </View>
     );
 };
 
@@ -255,13 +268,26 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        marginBottom: spacing.lg,
+        width: 80, // Fixed width for balancing
     },
     header: {
         marginBottom: spacing.xl,
     },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    headerTitle: {
+        flex: 1,
+        textAlign: 'center',
+    },
+    headerSpacer: {
+        width: 80, // Same as backButton width
+    },
     headerMeta: {
-        marginTop: 4,
+        textAlign: 'center',
     },
     scanArea: {
         flex: 1,
@@ -278,11 +304,18 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginBottom: spacing.lg,
         // Shadow
-        shadowColor: colors.cobalt,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-        elevation: 8,
+        ...Platform.select({
+            web: {
+                boxShadow: `0 8px 16px ${colors.cobaltAlpha20}`,
+            },
+            default: {
+                shadowColor: colors.cobalt,
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.25,
+                shadowRadius: 16,
+                elevation: 8,
+            },
+        }),
     },
     scanningCard: {
         width: 140,
@@ -294,11 +327,18 @@ const styles = StyleSheet.create({
         marginBottom: spacing.lg,
         overflow: 'hidden',
         // Glow
-        shadowColor: colors.cobalt,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 24,
-        elevation: 10,
+        ...Platform.select({
+            web: {
+                boxShadow: `0 0 24px ${colors.cobaltAlpha20}`,
+            },
+            default: {
+                shadowColor: colors.cobalt,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.5,
+                shadowRadius: 24,
+                elevation: 10,
+            },
+        }),
     },
     scanLine: {
         position: 'absolute',
@@ -362,11 +402,18 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginBottom: spacing.lg,
         // Glow
-        shadowColor: colors.success,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4,
-        shadowRadius: 20,
-        elevation: 8,
+        ...Platform.select({
+            web: {
+                boxShadow: '0 0 20px rgba(46, 125, 50, 0.4)',
+            },
+            default: {
+                shadowColor: colors.success,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.4,
+                shadowRadius: 20,
+                elevation: 8,
+            },
+        }),
     },
     successTitle: {
         color: colors.success,

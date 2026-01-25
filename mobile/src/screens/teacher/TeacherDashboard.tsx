@@ -2,10 +2,10 @@ import React from 'react';
 import {
     View,
     StyleSheet,
-    SafeAreaView,
     ScrollView,
     TouchableOpacity,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../../theme';
 import {
     HeadingLg,
@@ -46,6 +46,7 @@ const CheckIcon = () => (
 );
 
 export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewClass, onViewHours }: TeacherDashboardProps) => {
+    const insets = useSafeAreaInsets();
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-GB', {
         weekday: 'long',
@@ -56,11 +57,14 @@ export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewCl
     const liveClass = teacherClasses.find(c => c.status === 'ongoing');
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <ResponsiveContainer>
                 <ScrollView
                     style={styles.scroll}
-                    contentContainerStyle={styles.content}
+                    contentContainerStyle={[
+                        styles.content,
+                        { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                    ]}
                     alwaysBounceVertical={false}
                     keyboardShouldPersistTaps="handled"
                 >
@@ -126,7 +130,7 @@ export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewCl
                     <AttendanceAlertBanner alerts={attendanceAlerts} />
                 </ScrollView>
             </ResponsiveContainer>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -140,7 +144,6 @@ const styles = StyleSheet.create({
     },
     content: {
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
         paddingBottom: 96,
     },
     header: {

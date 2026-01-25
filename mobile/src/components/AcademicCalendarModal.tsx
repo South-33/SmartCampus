@@ -38,6 +38,8 @@ interface AcademicCalendarModalProps {
 }
 
 export const AcademicCalendarModal = ({ visible, onClose, selectedDate, onSelectDate }: AcademicCalendarModalProps) => {
+    const today = useMemo(() => new Date(), []);
+    
     // Animation refs
     const slideAnim = useRef(new Animated.Value(0)).current;
     const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -45,8 +47,8 @@ export const AcademicCalendarModal = ({ visible, onClose, selectedDate, onSelect
     const yearFadeAnim = useRef(new Animated.Value(1)).current;
     
     // Current viewing month/year in calendar
-    const [viewMonth, setViewMonth] = useState(9); // October
-    const [viewYear, setViewYear] = useState(2024);
+    const [viewMonth, setViewMonth] = useState(today.getMonth());
+    const [viewYear, setViewYear] = useState(today.getFullYear());
 
     const animateTransition = (direction: 'next' | 'prev', updateFn: () => void, animateYear = false) => {
         const outAnimations = [
@@ -117,7 +119,6 @@ export const AcademicCalendarModal = ({ visible, onClose, selectedDate, onSelect
         });
     };
     
-    const today = new Date();
     const termInfo = useMemo(() => getTermInfo(viewMonth, viewYear), [viewMonth, viewYear]);
     const academicData = useMemo(() => getAcademicData(viewMonth, viewYear), [viewMonth, viewYear]);
 
@@ -135,13 +136,13 @@ export const AcademicCalendarModal = ({ visible, onClose, selectedDate, onSelect
                 isHoliday: academicData.holidays.includes(i),
                 isTermDay: academicData.termDays.includes(i),
                 isExamDay: academicData.examDays.includes(i),
-                isSelected: i === selectedDate && viewMonth === 9 && viewYear === 2024,
+                isSelected: i === selectedDate && viewMonth === today.getMonth() && viewYear === today.getFullYear(),
                 isToday,
             });
         }
         while (days.length < 42) days.push(null);
         return days;
-    }, [viewYear, viewMonth, selectedDate, academicData]);
+    }, [viewYear, viewMonth, selectedDate, academicData, today]);
 
     const goToPrevMonth = () => {
         if (viewYear === ENROLLMENT_START.year && viewMonth <= ENROLLMENT_START.month) return;
@@ -240,7 +241,6 @@ export const AcademicCalendarModal = ({ visible, onClose, selectedDate, onSelect
                             <View style={styles.legendItem}><View style={[styles.legendBox, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]} /><Caption>Holiday</Caption></View>
                             <View style={styles.legendItem}><View style={[styles.legendBox, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]} /><Caption>Exam</Caption></View>
                         </View>
-                        <View style={styles.quickJump}><TouchableOpacity style={styles.quickJumpBtn} onPress={() => { setViewMonth(today.getMonth()); setViewYear(today.getFullYear()); }}><Caption style={styles.quickJumpText}>Today</Caption></TouchableOpacity></View>
                     </ScrollView>
                 </View>
             </View>
@@ -427,20 +427,6 @@ const styles = StyleSheet.create({
         borderRadius: 2,
         backgroundColor: colors.cobalt,
         marginHorizontal: 5,
-    },
-    quickJump: {
-        marginTop: spacing.md,
-        alignItems: 'center',
-    },
-    quickJumpBtn: {
-        paddingVertical: 8,
-        paddingHorizontal: 20,
-        borderRadius: 100,
-        backgroundColor: colors.cream,
-    },
-    quickJumpText: {
-        color: colors.cobalt,
-        fontFamily: 'Inter-Medium',
     },
     textCobalt: {
         color: colors.cobalt,

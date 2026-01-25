@@ -2,9 +2,10 @@ import React from 'react';
 import {
     View,
     StyleSheet,
-    SafeAreaView,
     ScrollView,
+    TouchableOpacity,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../../theme';
 import {
     HeadingLg,
@@ -16,6 +17,16 @@ import {
 } from '../../components';
 import { teachingHistory, teachingHours, classHoursProgress } from '../../data/teacherMockData';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+
+interface TeachingHoursScreenProps {
+    onBack: () => void;
+}
+
+const BackIcon = () => (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
+        <Path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
 
 const HistoryIcon = () => (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.cobalt} strokeWidth={2}>
@@ -31,20 +42,40 @@ const BookIcon = () => (
     </Svg>
 );
 
-export const TeachingHoursScreen = () => {
+export const TeachingHoursScreen = ({ onBack }: TeachingHoursScreenProps) => {
+    const insets = useSafeAreaInsets();
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <ResponsiveContainer>
-                <ScrollView
-                    style={styles.scroll}
-                    contentContainerStyle={styles.content}
-                    alwaysBounceVertical={false}
-                    keyboardShouldPersistTaps="handled"
-                >
+                <View style={[
+                    styles.content,
+                    { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                ]}>
+                    {/* Header Row */}
                     <View style={styles.header}>
-                        <Caption style={styles.subtitle}>LOG HISTORY</Caption>
-                        <HeadingLg>Teaching Hours</HeadingLg>
+                        <View style={styles.headerRow}>
+                            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                                <BackIcon />
+                                <BodySm>Back</BodySm>
+                            </TouchableOpacity>
+                            
+                            <View style={styles.headerTitleContainer}>
+                                <Caption style={styles.subtitle}>LOG HISTORY</Caption>
+                                <HeadingMd style={styles.headerTitleText}>Teaching Hours</HeadingMd>
+                            </View>
+                            
+                            {/* Spacer for centering */}
+                            <View style={styles.headerSpacer} />
+                        </View>
                     </View>
+
+                    <ScrollView
+                        style={styles.scroll}
+                        contentContainerStyle={{ paddingBottom: 72 }}
+                        alwaysBounceVertical={false}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
 
                     {/* Summary Cards */}
                     <View style={styles.statsGrid}>
@@ -133,9 +164,10 @@ export const TeachingHoursScreen = () => {
                         </View>
                     </View>
                 </ScrollView>
-            </ResponsiveContainer>
-        </SafeAreaView>
-    );
+            </View>
+        </ResponsiveContainer>
+    </View>
+);
 };
 
 const styles = StyleSheet.create({
@@ -151,13 +183,36 @@ const styles = StyleSheet.create({
         paddingTop: spacing.xl,
         paddingBottom: 72,
     },
+    backButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        width: 80, // Fixed width for balancing
+    },
     header: {
-        marginBottom: spacing.lg,
+        marginBottom: spacing.xl,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    headerTitleContainer: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    headerTitleText: {
+        textAlign: 'center',
+    },
+    headerSpacer: {
+        width: 80, // Same as backButton width
     },
     subtitle: {
         color: colors.slate,
+        fontFamily: 'Inter-SemiBold',
+        fontSize: 10,
         letterSpacing: 1,
-        marginBottom: 4,
+        marginBottom: 2,
     },
     statsGrid: {
         flexDirection: 'row',

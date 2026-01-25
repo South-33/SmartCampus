@@ -3,6 +3,8 @@
 // British collegiate minimalism with editorial precision
 // ═══════════════════════════════════════════════════════════════════════════
 
+import { Platform } from 'react-native';
+
 export const colors = {
     // Primary
     cobalt: '#3B5EE8',
@@ -52,18 +54,28 @@ export const radius = {
 } as const;
 
 export const shadows = {
-    subtle: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
-    },
-    card: {
-        shadowColor: colors.cobalt,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.12,
-        shadowRadius: 24,
-        elevation: 4,
-    },
+    subtle: Platform.select({
+        web: {
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+        },
+        default: {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.05,
+            shadowRadius: 8,
+            elevation: 2,
+        },
+    }),
+    card: Platform.select({
+        web: {
+            boxShadow: '0 8px 24px rgba(59, 94, 232, 0.12)',
+        },
+        default: {
+            shadowColor: colors.cobalt,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.12,
+            shadowRadius: 24,
+            elevation: 4,
+        },
+    }),
 } as const;

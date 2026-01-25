@@ -2,10 +2,11 @@ import React from 'react';
 import {
     View,
     StyleSheet,
-    SafeAreaView,
     ScrollView,
     TouchableOpacity,
+    Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
     HeadingLg,
@@ -14,10 +15,17 @@ import {
     Body,
     BodySm,
     Caption,
-    Button,
     ResponsiveContainer,
 } from '../components';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { 
+    ArrowLeft, 
+    CreditCard, 
+    CheckCircle, 
+    ChevronRight, 
+    Bell, 
+    Shield, 
+    CircleHelp 
+} from 'lucide-react-native';
 
 interface ProfileScreenProps {
     onBack: () => void;
@@ -27,55 +35,6 @@ interface ProfileScreenProps {
     onHelp: () => void;
     onSignOut: () => void;
 }
-
-// Icons
-const BackIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
-        <Path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const CardIcon = () => (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={colors.cobalt} strokeWidth={2}>
-        <Rect x="2" y="5" rx="2" width="20" height="14" />
-        <Path d="M2 10h20" />
-        <Path d="M6 15h4" strokeLinecap="round" />
-    </Svg>
-);
-
-const CheckCircleIcon = () => (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={colors.success} strokeWidth={2}>
-        <Circle cx="12" cy="12" r="10" />
-        <Path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const ChevronRightIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
-        <Path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const BellIcon = () => (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
-        <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" strokeLinecap="round" strokeLinejoin="round" />
-        <Path d="M13.73 21a2 2 0 0 1-3.46 0" strokeLinecap="round" />
-    </Svg>
-);
-
-const ShieldIcon = () => (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
-        <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const HelpIcon = () => (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
-        <Circle cx="12" cy="12" r="10" />
-        <Path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
-        <Circle cx="12" cy="17" r="0.5" fill={colors.slate} />
-    </Svg>
-);
 
 // Sample user data
 const userData = {
@@ -96,20 +55,33 @@ export const ProfileScreen = ({
     onHelp,
     onSignOut,
 }: ProfileScreenProps) => {
+    const insets = useSafeAreaInsets();
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <ResponsiveContainer>
                 <ScrollView
                     style={styles.scroll}
-                    contentContainerStyle={styles.content}
+                    contentContainerStyle={[
+                        styles.content,
+                        { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                    ]}
                     alwaysBounceVertical={false}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {/* Back Button */}
-                    <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                        <BackIcon />
-                        <BodySm>Back</BodySm>
-                    </TouchableOpacity>
+                    {/* Header Row */}
+                    <View style={styles.header}>
+                        <View style={styles.headerRow}>
+                            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                                <ArrowLeft size={18} color={colors.slate} strokeWidth={2} />
+                                <BodySm>Back</BodySm>
+                            </TouchableOpacity>
+                            
+                            <HeadingMd style={styles.headerTitle}>Profile</HeadingMd>
+                            
+                            {/* Spacer for centering */}
+                            <View style={styles.headerSpacer} />
+                        </View>
+                    </View>
 
                     {/* Profile Header */}
                     <View style={styles.profileHeader}>
@@ -148,7 +120,7 @@ export const ProfileScreen = ({
                             activeOpacity={0.7}
                         >
                             <View style={styles.cardIconContainer}>
-                                <CardIcon />
+                                <CreditCard size={22} color={colors.cobalt} strokeWidth={2} />
                             </View>
                             <View style={styles.cardInfo}>
                                 <Body style={styles.cardTitle}>
@@ -156,7 +128,7 @@ export const ProfileScreen = ({
                                 </Body>
                                 {userData.cardLinked ? (
                                     <View style={styles.cardStatus}>
-                                        <CheckCircleIcon />
+                                        <CheckCircle size={16} color={colors.success} strokeWidth={2} />
                                         <Caption style={styles.cardStatusText}>
                                             •••• {userData.cardLastDigits}
                                         </Caption>
@@ -165,7 +137,7 @@ export const ProfileScreen = ({
                                     <Caption>Tap to scan your student card</Caption>
                                 )}
                             </View>
-                            <ChevronRightIcon />
+                            <ChevronRight size={18} color={colors.slate} strokeWidth={2} />
                         </TouchableOpacity>
                     </View>
 
@@ -179,9 +151,9 @@ export const ProfileScreen = ({
                                 activeOpacity={0.7}
                                 onPress={onNotifications}
                             >
-                                <BellIcon />
+                                <Bell size={20} color={colors.slate} strokeWidth={2} />
                                 <Body style={styles.settingText}>Notifications</Body>
-                                <ChevronRightIcon />
+                                <ChevronRight size={18} color={colors.slate} strokeWidth={2} />
                             </TouchableOpacity>
 
                             <View style={styles.settingDivider} />
@@ -191,9 +163,9 @@ export const ProfileScreen = ({
                                 activeOpacity={0.7}
                                 onPress={onPrivacy}
                             >
-                                <ShieldIcon />
+                                <Shield size={20} color={colors.slate} strokeWidth={2} />
                                 <Body style={styles.settingText}>Privacy & Security</Body>
-                                <ChevronRightIcon />
+                                <ChevronRight size={18} color={colors.slate} strokeWidth={2} />
                             </TouchableOpacity>
 
                             <View style={styles.settingDivider} />
@@ -203,9 +175,9 @@ export const ProfileScreen = ({
                                 activeOpacity={0.7}
                                 onPress={onHelp}
                             >
-                                <HelpIcon />
+                                <CircleHelp size={20} color={colors.slate} strokeWidth={2} />
                                 <Body style={styles.settingText}>Help & Support</Body>
-                                <ChevronRightIcon />
+                                <ChevronRight size={18} color={colors.slate} strokeWidth={2} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -219,7 +191,7 @@ export const ProfileScreen = ({
                     <Caption style={styles.version}>Version 1.0.0</Caption>
                 </ScrollView>
             </ResponsiveContainer>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -233,14 +205,28 @@ const styles = StyleSheet.create({
     },
     content: {
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
         paddingBottom: 96,
     },
     backButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        marginBottom: spacing.lg,
+        width: 80, // Fixed width for balancing
+    },
+    header: {
+        marginBottom: spacing.xl,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    headerTitle: {
+        flex: 1,
+        textAlign: 'center',
+    },
+    headerSpacer: {
+        width: 80, // Same as backButton width
     },
     profileHeader: {
         alignItems: 'center',
@@ -255,11 +241,18 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginBottom: spacing.md,
         // Glow
-        shadowColor: colors.cobalt,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        elevation: 6,
+        ...Platform.select({
+            web: {
+                boxShadow: `0 4px 12px ${colors.cobaltAlpha20}`,
+            },
+            default: {
+                shadowColor: colors.cobalt,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 12,
+                elevation: 6,
+            },
+        }),
     },
     avatarText: {
         color: '#FFF',

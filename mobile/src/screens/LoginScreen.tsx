@@ -2,16 +2,16 @@ import React, { useState } from 'react';
 import {
     View,
     StyleSheet,
-    SafeAreaView,
     KeyboardAvoidingView,
     Platform,
     TouchableOpacity,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '../theme';
 import { Button, Input, Wordmark, BodySm, Caption } from '../components';
 import Svg, { Path } from 'react-native-svg';
 
-export type UserRole = 'student' | 'teacher' | 'admin';
+export type UserRole = 'student' | 'teacher' | 'admin' | 'staff';
 
 interface LoginScreenProps {
     onLogin: (role: UserRole) => void;
@@ -31,6 +31,7 @@ const CrestIcon = () => (
             stroke="#FFF"
             strokeWidth={1.5}
             strokeLinecap="round"
+            strokeLinejoin="round"
         />
     </Svg>
 );
@@ -45,6 +46,7 @@ const DEMO_ACCOUNTS: Record<string, UserRole> = {
 };
 
 export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
+    const insets = useSafeAreaInsets();
     const [userId, setUserId] = useState('');
     const [password, setPassword] = useState('');
 
@@ -55,30 +57,40 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.content}
+                style={[
+                    styles.content,
+                    { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                ]}
             >
-                {/* Crest Badge */}
-                <View style={styles.crest}>
-                    <CrestIcon />
-                </View>
-
                 {/* Header */}
                 <View style={styles.header}>
-                    <Wordmark>Kingsford</Wordmark>
-                    <BodySm style={styles.tagline}>Est. 1847</BodySm>
+                    <View style={styles.headerMain}>
+                        <View>
+                            <Wordmark>Kingsford</Wordmark>
+                            <BodySm style={styles.tagline}>Est. 1847</BodySm>
+                        </View>
+                        <View style={styles.crest}>
+                            <CrestIcon />
+                        </View>
+                    </View>
                 </View>
 
                 {/* Form */}
-                <View style={styles.form}>
+                <View 
+                    style={styles.form}
+                    // @ts-ignore - web only prop
+                    accessibilityRole={Platform.OS === 'web' ? 'form' : undefined}
+                >
                     <Input
                         label="User ID"
                         placeholder="Enter your ID"
                         value={userId}
                         onChangeText={setUserId}
                         autoCapitalize="none"
+                        autoComplete="username"
                     />
                     <Input
                         label="Password"
@@ -86,6 +98,7 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
                         value={password}
                         onChangeText={setPassword}
                         secureTextEntry
+                        autoComplete="current-password"
                     />
                 </View>
 
@@ -111,18 +124,25 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
                             >
                                 <Caption style={styles.demoChipText}>Teacher</Caption>
                             </TouchableOpacity>
-                            <TouchableOpacity 
-                                style={styles.demoChip} 
-                                onPress={() => onLogin('admin')}
-                                activeOpacity={0.7}
-                            >
-                                <Caption style={styles.demoChipText}>Admin</Caption>
-                            </TouchableOpacity>
-                        </View>
+                             <TouchableOpacity 
+                                 style={styles.demoChip} 
+                                 onPress={() => onLogin('admin')}
+                                 activeOpacity={0.7}
+                             >
+                                 <Caption style={styles.demoChipText}>Admin</Caption>
+                             </TouchableOpacity>
+                             <TouchableOpacity 
+                                 style={styles.demoChip} 
+                                 onPress={() => onLogin('staff')}
+                                 activeOpacity={0.7}
+                             >
+                                 <Caption style={styles.demoChipText}>Staff</Caption>
+                             </TouchableOpacity>
+                         </View>
                     </View>
                 </View>
             </KeyboardAvoidingView>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -134,13 +154,9 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
         justifyContent: 'space-between',
     },
     crest: {
-        position: 'absolute',
-        top: spacing.md,
-        right: spacing.lg,
         width: 48,
         height: 48,
         backgroundColor: colors.cobalt,
@@ -150,6 +166,11 @@ const styles = StyleSheet.create({
     },
     header: {
         marginBottom: spacing.xl,
+    },
+    headerMain: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
     },
     tagline: {
         fontStyle: 'italic',

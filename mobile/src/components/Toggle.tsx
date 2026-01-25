@@ -4,6 +4,7 @@ import {
     Animated, 
     StyleSheet,
     ViewStyle,
+    Platform,
 } from 'react-native';
 import { colors } from '../theme';
 
@@ -25,7 +26,7 @@ export const Toggle = ({ value, onValueChange, disabled, style }: ToggleProps) =
     useEffect(() => {
         Animated.spring(translateX, {
             toValue: value ? TRACK_WIDTH - THUMB_SIZE - THUMB_OFFSET : THUMB_OFFSET,
-            useNativeDriver: true,
+            useNativeDriver: Platform.OS !== 'web',
             bounciness: 2,
             speed: 20,
         }).start();
@@ -78,11 +79,18 @@ const styles = StyleSheet.create({
         height: THUMB_SIZE,
         borderRadius: THUMB_SIZE / 2,
         backgroundColor: '#FFFFFF',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 3,
-        elevation: 3,
+        ...Platform.select({
+            web: {
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.15)',
+            },
+            default: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.15,
+                shadowRadius: 3,
+                elevation: 3,
+            },
+        }),
     },
     thumbDisabled: {
         backgroundColor: '#F0F0F0',

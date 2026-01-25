@@ -2,13 +2,14 @@ import React, { useState, useMemo } from 'react';
 import {
     View,
     StyleSheet,
-    SafeAreaView,
     ScrollView,
     TouchableOpacity,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '../../theme';
 import {
     HeadingLg,
+    HeadingMd,
     Caption,
     ResponsiveContainer,
 } from '../../components';
@@ -33,11 +34,13 @@ const CalendarIcon = () => (
 );
 
 export const TeacherClassesScreen = ({ onViewClass }: TeacherClassesScreenProps) => {
-    const [selectedDate, setSelectedDate] = useState(21);
+    const insets = useSafeAreaInsets();
+    const today = useMemo(() => new Date(), []);
+    const [selectedDate, setSelectedDate] = useState(today.getDate());
     const [showCalendar, setShowCalendar] = useState(false);
     
-    const viewYear = 2024;
-    const viewMonth = 9; // October
+    const viewYear = today.getFullYear();
+    const viewMonth = today.getMonth();
     
     const termInfo = useMemo(() => getTermInfo(viewMonth, viewYear), [viewMonth, viewYear]);
 
@@ -45,11 +48,14 @@ export const TeacherClassesScreen = ({ onViewClass }: TeacherClassesScreenProps)
     const filteredClasses = teacherClasses; 
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <ResponsiveContainer>
                 <ScrollView 
                     style={styles.scroll} 
-                    contentContainerStyle={styles.scrollContent} 
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                    ]} 
                     showsVerticalScrollIndicator={false}
                     stickyHeaderIndices={[1]}
                     keyboardShouldPersistTaps="handled"
@@ -74,7 +80,7 @@ export const TeacherClassesScreen = ({ onViewClass }: TeacherClassesScreenProps)
                     <View style={styles.mainContent}>
                         <View style={styles.section}>
                             <Caption style={styles.sectionTitle}>
-                                October {selectedDate}, {viewYear}
+                                {new Date(viewYear, viewMonth, selectedDate).toLocaleDateString('en-GB', { month: 'long', day: 'numeric', year: 'numeric' })}
                             </Caption>
                             
                             {filteredClasses.map((cls) => (
@@ -103,7 +109,7 @@ export const TeacherClassesScreen = ({ onViewClass }: TeacherClassesScreenProps)
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
             />
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -116,7 +122,6 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        paddingTop: spacing.lg,
         paddingBottom: 120, 
     },
     header: {

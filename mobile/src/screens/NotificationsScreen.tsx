@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import {
     View,
     StyleSheet,
-    SafeAreaView,
     ScrollView,
     TouchableOpacity,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
     HeadingLg,
+    HeadingMd,
+    ResponsiveContainer,
     Body,
     BodySm,
     Caption,
@@ -27,6 +29,7 @@ const BackIcon = () => (
 );
 
 export const NotificationsScreen = ({ onBack }: NotificationsScreenProps) => {
+    const insets = useSafeAreaInsets();
     const [settings, setSettings] = useState({
         attendance: true,
         security: true,
@@ -39,70 +42,83 @@ export const NotificationsScreen = ({ onBack }: NotificationsScreenProps) => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.content}>
-                <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                    <BackIcon />
-                    <BodySm>Back</BodySm>
-                </TouchableOpacity>
-
-                <HeadingLg style={styles.title}>Notifications</HeadingLg>
-
-                <ScrollView 
-                    style={styles.scroll} 
-                    contentContainerStyle={styles.scrollContent}
-                    alwaysBounceVertical={false}
-                >
-                    <View style={styles.section}>
-                        <View style={styles.settingCard}>
-                            <View style={styles.settingRow}>
-                                <View style={styles.settingInfo}>
-                                    <Body style={styles.settingLabel}>Attendance Alerts</Body>
-                                    <Caption>Confirmations when you check in</Caption>
-                                </View>
-                                <Toggle
-                                    value={settings.attendance}
-                                    onValueChange={() => toggle('attendance')}
-                                />
-                            </View>
-                            <View style={styles.divider} />
-                            <View style={styles.settingRow}>
-                                <View style={styles.settingInfo}>
-                                    <Body style={styles.settingLabel}>Security Alerts</Body>
-                                    <Caption>Notify on new device logins</Caption>
-                                </View>
-                                <Toggle
-                                    value={settings.security}
-                                    onValueChange={() => toggle('security')}
-                                />
-                            </View>
-                            <View style={styles.divider} />
-                            <View style={styles.settingRow}>
-                                <View style={styles.settingInfo}>
-                                    <Body style={styles.settingLabel}>University News</Body>
-                                    <Caption>Campus updates and events</Caption>
-                                </View>
-                                <Toggle
-                                    value={settings.university}
-                                    onValueChange={() => toggle('university')}
-                                />
-                            </View>
-                            <View style={styles.divider} />
-                            <View style={styles.settingRow}>
-                                <View style={styles.settingInfo}>
-                                    <Body style={styles.settingLabel}>Class Reminders</Body>
-                                    <Caption>15 mins before lecture starts</Caption>
-                                </View>
-                                <Toggle
-                                    value={settings.reminders}
-                                    onValueChange={() => toggle('reminders')}
-                                />
-                            </View>
+        <View style={styles.container}>
+            <ResponsiveContainer>
+                <View style={[
+                    styles.content,
+                    { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                ]}>
+                    {/* Header Row */}
+                    <View style={styles.header}>
+                        <View style={styles.headerRow}>
+                            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                                <BackIcon />
+                                <BodySm>Back</BodySm>
+                            </TouchableOpacity>
+                            
+                            <HeadingMd style={styles.headerTitle}>Notifications</HeadingMd>
+                            
+                            {/* Spacer for centering */}
+                            <View style={styles.headerSpacer} />
                         </View>
                     </View>
-                </ScrollView>
-            </View>
-        </SafeAreaView>
+
+                    <ScrollView 
+                        style={styles.scroll} 
+                        contentContainerStyle={styles.scrollContent}
+                        alwaysBounceVertical={false}
+                    >
+                        <View style={styles.section}>
+                            <View style={styles.settingCard}>
+                                <View style={styles.settingRow}>
+                                    <View style={styles.settingInfo}>
+                                        <Body style={styles.settingLabel}>Attendance Alerts</Body>
+                                        <Caption>Confirmations when you check in</Caption>
+                                    </View>
+                                    <Toggle
+                                        value={settings.attendance}
+                                        onValueChange={() => toggle('attendance')}
+                                    />
+                                </View>
+                                <View style={styles.divider} />
+                                <View style={styles.settingRow}>
+                                    <View style={styles.settingInfo}>
+                                        <Body style={styles.settingLabel}>Security Alerts</Body>
+                                        <Caption>Notify on new device logins</Caption>
+                                    </View>
+                                    <Toggle
+                                        value={settings.security}
+                                        onValueChange={() => toggle('security')}
+                                    />
+                                </View>
+                                <View style={styles.divider} />
+                                <View style={styles.settingRow}>
+                                    <View style={styles.settingInfo}>
+                                        <Body style={styles.settingLabel}>University News</Body>
+                                        <Caption>Campus updates and events</Caption>
+                                    </View>
+                                    <Toggle
+                                        value={settings.university}
+                                        onValueChange={() => toggle('university')}
+                                    />
+                                </View>
+                                <View style={styles.divider} />
+                                <View style={styles.settingRow}>
+                                    <View style={styles.settingInfo}>
+                                        <Body style={styles.settingLabel}>Class Reminders</Body>
+                                        <Caption>15 mins before lecture starts</Caption>
+                                    </View>
+                                    <Toggle
+                                        value={settings.reminders}
+                                        onValueChange={() => toggle('reminders')}
+                                    />
+                                </View>
+                            </View>
+                        </View>
+                    </ScrollView>
+                </View>
+            </ResponsiveContainer>
+        </View>
     );
 };
 
@@ -120,10 +136,22 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        marginBottom: spacing.lg,
+        width: 80, // Fixed width for balancing
     },
-    title: {
+    header: {
         marginBottom: spacing.xl,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    headerTitle: {
+        flex: 1,
+        textAlign: 'center',
+    },
+    headerSpacer: {
+        width: 80, // Same as backButton width
     },
     scroll: {
         flex: 1,

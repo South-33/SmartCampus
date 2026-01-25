@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
     View,
     StyleSheet,
-    SafeAreaView,
     TouchableOpacity,
     Animated,
+    Platform,
 } from 'react-native';
-import { colors, spacing, radius } from '../theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors, spacing } from '../theme';
 import {
     HeadingLg,
     HeadingMd,
@@ -15,49 +16,14 @@ import {
     Caption,
     Button,
 } from '../components';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { ArrowLeft, Nfc, Clock, DoorOpen, XCircle } from 'lucide-react-native';
 
 interface OpenGateScreenProps {
     onBack: () => void;
 }
 
-// Icons
-const BackIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
-        <Path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const NfcIcon = () => (
-    <Svg width={48} height={48} viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth={1.5}>
-        <Path d="M6 8.32a7.43 7.43 0 0 1 0 7.36" strokeLinecap="round" />
-        <Path d="M9.46 6.21a11.76 11.76 0 0 1 0 11.58" strokeLinecap="round" />
-        <Path d="M12.91 4.1a16.1 16.1 0 0 1 0 15.8" strokeLinecap="round" />
-        <Rect x="16" y="8" width="5" height="8" rx="1" strokeLinecap="round" />
-    </Svg>
-);
-
-const ClockIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.cobalt} strokeWidth={2}>
-        <Circle cx="12" cy="12" r="9" />
-        <Path d="M12 6v6l4 2" strokeLinecap="round" />
-    </Svg>
-);
-
-const DoorOpenIcon = () => (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth={2}>
-        <Path d="M3 21h18M9 21V3h12v18" strokeLinecap="round" strokeLinejoin="round" />
-        <Circle cx="15" cy="12" r="1" fill="#FFF" stroke="none" />
-    </Svg>
-);
-
-const CloseIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.error} strokeWidth={2}>
-        <Path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
 export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
+    const insets = useSafeAreaInsets();
     const [timer, setTimer] = useState(60);
     const [status, setStatus] = useState<'waiting' | 'success' | 'timeout'>('waiting');
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
@@ -147,17 +113,25 @@ export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
     });
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.content}>
-                {/* Back Button */}
-                <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                    <BackIcon />
-                    <BodySm>Back</BodySm>
-                </TouchableOpacity>
-
-                {/* Header */}
+        <View style={styles.container}>
+            <View style={[
+                styles.content,
+                { paddingTop: Math.max(insets.top, 20) + spacing.md }
+            ]}>
+                {/* Header Row */}
                 <View style={styles.header}>
-                    <HeadingLg>Open Gate</HeadingLg>
+                    <View style={styles.headerRow}>
+                        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                            <ArrowLeft size={18} color={colors.slate} strokeWidth={2} />
+                            <BodySm>Back</BodySm>
+                        </TouchableOpacity>
+                        
+                        <HeadingMd style={styles.headerTitle}>Open Gate</HeadingMd>
+                        
+                        {/* Spacer for centering */}
+                        <View style={styles.headerSpacer} />
+                    </View>
+                    
                     <BodySm style={styles.headerMeta}>
                         Tap your phone to the NFC reader
                     </BodySm>
@@ -184,7 +158,7 @@ export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
                                         { transform: [{ scale: pulseAnim }] }
                                     ]}
                                 >
-                                    <NfcIcon />
+                                    <Nfc size={48} color="#FFF" strokeWidth={1.5} />
                                 </Animated.View>
                             </View>
                             <HeadingMd style={styles.promptTitle}>Ready to Scan</HeadingMd>
@@ -194,7 +168,7 @@ export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
 
                             {/* Timer */}
                             <View style={styles.timer}>
-                                <ClockIcon />
+                                <Clock size={18} color={colors.cobalt} strokeWidth={2} />
                                 <Body style={styles.timerText}>
                                     <Body style={styles.timerCount}>{timer}</Body> seconds remaining
                                 </Body>
@@ -212,7 +186,7 @@ export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
                     {status === 'success' && (
                         <View style={styles.successState}>
                             <View style={styles.successIcon}>
-                                <DoorOpenIcon />
+                                <DoorOpen size={40} color="#FFF" strokeWidth={2} />
                             </View>
                             <HeadingMd style={styles.successTitle}>Door Unlocked!</HeadingMd>
                             <BodySm style={styles.successDesc}>
@@ -224,7 +198,7 @@ export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
                     {status === 'timeout' && (
                         <View style={styles.timeoutState}>
                             <View style={styles.timeoutIcon}>
-                                <CloseIcon />
+                                <XCircle size={32} color={colors.error} strokeWidth={2} />
                             </View>
                             <HeadingMd style={styles.timeoutTitle}>Time Expired</HeadingMd>
                             <BodySm style={styles.timeoutDesc}>
@@ -247,7 +221,7 @@ export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
                     )}
                 </View>
             </View>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -259,19 +233,32 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
+        paddingTop: 0,
     },
     backButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        marginBottom: spacing.lg,
+        width: 80, // Fixed width for balancing
     },
     header: {
         marginBottom: spacing.xl,
     },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    headerTitle: {
+        flex: 1,
+        textAlign: 'center',
+    },
+    headerSpacer: {
+        width: 80, // Same as backButton width
+    },
     headerMeta: {
-        marginTop: 4,
+        textAlign: 'center',
     },
     nfcArea: {
         flex: 1,
@@ -301,11 +288,18 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         // Glow effect
-        shadowColor: colors.cobalt,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.35,
-        shadowRadius: 28,
-        elevation: 8,
+        ...Platform.select({
+            web: {
+                boxShadow: '0 0 28px rgba(59, 94, 232, 0.35)',
+            },
+            default: {
+                shadowColor: colors.cobalt,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.35,
+                shadowRadius: 28,
+                elevation: 8,
+            },
+        }),
     },
     promptTitle: {
         marginBottom: 8,
@@ -353,11 +347,18 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginBottom: spacing.md,
         // Glow
-        shadowColor: colors.success,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4,
-        shadowRadius: 20,
-        elevation: 8,
+        ...Platform.select({
+            web: {
+                boxShadow: '0 0 20px rgba(46, 125, 50, 0.4)',
+            },
+            default: {
+                shadowColor: colors.success,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.4,
+                shadowRadius: 20,
+                elevation: 8,
+            },
+        }),
     },
     successTitle: {
         color: colors.success,

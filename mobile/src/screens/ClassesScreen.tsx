@@ -2,10 +2,11 @@ import React, { useState, useMemo } from 'react';
 import {
     View,
     StyleSheet,
-    SafeAreaView,
     ScrollView,
     TouchableOpacity,
+    Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
     HeadingLg,
@@ -18,67 +19,21 @@ import {
     CalendarStrip,
     AcademicCalendarModal,
 } from '../components';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { 
+    Calendar as CalendarIcon, 
+    User as UserIcon, 
+    ChevronDown as ChevronDownIcon, 
+    Clock as ClockIcon, 
+    Flame as FlameIcon, 
+    AlertCircle as AlertCircleIcon, 
+    CheckCircle as CheckCircleIcon, 
+    MapPin as MapPinIcon 
+} from 'lucide-react-native';
 import { getTermInfo } from '../data/academicUtils';
 
 interface ClassesScreenProps {
     onBack?: () => void;
 }
-
-// Icons
-const CalendarIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.cobalt} strokeWidth={2}>
-        <Rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-        <Path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const UserIcon = () => (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
-        <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-        <Circle cx="12" cy="7" r="4" />
-    </Svg>
-);
-
-const ChevronDownIcon = ({ color = colors.cobalt }: { color?: string }) => (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
-        <Path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const ClockIcon = ({ size = 14, color = colors.slate }: { size?: number, color?: string }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
-        <Circle cx="12" cy="12" r="10" />
-        <Path d="M12 6v6l4 2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const FlameIcon = ({ size = 16, color = '#F59E0B' }: { size?: number, color?: string }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
-        <Path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.5 3.5 6.5 1.5 2 1.5 4.5.5 6a5 5 0 1 1-7.5-1" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const AlertCircleIcon = ({ size = 16, color = colors.error }: { size?: number, color?: string }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
-        <Circle cx="12" cy="12" r="10" />
-        <Path d="M12 8v4M12 16h.01" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const CheckCircleIcon = ({ size = 16, color = colors.success }: { size?: number, color?: string }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
-        <Path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" strokeLinecap="round" strokeLinejoin="round" />
-        <Path d="M22 4L12 14.01l-3-3" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const MapPinIcon = ({ size = 14, color = colors.slate }: { size?: number, color?: string }) => (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
-        <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-        <Circle cx="12" cy="10" r="3" />
-    </Svg>
-);
 
 // --- Mock Data ---
 
@@ -323,27 +278,32 @@ const CourseCard = ({ course }: { course: typeof enrolledCourses[0] }) => {
 };
 
 export const ClassesScreen = () => {
-    const [selectedDate, setSelectedDate] = useState(21);
+    const insets = useSafeAreaInsets();
+    const today = useMemo(() => new Date(), []);
+    const [selectedDate, setSelectedDate] = useState(today.getDate());
     const [showCalendar, setShowCalendar] = useState(false);
     
-    const viewMonth = 9; // October
-    const viewYear = 2024;
+    const viewMonth = today.getMonth();
+    const viewYear = today.getFullYear();
     
     const termInfo = useMemo(() => getTermInfo(viewMonth, viewYear), [viewMonth, viewYear]);
     const currentAcademicYear = viewYear.toString();
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <ResponsiveContainer>
                 <ScrollView 
                     style={styles.scroll} 
-                    contentContainerStyle={styles.scrollContent} 
+                    contentContainerStyle={[
+                        styles.scrollContent,
+                        { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                    ]} 
                     showsVerticalScrollIndicator={false}
                     stickyHeaderIndices={[1]}
                     keyboardShouldPersistTaps="handled"
                 >
                     <View style={styles.header}>
-                        <View>
+                        <View style={styles.headerLeft}>
                             <Caption style={styles.headerSubtitle}>Academic Year {currentAcademicYear}</Caption>
                             <HeadingLg style={styles.headerTitle}>{termInfo.name}</HeadingLg>
                         </View>
@@ -437,7 +397,7 @@ export const ClassesScreen = () => {
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
             />
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -450,7 +410,6 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        paddingTop: spacing.lg,
         paddingBottom: 72, 
     },
     header: {
@@ -458,8 +417,10 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
         marginBottom: spacing.md,
+    },
+    headerLeft: {
+        flex: 1,
     },
     headerSubtitle: {
         fontSize: 10,

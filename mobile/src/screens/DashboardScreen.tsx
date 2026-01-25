@@ -2,10 +2,10 @@ import React from 'react';
 import {
     View,
     StyleSheet,
-    SafeAreaView,
     ScrollView,
     TouchableOpacity,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
     HeadingLg,
@@ -16,7 +16,7 @@ import {
     Caption,
     ResponsiveContainer,
 } from '../components';
-import Svg, { Path, Circle } from 'react-native-svg';
+import { DoorOpen, CircleCheckBig } from 'lucide-react-native';
 
 interface DashboardScreenProps {
     onOpenGate: () => void;
@@ -24,21 +24,6 @@ interface DashboardScreenProps {
     onProfile: () => void;
     onViewAllClasses: () => void;
 }
-
-// Icons
-const DoorIcon = () => (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={colors.cobalt} strokeWidth={2}>
-        <Path d="M3 21h18M9 21V3h12v18" strokeLinecap="round" strokeLinejoin="round" />
-        <Circle cx="15" cy="12" r="1" fill={colors.cobalt} stroke="none" />
-    </Svg>
-);
-
-const CheckIcon = () => (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={colors.cobalt} strokeWidth={2}>
-        <Path d="M9 12l2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
-        <Circle cx="12" cy="12" r="9" />
-    </Svg>
-);
 
 // Sample class data
 const todayClasses = [
@@ -69,6 +54,7 @@ const todayClasses = [
 ];
 
 export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAllClasses }: DashboardScreenProps) => {
+    const insets = useSafeAreaInsets();
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-GB', {
         weekday: 'long',
@@ -77,11 +63,14 @@ export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAll
     });
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <ResponsiveContainer>
                 <ScrollView
                     style={styles.scroll}
-                    contentContainerStyle={styles.content}
+                    contentContainerStyle={[
+                        styles.content,
+                        { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                    ]}
                     alwaysBounceVertical={false}
                     keyboardShouldPersistTaps="handled"
                 >
@@ -105,7 +94,7 @@ export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAll
                             activeOpacity={0.85}
                         >
                             <View style={styles.actionIcon}>
-                                <DoorIcon />
+                                <DoorOpen size={22} color={colors.cobalt} strokeWidth={2} />
                             </View>
                             <HeadingMd style={styles.actionTitle}>Open Gate</HeadingMd>
                             <Caption>Tap to unlock door</Caption>
@@ -117,7 +106,7 @@ export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAll
                             activeOpacity={0.85}
                         >
                             <View style={styles.actionIcon}>
-                                <CheckIcon />
+                                <CircleCheckBig size={22} color={colors.cobalt} strokeWidth={2} />
                             </View>
                             <HeadingMd style={styles.actionTitle}>Attendance</HeadingMd>
                             <Caption>Check in to class</Caption>
@@ -156,7 +145,7 @@ export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAll
                     </View>
                 </ScrollView>
             </ResponsiveContainer>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -170,7 +159,6 @@ const styles = StyleSheet.create({
     },
     content: {
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
         paddingBottom: 96,
     },
     header: {
@@ -181,7 +169,8 @@ const styles = StyleSheet.create({
     },
     greeting: {},
     date: {
-        fontStyle: 'italic',
+        fontFamily: 'PlayfairDisplay-Italic',
+        color: colors.slate,
         marginTop: 2,
     },
     avatar: {

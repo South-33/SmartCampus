@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View,
     StyleSheet,
-    SafeAreaView,
     ScrollView,
     TouchableOpacity,
-    useWindowDimensions,
+    Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
     HeadingLg,
@@ -17,21 +17,58 @@ import {
     Caption,
     ResponsiveContainer,
 } from '../components';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
+import { 
+    mockDevices, 
+    mockAlerts as defaultAlerts, 
+    mockRooms, 
+    LockStatus, 
+    AdminAlert,
+    mockUsers,
+    mockLogs
+} from '../data/adminMockData';
 
 interface AdminDashboardProps {
     onProfile: () => void;
+    onSecurity: () => void;
+    onUsers: () => void;
+    onLogs: () => void;
+    onRooms: () => void;
+    onViewRoom: (roomId: string) => void;
+    onOpenGate: () => void;
+    alerts?: AdminAlert[];
 }
 
 // Icons
-const DeviceIcon = () => (
+const ShieldIcon = () => (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.error} strokeWidth={2}>
+        <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round" />
+        <Line x1="12" y1="8" x2="12" y2="12" strokeLinecap="round" strokeLinejoin="round" />
+        <Line x1="12" y1="16" x2="12.01" y2="16" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
+const PlusIcon = () => (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.cobalt} strokeWidth={2}>
-        <Rect x="4" y="4" width="16" height="16" rx="2" />
-        <Path d="M9 9h6v6H9z" strokeLinecap="round" />
+        <Path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
+const SecurityIcon = () => (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.cobalt} strokeWidth={2}>
+        <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
+
+const DoorIcon = () => (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.cobalt} strokeWidth={2}>
+        <Path d="M3 21h18M9 21V3h12v18" strokeLinecap="round" strokeLinejoin="round" />
+        <Circle cx="15" cy="12" r="1" fill={colors.cobalt} stroke="none" />
     </Svg>
 );
 
 const UsersIcon = () => (
+
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.cobalt} strokeWidth={2}>
         <Path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" strokeLinecap="round" strokeLinejoin="round" />
         <Circle cx="9" cy="7" r="4" />
@@ -66,29 +103,50 @@ const PowerIcon = () => (
     </Svg>
 );
 
-// Sample device data
-const devices = [
-    { id: '1', name: 'Room 305 Door', status: 'online', lastSeen: '2 min ago' },
-    { id: '2', name: 'Room 305 Radar', status: 'online', lastSeen: '2 min ago' },
-    { id: '3', name: 'Room 408 Door', status: 'offline', lastSeen: '15 min ago' },
-    { id: '4', name: 'Room 112 Door', status: 'online', lastSeen: '1 min ago' },
-];
+const WifiIcon = ({ status }: { status: 'online' | 'offline' }) => (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={status === 'online' ? colors.success : colors.error} strokeWidth={2}>
+        <Path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
 
-// Sample alerts
-const alerts = [
-    { id: '1', type: 'device', message: 'Room 408 Door offline', time: '15 min ago', priority: 'high' },
-    { id: '2', type: 'suspicious', message: 'Device used by 2 accounts', time: '1 hr ago', priority: 'high' },
-    { id: '3', type: 'gps', message: 'GPS mismatch: John Doe', time: '2 hrs ago', priority: 'medium' },
-];
+const LockIcon = ({ status }: { status: LockStatus }) => {
+    const isLocked = status !== 'unlocked';
+    return (
+        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={isLocked ? colors.error : colors.slate} strokeWidth={2}>
+            <Rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <Path d={isLocked ? "M7 11V7a5 5 0 0 1 10 0v4" : "M7 11V7a5 5 0 0 1 9.9-1"} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+    );
+};
 
-// Stats
-const stats = [
-    { label: 'Active Users', value: '847', change: '+12' },
-    { label: 'Devices Online', value: '23/25', change: '' },
-    { label: 'Today\'s Scans', value: '1,234', change: '+89' },
-];
+const PinIcon = ({ pinned }: { pinned: boolean }) => (
+    <Svg width={16} height={16} viewBox="0 0 24 24" fill={pinned ? colors.cobalt : "none"} stroke={colors.cobalt} strokeWidth={2}>
+        <Path d="M19 13.5l-2-2V4a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7.5l-2 2V15h6v5l1 1 1-1v-5h6v-1.5z" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+);
 
-export const AdminDashboard = ({ onProfile }: AdminDashboardProps) => {
+const DeviceStatusIcon = ({ type, status }: { type: 'gatekeeper' | 'watchman', status: 'online' | 'offline' }) => {
+    const color = status === 'online' ? colors.success : colors.error;
+    return (
+        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
+            {type === 'gatekeeper' ? (
+                <>
+                    <Rect x="5" y="3" width="14" height="18" rx="1" strokeLinecap="round" strokeLinejoin="round" />
+                    <Circle cx="15" cy="12" r="1" fill={color} stroke="none" />
+                </>
+            ) : (
+                <>
+                    <Circle cx="12" cy="12" r="9" strokeWidth={1.5} />
+                    <Circle cx="12" cy="12" r="5" strokeWidth={1.5} />
+                    <Circle cx="12" cy="12" r="2" fill={color} stroke="none" />
+                </>
+            )}
+        </Svg>
+    );
+};
+
+export const AdminDashboard = ({ onProfile, onSecurity, onUsers, onLogs, onRooms, onViewRoom, onOpenGate, alerts = defaultAlerts }: AdminDashboardProps) => {
+    const insets = useSafeAreaInsets();
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-GB', {
         weekday: 'long',
@@ -96,12 +154,29 @@ export const AdminDashboard = ({ onProfile }: AdminDashboardProps) => {
         month: 'long'
     });
 
+    // Simulated local state for demo purposes
+    const [roomStatuses, setRoomStatuses] = useState<Record<string, LockStatus>>(
+        mockRooms.reduce((acc, room) => ({ ...acc, [room.id]: room.lockStatus }), {})
+    );
+
+    const cycleLockStatus = (roomId: string) => {
+        const current = roomStatuses[roomId];
+        const next: LockStatus = 
+            current === 'unlocked' ? 'staff_only' :
+            current === 'staff_only' ? 'locked' : 'unlocked';
+        
+        setRoomStatuses({ ...roomStatuses, [roomId]: next });
+    };
+
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <ResponsiveContainer>
                 <ScrollView
                     style={styles.scroll}
-                    contentContainerStyle={styles.content}
+                    contentContainerStyle={[
+                        styles.content,
+                        { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                    ]}
                     alwaysBounceVertical={false}
                     keyboardShouldPersistTaps="handled"
                 >
@@ -117,57 +192,89 @@ export const AdminDashboard = ({ onProfile }: AdminDashboardProps) => {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Stats Row */}
-                    <View style={styles.statsRow}>
-                        {stats.map((stat, idx) => (
-                            <View key={idx} style={styles.statCard}>
-                                <Caption style={styles.statLabel} numberOfLines={1}>{stat.label}</Caption>
-                                <HeadingMd style={styles.statValue} numberOfLines={1}>{stat.value}</HeadingMd>
-                                {stat.change && (
-                                    <Caption style={styles.statChange} numberOfLines={1}>{stat.change}</Caption>
-                                )}
-                            </View>
-                        ))}
-                    </View>
-
-                    {/* Quick Actions Grid */}
+                    {/* Quick Actions Grid - Now at the Top */}
                     <View style={styles.actionsGrid}>
-                        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85}>
-                            <DeviceIcon />
-                            <BodySm>Devices</BodySm>
+                        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85} onPress={onOpenGate}>
+                            <DoorIcon />
+                            <BodySm>Open Gate</BodySm>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85}>
-                            <UsersIcon />
-                            <BodySm>Users</BodySm>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85}>
-                            <LogsIcon />
-                            <BodySm>Logs</BodySm>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85}>
-                            <UnlockIcon />
-                            <BodySm>Unlock</BodySm>
+                        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85} onPress={onSecurity}>
+                            <SecurityIcon />
+                            <BodySm>Security</BodySm>
                         </TouchableOpacity>
                     </View>
 
-                    {/* Alerts Section */}
+                    {/* System Health Overview */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <HeadingSm>Alerts</HeadingSm>
-                            <View style={styles.alertBadge}>
-                                <Caption style={styles.alertBadgeText}>{alerts.length}</Caption>
+                            <HeadingSm>System Health</HeadingSm>
+                            <Caption>All systems operational</Caption>
+                        </View>
+                        <View style={styles.healthCard}>
+                            <View style={styles.healthItem}>
+                                <View style={styles.healthIconContainer}>
+                                    <WifiIcon status="online" />
+                                </View>
+                                <View>
+                                    <Body style={styles.healthValue}>{mockDevices.filter(d => d.status === 'online').length}/{mockDevices.length}</Body>
+                                    <Caption>Nodes Online</Caption>
+                                </View>
+                            </View>
+                            <View style={styles.healthDivider} />
+                            <View style={styles.healthItem}>
+                                <View style={[styles.healthIconContainer, { backgroundColor: colors.cream }]}>
+                                    <DoorIcon />
+                                </View>
+                                <View>
+                                    <Body style={styles.healthValue}>{mockRooms.filter(r => r.lockStatus !== 'unlocked').length}</Body>
+                                    <Caption>Doors Secured</Caption>
+                                </View>
                             </View>
                         </View>
 
+                        {/* Pending Registration Alert - Now integrated into System Health */}
+                        {mockDevices.some(d => !d.roomId) && (
+                            <TouchableOpacity style={[styles.registrationCard, { marginTop: spacing.md }]} activeOpacity={0.8} onPress={onSecurity}>
+                                <View style={styles.registrationIcon}>
+                                    <PlusIcon />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Body style={{ fontFamily: 'Inter-SemiBold' }}>New Device Detected</Body>
+                                    <Caption>{mockDevices.filter(d => !d.roomId).length} device(s) awaiting room assignment</Caption>
+                                </View>
+                                <BodySm style={{ color: colors.cobalt, fontFamily: 'Inter-Medium' }}>Assign</BodySm>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    {/* Alerts & Logs Combined Section */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <HeadingSm>Alerts</HeadingSm>
+                                <View style={styles.alertBadge}>
+                                    <Caption style={styles.alertBadgeText}>{alerts.length}</Caption>
+                                </View>
+                            </View>
+                            <TouchableOpacity onPress={onLogs}>
+                                <BodySm style={styles.sectionLink}>See All Logs</BodySm>
+                            </TouchableOpacity>
+                        </View>
+
                         <View style={styles.alertsList}>
-                            {alerts.map((alert) => (
-                                <TouchableOpacity key={alert.id} style={styles.alertCard} activeOpacity={0.8}>
+                            {alerts.map((alert: any) => (
+                                <TouchableOpacity 
+                                    key={alert.id} 
+                                    style={[
+                                        styles.alertCard,
+                                        alert.priority === 'high' && styles.alertCardHigh
+                                    ]} 
+                                    activeOpacity={0.8}
+                                >
                                     <View style={[
                                         styles.alertIcon,
                                         alert.priority === 'high' && styles.alertIconHigh,
-                                    ]}>
-                                        <AlertIcon />
-                                    </View>
+                                    ]} />
                                     <View style={styles.alertContent}>
                                         <Body style={styles.alertMessage}>{alert.message}</Body>
                                         <Caption>{alert.time}</Caption>
@@ -177,35 +284,174 @@ export const AdminDashboard = ({ onProfile }: AdminDashboardProps) => {
                         </View>
                     </View>
 
-                    {/* Devices Section */}
+                    {/* Pinned Rooms Section */}
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
-                            <HeadingSm>Devices</HeadingSm>
-                            <BodySm style={styles.sectionLink}>View all</BodySm>
+                            <HeadingSm>Pinned Rooms</HeadingSm>
+                            <TouchableOpacity onPress={onRooms}>
+                                <BodySm style={styles.sectionLink}>Manage pins</BodySm>
+                            </TouchableOpacity>
                         </View>
 
-                        <View style={styles.devicesList}>
-                            {devices.map((device) => (
-                                <View key={device.id} style={styles.deviceRow}>
-                                    <View style={[
-                                        styles.statusDot,
-                                        device.status === 'online' && styles.statusOnline,
-                                        device.status === 'offline' && styles.statusOffline,
-                                    ]} />
-                                    <View style={styles.deviceInfo}>
-                                        <Body>{device.name}</Body>
-                                        <Caption>{device.lastSeen}</Caption>
-                                    </View>
-                                    <TouchableOpacity style={styles.deviceAction}>
-                                        <PowerIcon />
+                        <View style={styles.roomList}>
+                            {mockRooms.filter(r => r.isPinned).map((room) => {
+                                const roomDevices = mockDevices.filter(d => d.roomId === room.id);
+                                const currentLockStatus = roomStatuses[room.id];
+                                return (
+                                    <TouchableOpacity 
+                                        key={room.id} 
+                                        style={styles.roomContainer}
+                                        activeOpacity={0.85}
+                                        onPress={() => onViewRoom(room.id)}
+                                    >
+                                        <View style={styles.roomHeader}>
+                                            <View style={styles.roomHeaderLeft}>
+                                                <View style={[
+                                                    styles.powerDot,
+                                                    { backgroundColor: room.powerStatus === 'on' ? colors.success : colors.slate }
+                                                ]} />
+                                                <Body style={styles.roomNameMain}>{room.name}</Body>
+                                            </View>
+                                            <View style={styles.roomHeaderRight}>
+                                                <WifiIcon status={room.connectivity.wifi} />
+                                                <View style={styles.deviceIndicatorGroup}>
+                                                    {roomDevices.map(device => (
+                                                        <DeviceStatusIcon 
+                                                            key={device.id}
+                                                            type={device.type} 
+                                                            status={device.status === 'online' ? 'online' : 'offline'} 
+                                                        />
+                                                    ))}
+                                                </View>
+                                            </View>
+                                        </View>
+                                        
+                                        <View style={styles.roomControlsRow}>
+                                            <TouchableOpacity 
+                                                style={styles.roomStatusInfo}
+                                                activeOpacity={0.6}
+                                                onPress={() => cycleLockStatus(room.id)}
+                                            >
+                                                <LockIcon status={currentLockStatus} />
+                                                <View style={styles.lockStatusRow}>
+                                                    <Caption style={[
+                                                        styles.lockLabel,
+                                                        currentLockStatus !== 'unlocked' && { color: colors.error }
+                                                    ]}>
+                                                        {currentLockStatus.replace('_', ' ').toUpperCase()}
+                                                    </Caption>
+                                                    {currentLockStatus === 'staff_only' && <Caption style={styles.lockDesc}>• Staff & Admins only</Caption>}
+                                                    {currentLockStatus === 'locked' && <Caption style={styles.lockDesc}>• Admins only</Caption>}
+                                                </View>
+                                            </TouchableOpacity>
+                                            <Caption>Occupancy: {room.occupancy}</Caption>
+                                        </View>
                                     </TouchableOpacity>
+                                );
+                            })}
+                            {mockRooms.filter(r => r.isPinned).length === 0 && (
+                                <View style={styles.emptyPinned}>
+                                    <Caption>No rooms pinned. Tap 'Manage pins' to add rooms here.</Caption>
+                                </View>
+                            )}
+                        </View>
+                    </View>
+
+                    {/* Recent Activity Mini-Feed */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <HeadingSm>Recent Activity</HeadingSm>
+                            <TouchableOpacity onPress={onLogs}>
+                                <BodySm style={styles.sectionLink}>View History</BodySm>
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.activityCard}>
+                            {mockLogs.slice(0, 3).map((log, idx) => (
+                                <View key={log.id} style={[styles.activityRow, idx === 2 && { borderBottomWidth: 0 }]}>
+                                    <View style={styles.activityDot} />
+                                    <View style={{ flex: 1 }}>
+                                        <BodySm><BodySm style={{ fontFamily: 'Inter-SemiBold' }}>{log.userName}</BodySm> • {log.roomName}</BodySm>
+                                        <Caption>{log.action.replace('_', ' ')} • {log.method.toUpperCase()} • {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Caption>
+                                    </View>
+                                    <View style={[
+                                        styles.resultBadge,
+                                        { backgroundColor: log.result === 'granted' ? '#F0F9F4' : '#FFF1F1' }
+                                    ]}>
+                                        <Caption style={{ color: log.result === 'granted' ? colors.success : colors.error, fontSize: 10 }}>
+                                            {log.result.toUpperCase()}
+                                        </Caption>
+                                    </View>
                                 </View>
                             ))}
                         </View>
                     </View>
+
+                    {/* User Summary */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <HeadingSm>User Statistics</HeadingSm>
+                            <TouchableOpacity onPress={onUsers}>
+                                <BodySm style={styles.sectionLink}>Manage Users</BodySm>
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.userStatsContainer}>
+                            <View style={styles.userStatItem}>
+                                <HeadingMd>{mockUsers.filter(u => u.role === 'student').length}</HeadingMd>
+                                <Caption>Students</Caption>
+                            </View>
+                            <View style={styles.userStatDivider} />
+                            <View style={styles.userStatItem}>
+                                <HeadingMd>{mockUsers.filter(u => u.role === 'teacher').length}</HeadingMd>
+                                <Caption>Teachers</Caption>
+                            </View>
+                            <View style={styles.userStatDivider} />
+                            <View style={styles.userStatItem}>
+                                <HeadingMd>{mockUsers.filter(u => u.role === 'cleaner' || u.role === 'admin').length}</HeadingMd>
+                                <Caption>Staff</Caption>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Analytics Section - Moved to bottom */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <HeadingSm>Weekly Attendance</HeadingSm>
+                            <Caption>+2.4% from last week</Caption>
+                        </View>
+                        <View style={styles.graphCard}>
+                            <Svg height="100" width="100%" style={{ marginBottom: spacing.sm }}>
+                                {/* Horizontal grid lines */}
+                                <Line x1="0" y1="20" x2="100%" y2="20" stroke={colors.mist} strokeWidth="1" />
+                                <Line x1="0" y1="50" x2="100%" y2="50" stroke={colors.mist} strokeWidth="1" />
+                                <Line x1="0" y1="80" x2="100%" y2="80" stroke={colors.mist} strokeWidth="1" />
+                                
+                                {/* Trend Line */}
+                                <Polyline
+                                    points="0,80 40,70 80,40 120,50 160,30 200,45 240,25 280,15 320,35"
+                                    fill="none"
+                                    stroke={colors.cobalt}
+                                    strokeWidth="3"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                                
+                                {/* Data points */}
+                                <Circle cx="320" cy="35" r="4" fill={colors.cobalt} />
+                            </Svg>
+                            <View style={styles.graphLabels}>
+                                <Caption>MON</Caption>
+                                <Caption>TUE</Caption>
+                                <Caption>WED</Caption>
+                                <Caption>THU</Caption>
+                                <Caption>FRI</Caption>
+                                <Caption>SAT</Caption>
+                                <Caption>SUN</Caption>
+                            </View>
+                        </View>
+                    </View>
                 </ScrollView>
             </ResponsiveContainer>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -219,7 +465,6 @@ const styles = StyleSheet.create({
     },
     content: {
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
         paddingBottom: 72,
     },
     header: {
@@ -263,34 +508,17 @@ const styles = StyleSheet.create({
     },
     statLabel: {
         textAlign: 'center',
-        fontSize: 10,
+        fontSize: 14,
         width: '100%',
+        color: colors.slate,
+        marginBottom: 2,
     },
     statValue: {
-        fontSize: 16,
-        marginTop: 4,
+        fontSize: 22,
+        fontFamily: 'PlayfairDisplay-Medium',
         textAlign: 'center',
         width: '100%',
-    },
-    statChange: {
-        color: colors.success,
-        fontFamily: 'Inter-Medium',
-        textAlign: 'center',
-        fontSize: 10,
-        width: '100%',
-    },
-    layoutContainer: {
-        gap: spacing.lg,
-    },
-    wideLayout: {
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-    },
-    column: {
-        flex: 1,
-    },
-    fullWidth: {
-        width: '100%',
+        color: colors.charcoal,
     },
     actionsGrid: {
         flexDirection: 'row',
@@ -311,6 +539,28 @@ const styles = StyleSheet.create({
         marginBottom: spacing.sm,
         ...shadows.subtle,
     },
+    graphCard: {
+        backgroundColor: '#FFF',
+        borderWidth: 1,
+        borderColor: colors.mist,
+        borderRadius: radius.md,
+        padding: spacing.md,
+        ...shadows.subtle,
+    },
+    graphLabels: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingHorizontal: spacing.xs,
+    },
+    openGateIconContainer: {
+        width: 44,
+        height: 44,
+        borderRadius: 10,
+        backgroundColor: colors.cream,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: spacing.xs,
+    },
     section: {
         marginBottom: spacing.xl,
     },
@@ -323,6 +573,133 @@ const styles = StyleSheet.create({
     sectionLink: {
         color: colors.cobalt,
         fontFamily: 'Inter-Medium',
+    },
+    healthCard: {
+        backgroundColor: '#FFF',
+        borderWidth: 1,
+        borderColor: colors.mist,
+        borderRadius: radius.md,
+        padding: spacing.md,
+        flexDirection: 'row',
+        alignItems: 'center',
+        ...shadows.subtle,
+    },
+    healthItem: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    healthIconContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#F0F9F4',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    healthValue: {
+        fontFamily: 'Inter-SemiBold',
+        fontSize: 16,
+    },
+    healthDivider: {
+        width: 1,
+        height: 30,
+        backgroundColor: colors.mist,
+        marginHorizontal: spacing.md,
+    },
+    emergencyCard: {
+        backgroundColor: '#FFF1F1',
+        borderWidth: 1,
+        borderColor: '#FFEBEB',
+        borderRadius: radius.md,
+        padding: spacing.md,
+        ...shadows.subtle,
+    },
+    emergencyInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+        marginBottom: spacing.md,
+    },
+    emergencyButtons: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+    },
+    emergencyBtn: {
+        flex: 1,
+        height: 36,
+        borderRadius: radius.sm,
+        borderWidth: 1,
+        borderColor: colors.mist,
+        backgroundColor: '#FFF',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    activityCard: {
+        backgroundColor: '#FFF',
+        borderWidth: 1,
+        borderColor: colors.mist,
+        borderRadius: radius.md,
+        ...shadows.subtle,
+    },
+    activityRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.mist,
+        gap: spacing.sm,
+    },
+    activityDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: colors.slate,
+        opacity: 0.3,
+    },
+    resultBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 4,
+    },
+    userStatsContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#FFF',
+        borderWidth: 1,
+        borderColor: colors.mist,
+        borderRadius: radius.md,
+        padding: spacing.md,
+        alignItems: 'center',
+        ...shadows.subtle,
+    },
+    userStatItem: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    userStatDivider: {
+        width: 1,
+        height: 30,
+        backgroundColor: colors.mist,
+    },
+    registrationCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F0F4FF',
+        borderWidth: 1,
+        borderColor: '#E0E7FF',
+        borderRadius: radius.md,
+        padding: spacing.md,
+        gap: spacing.md,
+        ...shadows.subtle,
+    },
+    registrationIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#FFF',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     alertBadge: {
         backgroundColor: colors.error,
@@ -345,19 +722,33 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: colors.mist,
         borderRadius: radius.md,
-        padding: spacing.md,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
     },
     alertIcon: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.error,
         marginRight: spacing.md,
     },
     alertIconHigh: {
-        backgroundColor: 'rgba(239, 68, 68, 0.15)',
+        backgroundColor: colors.error,
+    },
+    alertCardHigh: {
+        ...Platform.select({
+            web: {
+                boxShadow: '0 4px 10px rgba(198, 40, 40, 0.2)',
+            },
+            default: {
+                shadowColor: colors.error,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 10,
+                elevation: 6,
+            },
+        }),
+        borderColor: '#FFEBEB',
     },
     alertContent: {
         flex: 1,
@@ -371,6 +762,97 @@ const styles = StyleSheet.create({
         borderColor: colors.mist,
         borderRadius: radius.md,
         overflow: 'hidden',
+    },
+    roomList: {
+        gap: spacing.md,
+    },
+    roomContainer: {
+        backgroundColor: '#FFF',
+        borderWidth: 1,
+        borderColor: colors.mist,
+        borderRadius: radius.md,
+        padding: spacing.md,
+        ...shadows.subtle,
+    },
+    roomHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: spacing.sm,
+    },
+    roomHeaderLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        flex: 1,
+    },
+    roomHeaderRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    deviceIndicatorGroup: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    powerDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+    roomNameMain: {
+        fontFamily: 'Inter-SemiBold',
+    },
+    roomControlsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderTopWidth: 1,
+        borderTopColor: colors.mist,
+        marginTop: spacing.xs,
+        paddingTop: spacing.sm,
+    },
+    roomStatusInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    lockLabel: {
+        fontSize: 10,
+        fontFamily: 'Inter-SemiBold',
+    },
+    lockStatusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    lockDesc: {
+        fontSize: 9,
+        color: colors.slate,
+    },
+    quickActions: {
+        flexDirection: 'row',
+        gap: spacing.md,
+    },
+    quickActionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    quickActionText: {
+        fontSize: 12,
+        color: colors.cobalt,
+        fontFamily: 'Inter-Medium',
+    },
+    emptyPinned: {
+        padding: spacing.lg,
+        alignItems: 'center',
+        backgroundColor: '#FFF',
+        borderRadius: radius.md,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: colors.slate,
     },
     deviceRow: {
         flexDirection: 'row',

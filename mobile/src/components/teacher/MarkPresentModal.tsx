@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Modal, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { colors, spacing, radius, shadows } from '../../theme';
 import { Body, HeadingMd, HeadingSm, Caption } from '../Typography';
-import { Button } from '..';
+import { Button } from '../Button';
 import Svg, { Path } from 'react-native-svg';
 
 interface MarkPresentModalProps {

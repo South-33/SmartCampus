@@ -3,15 +3,23 @@ import { ScrollView, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { colors, spacing, radius } from '../theme';
 import { Body, Caption } from './Typography';
 
-export const weekDays = [
-    { day: 'Mon', date: 19, classCount: 2 },
-    { day: 'Tue', date: 20, classCount: 1 },
-    { day: 'Wed', date: 21, classCount: 3 },
-    { day: 'Thu', date: 22, classCount: 2 },
-    { day: 'Fri', date: 23, classCount: 1 },
-    { day: 'Sat', date: 24, classCount: 0 },
-    { day: 'Sun', date: 25, classCount: 0 },
-];
+const getWeekDays = () => {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+    startOfWeek.setDate(diff);
+    
+    return Array.from({ length: 7 }).map((_, i) => {
+        const d = new Date(startOfWeek);
+        d.setDate(startOfWeek.getDate() + i);
+        return {
+            day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()],
+            date: d.getDate(),
+            classCount: i < 5 ? Math.floor(Math.random() * 3) + 1 : 0
+        };
+    });
+};
 
 interface CalendarStripProps {
     selectedDate: number;
@@ -19,6 +27,8 @@ interface CalendarStripProps {
 }
 
 export const CalendarStrip = ({ selectedDate, onSelectDate }: CalendarStripProps) => {
+    const weekDays = React.useMemo(() => getWeekDays(), []);
+    
     return (
         <View style={styles.calendarStrip}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.weekContent}>

@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import {
     View,
     StyleSheet,
-    SafeAreaView,
     TouchableOpacity,
     Animated,
+    Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius } from '../theme';
 import {
     HeadingLg,
@@ -15,42 +16,14 @@ import {
     Caption,
     Button,
 } from '../components';
-import Svg, { Path, Circle } from 'react-native-svg';
+import { ArrowLeft, ScanFace, Clock, Check } from 'lucide-react-native';
 
 interface AttendanceScreenProps {
     onBack: () => void;
 }
 
-// Icons
-const BackIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
-        <Path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const FaceIdIcon = () => (
-    <Svg width={48} height={48} viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth={1.5}>
-        <Path d="M7 3H5a2 2 0 0 0-2 2v2M17 3h2a2 2 0 0 1 2 2v2M7 21H5a2 2 0 0 1-2-2v-2M17 21h2a2 2 0 0 0 2-2v-2" strokeLinecap="round" />
-        <Circle cx="9" cy="9" r="1" fill="#FFF" stroke="none" />
-        <Circle cx="15" cy="9" r="1" fill="#FFF" stroke="none" />
-        <Path d="M9 15c.83 1.17 2.17 2 3.5 2s2.67-.83 3.5-2" strokeLinecap="round" />
-    </Svg>
-);
-
-const ClockIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.cobalt} strokeWidth={2}>
-        <Circle cx="12" cy="12" r="9" />
-        <Path d="M12 6v6l4 2" strokeLinecap="round" />
-    </Svg>
-);
-
-const CheckmarkIcon = () => (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth={2.5}>
-        <Path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
 export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
+    const insets = useSafeAreaInsets();
     const [timer, setTimer] = useState(60);
     const [status, setStatus] = useState<'waiting' | 'success' | 'error'>('waiting');
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
@@ -95,18 +68,26 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
     }, []);
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.content}>
-                {/* Back Button */}
-                <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                    <BackIcon />
-                    <BodySm>Back</BodySm>
-                </TouchableOpacity>
-
-                {/* Class Info */}
-                <View style={styles.classInfo}>
-                    <HeadingLg>CS101 — Data Structures</HeadingLg>
-                    <BodySm style={styles.classMeta}>
+        <View style={styles.container}>
+            <View style={[
+                styles.content,
+                { paddingTop: Math.max(insets.top, 20) + spacing.md }
+            ]}>
+                {/* Header Row */}
+                <View style={styles.header}>
+                    <View style={styles.headerRow}>
+                        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                            <ArrowLeft size={18} color={colors.slate} strokeWidth={2} />
+                            <BodySm>Back</BodySm>
+                        </TouchableOpacity>
+                        
+                        <HeadingMd style={styles.headerTitle}>CS101 — Data Structures</HeadingMd>
+                        
+                        {/* Spacer for centering */}
+                        <View style={styles.headerSpacer} />
+                    </View>
+                    
+                    <BodySm style={styles.headerMeta}>
                         Room 305 · 09:00 – 10:30
                     </BodySm>
                 </View>
@@ -121,7 +102,7 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
                                     { transform: [{ scale: pulseAnim }] }
                                 ]}
                             >
-                                <FaceIdIcon />
+                                <ScanFace size={48} color="#FFF" strokeWidth={1.5} />
                             </Animated.View>
                             <HeadingMd style={styles.promptTitle}>Verify with Face ID</HeadingMd>
                             <BodySm style={styles.promptDesc}>
@@ -130,7 +111,7 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
 
                             {/* Timer */}
                             <View style={styles.timer}>
-                                <ClockIcon />
+                                <Clock size={18} color={colors.cobalt} strokeWidth={2} />
                                 <Body style={styles.timerText}>
                                     <Body style={styles.timerCount}>{timer}</Body> seconds remaining
                                 </Body>
@@ -141,7 +122,7 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
                     {status === 'success' && (
                         <View style={styles.successState}>
                             <View style={styles.successIcon}>
-                                <CheckmarkIcon />
+                                <Check size={32} color="#FFF" strokeWidth={3} />
                             </View>
                             <HeadingMd style={styles.successTitle}>Attendance Recorded</HeadingMd>
                             <BodySm style={styles.successDesc}>
@@ -160,7 +141,7 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
                     )}
                 </View>
             </View>
-        </SafeAreaView>
+        </View>
     );
 };
 
@@ -172,19 +153,32 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
+        paddingTop: 0,
     },
     backButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        marginBottom: spacing.lg,
+        width: 80, // Fixed width for balancing
     },
-    classInfo: {
+    header: {
         marginBottom: spacing.xl,
     },
-    classMeta: {
-        marginTop: 4,
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    headerTitle: {
+        flex: 1,
+        textAlign: 'center',
+    },
+    headerSpacer: {
+        width: 80, // Same as backButton width
+    },
+    headerMeta: {
+        textAlign: 'center',
     },
     biometricArea: {
         flex: 1,
@@ -201,11 +195,18 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginBottom: spacing.lg,
         // Glow effect
-        shadowColor: colors.cobalt,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.3,
-        shadowRadius: 24,
-        elevation: 8,
+        ...Platform.select({
+            web: {
+                boxShadow: '0 0 24px rgba(59, 94, 232, 0.3)',
+            },
+            default: {
+                shadowColor: colors.cobalt,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.3,
+                shadowRadius: 24,
+                elevation: 8,
+            },
+        }),
     },
     promptTitle: {
         marginBottom: 8,

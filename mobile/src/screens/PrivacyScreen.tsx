@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import {
     View,
     StyleSheet,
-    SafeAreaView,
     ScrollView,
     TouchableOpacity,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
     HeadingLg,
+    HeadingMd,
     HeadingSm,
+    ResponsiveContainer,
     Body,
     BodySm,
     Caption,
@@ -28,6 +30,7 @@ const BackIcon = () => (
 );
 
 export const PrivacyScreen = ({ onBack }: PrivacyScreenProps) => {
+    const insets = useSafeAreaInsets();
     const [settings, setSettings] = useState({
         faceId: true,
         location: true,
@@ -39,73 +42,86 @@ export const PrivacyScreen = ({ onBack }: PrivacyScreenProps) => {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.content}>
-                <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                    <BackIcon />
-                    <BodySm>Back</BodySm>
-                </TouchableOpacity>
-
-                <HeadingLg style={styles.title}>Privacy & Security</HeadingLg>
-
-                <ScrollView 
-                    style={styles.scroll} 
-                    contentContainerStyle={styles.scrollContent}
-                    alwaysBounceVertical={false}
-                >
-                    <View style={styles.section}>
-                        <HeadingSm style={styles.sectionTitle}>Authentication</HeadingSm>
-                        <View style={styles.settingCard}>
-                            <View style={styles.settingRow}>
-                                <View style={styles.settingInfo}>
-                                    <Body style={styles.settingLabel}>Use Face ID</Body>
-                                    <Caption>Requirement for attendance scans</Caption>
-                                </View>
-                                <Toggle
-                                    value={settings.faceId}
-                                    onValueChange={() => toggle('faceId')}
-                                />
-                            </View>
-                            <View style={styles.divider} />
-                            <TouchableOpacity style={styles.settingRow}>
-                                <View style={styles.settingInfo}>
-                                    <Body style={styles.settingLabel}>Change Password</Body>
-                                    <Caption>Last changed 3 months ago</Caption>
-                                </View>
-                                <Path d="M9 18l6-6-6-6" stroke={colors.slate} strokeWidth={2} />
+        <View style={styles.container}>
+            <ResponsiveContainer>
+                <View style={[
+                    styles.content,
+                    { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                ]}>
+                    {/* Header Row */}
+                    <View style={styles.header}>
+                        <View style={styles.headerRow}>
+                            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                                <BackIcon />
+                                <BodySm>Back</BodySm>
                             </TouchableOpacity>
+                            
+                            <HeadingMd style={styles.headerTitle}>Privacy & Security</HeadingMd>
+                            
+                            {/* Spacer for centering */}
+                            <View style={styles.headerSpacer} />
                         </View>
                     </View>
 
-                    <View style={styles.section}>
-                        <HeadingSm style={styles.sectionTitle}>Data & Privacy</HeadingSm>
-                        <View style={styles.settingCard}>
-                            <View style={styles.settingRow}>
-                                <View style={styles.settingInfo}>
-                                    <Body style={styles.settingLabel}>Location Services</Body>
-                                    <Caption>Used to verify campus presence</Caption>
+                    <ScrollView 
+                        style={styles.scroll} 
+                        contentContainerStyle={styles.scrollContent}
+                        alwaysBounceVertical={false}
+                    >
+                        <View style={styles.section}>
+                            <HeadingSm style={styles.sectionTitle}>Authentication</HeadingSm>
+                            <View style={styles.settingCard}>
+                                <View style={styles.settingRow}>
+                                    <View style={styles.settingInfo}>
+                                        <Body style={styles.settingLabel}>Use Face ID</Body>
+                                        <Caption>Requirement for attendance scans</Caption>
+                                    </View>
+                                    <Toggle
+                                        value={settings.faceId}
+                                        onValueChange={() => toggle('faceId')}
+                                    />
                                 </View>
-                                <Toggle
-                                    value={settings.location}
-                                    onValueChange={() => toggle('location')}
-                                />
-                            </View>
-                            <View style={styles.divider} />
-                            <View style={styles.settingRow}>
-                                <View style={styles.settingInfo}>
-                                    <Body style={styles.settingLabel}>Anonymous Analytics</Body>
-                                    <Caption>Help us improve the app experience</Caption>
-                                </View>
-                                <Toggle
-                                    value={settings.anonymous}
-                                    onValueChange={() => toggle('anonymous')}
-                                />
+                                <View style={styles.divider} />
+                                <TouchableOpacity style={styles.settingRow}>
+                                    <View style={styles.settingInfo}>
+                                        <Body style={styles.settingLabel}>Change Password</Body>
+                                        <Caption>Last changed 3 months ago</Caption>
+                                    </View>
+                                    <Path d="M9 18l6-6-6-6" stroke={colors.slate} strokeWidth={2} />
+                                </TouchableOpacity>
                             </View>
                         </View>
-                    </View>
-                </ScrollView>
-            </View>
-        </SafeAreaView>
+
+                        <View style={styles.section}>
+                            <HeadingSm style={styles.sectionTitle}>Data & Privacy</HeadingSm>
+                            <View style={styles.settingCard}>
+                                <View style={styles.settingRow}>
+                                    <View style={styles.settingInfo}>
+                                        <Body style={styles.settingLabel}>Location Services</Body>
+                                        <Caption>Used to verify campus presence</Caption>
+                                    </View>
+                                    <Toggle
+                                        value={settings.location}
+                                        onValueChange={() => toggle('location')}
+                                    />
+                                </View>
+                                <View style={styles.divider} />
+                                <View style={styles.settingRow}>
+                                    <View style={styles.settingInfo}>
+                                        <Body style={styles.settingLabel}>Anonymous Analytics</Body>
+                                        <Caption>Help us improve the app experience</Caption>
+                                    </View>
+                                    <Toggle
+                                        value={settings.anonymous}
+                                        onValueChange={() => toggle('anonymous')}
+                                    />
+                                </View>
+                            </View>
+                        </View>
+                    </ScrollView>
+                </View>
+            </ResponsiveContainer>
+        </View>
     );
 };
 
@@ -123,10 +139,22 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        marginBottom: spacing.lg,
+        width: 80, // Fixed width for balancing
     },
-    title: {
+    header: {
         marginBottom: spacing.xl,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    headerTitle: {
+        flex: 1,
+        textAlign: 'center',
+    },
+    headerSpacer: {
+        width: 80, // Same as backButton width
     },
     scroll: {
         flex: 1,

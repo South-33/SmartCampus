@@ -340,17 +340,10 @@ VERDICT: Sufficient wires for the project.
 | **Finger Vein (A)** | 3.3V | 3.3V UART | NO | 57600 | Waveshare Wiki |
 | **PN532 NFC V3** | 3.3-5V VCC | 3.3V I2C | NO | - | Adafruit docs |
 | **HLK-LD2410C** | 5V | 3.3V UART | NO | 256000 | HiLink docs |
+| **HLK-TX510** | 5V/1A | 3.3V UART | OPTIONAL | 115200 | Official datasheet + Blakadder |
 | **5V Relay** | 5V | 3.3V trigger OK | NO | - | Common spec |
 
-### Uncertain Specifications (LOW CONFIDENCE)
-
-| Component | What's Unknown | Best Guess | Risk Mitigation |
-|-----------|----------------|------------|-----------------|
-| **HLK-TX510** | UART logic voltage | Likely 3.3V | Using level shifter anyway |
-| **HLK-TX510** | Peak current draw | ~1A budget | USB-C breakout for power |
-| **HLK-TX510** | Baud rate | 115200 | From Blakadder review |
-
-> **Note:** TX510 UART voltage is not officially documented. Blakadder connected ESP32 directly without issues. Using level shifter as cheap insurance ($0.16 each).
+> **Note on TX510:** Specs verified from official HiLink datasheet (Jan 2026). UART is confirmed 3.3V logic (tolerant 2.8V-3.3V). Level shifter included as cheap insurance but not strictly required. Recognition time: 200-600ms. Stores up to 1000 faces.
 
 ### I2C Address Map
 

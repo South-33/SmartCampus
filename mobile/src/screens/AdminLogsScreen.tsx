@@ -4,11 +4,11 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
+    ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
-    HeadingLg,
     HeadingMd,
     HeadingSm,
     Body,
@@ -16,8 +16,10 @@ import {
     Caption,
     ResponsiveContainer,
 } from '../components';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { mockLogs } from '../data/adminMockData';
+import { useConvexAuth } from 'convex/react';
+import { useAppData } from '../context/AppContext';
 
 interface AdminLogsScreenProps {
     onBack: () => void;
@@ -37,6 +39,12 @@ const FilterIcon = () => (
 
 export const AdminLogsScreen = ({ onBack }: AdminLogsScreenProps) => {
     const insets = useSafeAreaInsets();
+    const { isAuthenticated } = useConvexAuth();
+    const { recentLogs: allLogs, isAdminDataLoaded } = useAppData();
+    
+    const isLoading = isAuthenticated && !isAdminDataLoaded;
+    const logs = isAuthenticated ? (allLogs || []) : mockLogs;
+
     return (
         <View style={styles.container}>
             <ResponsiveContainer>
@@ -67,32 +75,43 @@ export const AdminLogsScreen = ({ onBack }: AdminLogsScreenProps) => {
                     >
                         <HeadingSm style={styles.sectionTitle}>RECENT ACTIVITY</HeadingSm>
 
-                    <View style={styles.logsList}>
-                        {mockLogs.map((log) => (
-                            <View key={log.id} style={styles.logItem}>
-                                <View style={[
-                                    styles.resultIndicator,
-                                    { backgroundColor: log.result === 'granted' ? colors.success : colors.error }
-                                ]} />
-                                
-                                <View style={styles.logContent}>
-                                    <View style={styles.logHeader}>
-                                        <Body style={styles.logUser}>{log.userName}</Body>
-                                        <Caption>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Caption>
-                                    </View>
-                                    
-                                    <BodySm style={styles.logAction}>
-                                        {log.action.replace('_', ' ')} • {log.roomName}
-                                    </BodySm>
-                                    
-                                    <View style={styles.logFooter}>
-                                        <Caption>Via {log.method.toUpperCase()}</Caption>
-                                        {log.details && <Caption style={styles.logDetails}>{log.details}</Caption>}
-                                    </View>
-                                </View>
+                        {isLoading ? (
+                            <View style={styles.inlineLoading}>
+                                <ActivityIndicator color={colors.cobalt} />
                             </View>
-                        ))}
-                    </View>
+                        ) : (
+                            <View style={styles.logsList}>
+                                {logs.map((log: any) => (
+                                    <View key={log._id || log.id} style={styles.logItem}>
+                                        <View style={[
+                                            styles.resultIndicator,
+                                            { backgroundColor: log.result === 'granted' ? colors.success : colors.error }
+                                        ]} />
+                                        
+                                        <View style={styles.logContent}>
+                                            <View style={styles.logHeader}>
+                                                <Body style={styles.logUser}>{log.userName}</Body>
+                                                <Caption>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Caption>
+                                            </View>
+                                            
+                                            <BodySm style={styles.logAction}>
+                                                {log.action.replace('_', ' ')} • {log.roomName}
+                                            </BodySm>
+                                            
+                                            <View style={styles.logFooter}>
+                                                <Caption>Via {log.method.toUpperCase()}</Caption>
+                                                {log.details && <Caption style={styles.logDetails}>{log.details}</Caption>}
+                                            </View>
+                                        </View>
+                                    </View>
+                                ))}
+                                {logs.length === 0 && (
+                                    <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                                        <Caption>No activity logged yet.</Caption>
+                                    </View>
+                                )}
+                            </View>
+                        )}
                     </ScrollView>
                 </View>
             </ResponsiveContainer>
@@ -182,5 +201,10 @@ const styles = StyleSheet.create({
     },
     logDetails: {
         color: colors.error,
+    },
+    inlineLoading: {
+        paddingVertical: spacing.xl,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });

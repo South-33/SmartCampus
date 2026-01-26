@@ -4,20 +4,30 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
+    Modal,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
-    HeadingLg,
     HeadingMd,
     HeadingSm,
     Body,
     BodySm,
     Caption,
     ResponsiveContainer,
+    LoadingView,
+    Button,
+    Input,
 } from '../components';
-import Svg, { Path, Circle } from 'react-native-svg';
-import { mockUsers, AdminUser } from '../data/adminMockData';
+import Svg, { Path } from 'react-native-svg';
+import { useAction, useConvexAuth } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import { mockUsers } from '../data/adminMockData';
+import { useAppData } from '../context/AppContext';
 
 interface AdminUserListScreenProps {
     onBack: () => void;
@@ -30,18 +40,72 @@ const BackIcon = () => (
     </Svg>
 );
 
-const SearchIcon = () => (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
-        <Circle cx="11" cy="11" r="8" />
-        <Path d="M21 21l-4.35-4.35" strokeLinecap="round" strokeLinejoin="round" />
+const PlusIcon = () => (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.cobalt} strokeWidth={2}>
+        <Path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
 );
 
 export const AdminUserListScreen = ({ onBack, onViewUser }: AdminUserListScreenProps) => {
-    const insets = useSafeAreaInsets();
-    const [activeTab, setActiveTab] = useState<'all' | 'student' | 'teacher'>('all');
+    const { allUsers, isAdminDataLoaded } = useAppData();
+    const globalLoading = !isAdminDataLoaded;
 
-    const filteredUsers = mockUsers.filter(user => {
+    const insets = useSafeAreaInsets();
+    const { isAuthenticated } = useConvexAuth();
+    const [activeTab, setActiveTab] = useState<'all' | 'student' | 'teacher' | 'admin' | 'staff'>('all');
+    const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+    const [newUserName, setNewUserName] = useState('');
+    const [newUserEmail, setNewUserEmail] = useState('');
+    const [newUserPassword, setNewUserPassword] = useState('');
+    const [newUserRole, setNewUserRole] = useState<'student' | 'teacher' | 'admin' | 'staff'>('student');
+    const [isCreating, setIsCreating] = useState(false);
+
+    const createUser = useAction(api.users.create);
+
+    // Use real users if authenticated, otherwise use mock users for demo
+    const users = isAuthenticated ? (allUsers || []) : (mockUsers as any[]);
+    const isLoading = isAuthenticated && globalLoading;
+
+    const handleCreateUser = async () => {
+        if (!newUserName || !newUserEmail || !newUserPassword) {
+            Alert.alert('Error', 'Please fill in all fields');
+            return;
+        }
+
+        // Simple email validation regex
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(newUserEmail)) {
+            Alert.alert('Error', 'Please enter a valid email address');
+            return;
+        }
+
+        if (newUserPassword.length < 8) {
+            Alert.alert('Error', 'Password must be at least 8 characters long');
+            return;
+        }
+
+        setIsCreating(true);
+        try {
+            await createUser({
+                name: newUserName,
+                email: newUserEmail,
+                password: newUserPassword,
+                role: newUserRole,
+            });
+            setIsAddModalVisible(false);
+            setNewUserName('');
+            setNewUserEmail('');
+            setNewUserPassword('');
+            Alert.alert('Success', 'User created successfully');
+        } catch (error: any) {
+            console.error(error);
+            Alert.alert('Error', error.message || 'Failed to create user');
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
+    const filteredUsers = users.filter(user => {
         if (activeTab === 'all') return true;
         return user.role === activeTab;
     });
@@ -63,32 +127,28 @@ export const AdminUserListScreen = ({ onBack, onViewUser }: AdminUserListScreenP
                             
                             <HeadingMd style={styles.headerTitle}>Users</HeadingMd>
                             
-                            <TouchableOpacity style={styles.searchButton}>
-                                <SearchIcon />
+                            <TouchableOpacity 
+                                style={styles.searchButton}
+                                onPress={() => setIsAddModalVisible(true)}
+                            >
+                                <PlusIcon />
                             </TouchableOpacity>
                         </View>
                     </View>
 
                     {/* Tabs */}
                     <View style={styles.tabContainer}>
-                        <TouchableOpacity 
-                            style={[styles.tab, activeTab === 'all' && styles.activeTab]}
-                            onPress={() => setActiveTab('all')}
-                        >
-                            <BodySm style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>All</BodySm>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                            style={[styles.tab, activeTab === 'student' && styles.activeTab]}
-                            onPress={() => setActiveTab('student')}
-                        >
-                            <BodySm style={[styles.tabText, activeTab === 'student' && styles.activeTabText]}>Students</BodySm>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                            style={[styles.tab, activeTab === 'teacher' && styles.activeTab]}
-                            onPress={() => setActiveTab('teacher')}
-                        >
-                            <BodySm style={[styles.tabText, activeTab === 'teacher' && styles.activeTabText]}>Teachers</BodySm>
-                        </TouchableOpacity>
+                        {(['all', 'student', 'teacher', 'admin', 'staff'] as const).map((tab) => (
+                            <TouchableOpacity 
+                                key={tab}
+                                style={[styles.tab, activeTab === tab && styles.activeTab]}
+                                onPress={() => setActiveTab(tab)}
+                            >
+                                <BodySm style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                </BodySm>
+                            </TouchableOpacity>
+                        ))}
                     </View>
 
                     <ScrollView
@@ -96,33 +156,119 @@ export const AdminUserListScreen = ({ onBack, onViewUser }: AdminUserListScreenP
                         contentContainerStyle={{ paddingBottom: spacing.xl }}
                         showsVerticalScrollIndicator={false}
                     >
-                        <View style={styles.userList}>
-                            {filteredUsers.map((user) => (
-                                <TouchableOpacity 
-                                    key={user.id} 
-                                    style={styles.userRow} 
-                                    activeOpacity={0.7}
-                                    onPress={() => onViewUser(user.id)}
-                                >
+                        {isLoading ? (
+                            <View style={styles.inlineLoading}>
+                                <ActivityIndicator color={colors.cobalt} />
+                                <Caption style={{ marginTop: spacing.sm }}>Loading users...</Caption>
+                            </View>
+                        ) : (
+                            <View style={styles.userList}>
+                                {filteredUsers.map((user) => (
+                                    <TouchableOpacity 
+                                        key={user._id || user.id} 
+                                        style={styles.userRow} 
+                                        activeOpacity={0.7}
+                                        onPress={() => onViewUser(user._id || user.id)}
+                                    >
                                     <View style={styles.avatar}>
                                         <HeadingSm style={styles.avatarText}>
-                                            {user.name.split(' ').map(n => n[0]).join('')}
+                                            {((user as any).name || 'U').split(' ').map((n: string) => n[0]).join('')}
                                         </HeadingSm>
                                     </View>
-                                    <View style={styles.userInfo}>
-                                        <Body style={styles.userName}>{user.name}</Body>
-                                        <Caption style={styles.userRole}>{user.role.toUpperCase()} • {user.id}</Caption>
+
+                                        <View style={styles.userInfo}>
+                                            <Body style={styles.userName}>{user.name || user.email || 'Unnamed'}</Body>
+                                            <Caption style={styles.userRole}>{(user.role || 'unknown').toUpperCase()}</Caption>
+                                        </View>
+                                        <View style={styles.userStatus}>
+                                            <Caption>Active</Caption>
+                                            <BodySm>Just now</BodySm>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
+                                {filteredUsers.length === 0 && (
+                                    <View style={styles.emptyState}>
+                                        <Caption>No users found in this category.</Caption>
                                     </View>
-                                    <View style={styles.userStatus}>
-                                        <Caption>Active</Caption>
-                                        <BodySm>{user.lastActive}</BodySm>
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
+                                )}
+                            </View>
+                        )}
                     </ScrollView>
                 </View>
             </ResponsiveContainer>
+
+            {/* Add User Modal */}
+            <Modal
+                visible={isAddModalVisible}
+                animationType="slide"
+                transparent={true}
+                onRequestClose={() => setIsAddModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <KeyboardAvoidingView 
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={styles.modalContent}
+                    >
+                        <View style={styles.modalHeader}>
+                            <HeadingMd>Add New User</HeadingMd>
+                            <TouchableOpacity onPress={() => setIsAddModalVisible(false)}>
+                                <Caption style={{ color: colors.cobalt }}>Cancel</Caption>
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
+                            <Input
+                                label="Full Name"
+                                placeholder="John Doe"
+                                value={newUserName}
+                                onChangeText={setNewUserName}
+                            />
+                            <Input
+                                label="Email Address"
+                                placeholder="john@kingsford.edu"
+                                value={newUserEmail}
+                                onChangeText={setNewUserEmail}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                            />
+                            <Input
+                                label="Password"
+                                placeholder="••••••••"
+                                value={newUserPassword}
+                                onChangeText={setNewUserPassword}
+                                secureTextEntry
+                            />
+
+                            <View style={styles.roleSelector}>
+                                <Caption style={styles.roleLabel}>User Role</Caption>
+                                <View style={styles.roleButtons}>
+                                    {(['student', 'teacher', 'admin', 'staff'] as const).map((role) => (
+                                        <TouchableOpacity
+                                            key={role}
+                                            style={[styles.roleButton, newUserRole === role && styles.activeRoleButton]}
+                                            onPress={() => setNewUserRole(role)}
+                                        >
+                                            <Caption style={[styles.roleButtonText, newUserRole === role && styles.activeRoleButtonText]}>
+                                                {role.toUpperCase()}
+                                            </Caption>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
+                        </ScrollView>
+
+                        <View style={styles.modalFooter}>
+                            <Button 
+                                onPress={handleCreateUser} 
+                                loading={isCreating}
+                                disabled={!newUserName || !newUserEmail || !newUserPassword}
+                            >
+                                Create Account
+                            </Button>
+                        </View>
+                    </KeyboardAvoidingView>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -135,13 +281,12 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
     },
     backButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        width: 80, // Fixed width for balancing
+        width: 80,
     },
     header: {
         marginBottom: spacing.xl,
@@ -156,7 +301,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     searchButton: {
-        width: 80, // Same as backButton width for balancing
+        width: 80,
         height: 40,
         alignItems: 'flex-end',
         justifyContent: 'center',
@@ -224,5 +369,72 @@ const styles = StyleSheet.create({
     },
     userStatus: {
         alignItems: 'flex-end',
+    },
+    inlineLoading: {
+        paddingVertical: 100,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptyState: {
+        padding: spacing.xl,
+        alignItems: 'center',
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: colors.ivory,
+        borderTopLeftRadius: radius.lg,
+        borderTopRightRadius: radius.lg,
+        paddingHorizontal: spacing.lg,
+        paddingTop: spacing.lg,
+        paddingBottom: Math.max(spacing.xl, 40),
+        maxHeight: '90%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.lg,
+    },
+    modalForm: {
+        marginBottom: spacing.md,
+    },
+    roleSelector: {
+        marginTop: spacing.sm,
+    },
+    roleLabel: {
+        marginBottom: spacing.xs,
+        fontFamily: 'Inter-SemiBold',
+    },
+    roleButtons: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.xs,
+    },
+    roleButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: radius.md,
+        borderWidth: 1,
+        borderColor: colors.mist,
+        backgroundColor: '#FFF',
+    },
+    activeRoleButton: {
+        backgroundColor: colors.cobalt,
+        borderColor: colors.cobalt,
+    },
+    roleButtonText: {
+        color: colors.slate,
+        fontFamily: 'Inter-Medium',
+        fontSize: 10,
+    },
+    activeRoleButtonText: {
+        color: '#FFF',
+    },
+    modalFooter: {
+        marginTop: spacing.xl,
     },
 });

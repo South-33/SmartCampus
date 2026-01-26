@@ -6,20 +6,25 @@ import {
     TouchableOpacity,
     Switch,
     Alert,
+    Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
-    HeadingLg,
     HeadingMd,
     HeadingSm,
     Body,
     BodySm,
     Caption,
     ResponsiveContainer,
+    Button,
+    LoadingView,
 } from '../components';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { mockUsers, AdminUser, mockRooms } from '../data/adminMockData';
+import { mockUsers, mockRooms } from '../data/adminMockData';
+
+import { useQuery, useMutation, useConvexAuth } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 interface AdminUserDetailScreenProps {
     userId: string;
@@ -49,12 +54,87 @@ const FingerprintIcon = () => (
 
 export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenProps) => {
     const insets = useSafeAreaInsets();
-    const user = mockUsers.find(u => u.id === userId) || mockUsers[0];
-    const [isActive, setIsActive] = useState(user.status === 'active' || user.status === 'enrolled');
+    const { isAuthenticated } = useConvexAuth();
+    
+    // Fetch live user data if authenticated and ID looks valid, otherwise fallback to mock for demo
+    const isRealId = userId && userId.length > 5; // Simple check for Convex ID vs mock "u1"
+    const realUser = useQuery(api.users.get, (isAuthenticated && isRealId) ? { id: userId as any } : 'skip' as any);
+    const deleteUser = useMutation(api.users.remove);
+    
+    const mockUser = mockUsers.find(u => u.id === userId);
+    const user = (isAuthenticated && isRealId) ? realUser : mockUser;
+
+    const [isActive, setIsActive] = useState(true);
+
+    if (isAuthenticated && isRealId && realUser === undefined) {
+        return <LoadingView />;
+    }
+
+    if (!user) {
+        return (
+            <View style={styles.container}>
+                <View style={[styles.content, { paddingTop: insets.top + spacing.xl, alignItems: 'center' }]}>
+                    <Body style={{ textAlign: 'center', marginBottom: spacing.lg }}>User not found</Body>
+                    <Button onPress={onBack}>Go Back</Button>
+                </View>
+            </View>
+        );
+    }
     
     const handleResetUID = () => {
         Alert.alert("Link Card", "Place the new NFC card near an Admin Gatekeeper to sync.");
     };
+
+    const handleDelete = () => {
+        if (!isAuthenticated || !isRealId) {
+            if (Platform.OS === 'web') {
+                window.alert("Demo Mode: You cannot delete users in demo mode.");
+            } else {
+                Alert.alert("Demo Mode", "You cannot delete users in demo mode.");
+            }
+            return;
+        }
+
+        const confirmMessage = `Are you sure you want to permanently remove ${user.name || 'this user'}? This action cannot be undone.`;
+
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm(`Delete User\n\n${confirmMessage}`);
+            if (confirmed) {
+                performDelete();
+            }
+            return;
+        }
+
+        Alert.alert(
+            "Delete User",
+            confirmMessage,
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Delete", 
+                    style: "destructive",
+                    onPress: performDelete
+                }
+            ]
+        );
+    };
+
+    const performDelete = async () => {
+        try {
+            await deleteUser({ id: userId as any });
+            onBack();
+        } catch (error: any) {
+            const errorMsg = error.message || "Failed to delete user";
+            if (Platform.OS === 'web') {
+                window.alert("Error: " + errorMsg);
+            } else {
+                Alert.alert("Error", errorMsg);
+            }
+        }
+    };
+
+    const userName = user.name || (user as any).email || 'Unnamed User';
+    const userRoleText = (user.role || 'unknown').toUpperCase();
 
     return (
         <View style={styles.container}>
@@ -73,21 +153,19 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
                             
                             <HeadingMd style={styles.headerTitle}>User Profile</HeadingMd>
                             
-                            {/* Spacer for centering */}
                             <View style={styles.headerSpacer} />
                         </View>
                     </View>
 
                     <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: spacing.xl }} showsVerticalScrollIndicator={false}>
-                        {/* User Hero */}
                         <View style={styles.heroCard}>
                             <View style={styles.avatar}>
                                 <HeadingMd style={styles.avatarText}>
-                                    {user.name.split(' ').map(n => n[0]).join('')}
+                                    {userName.split(' ').map((n: string) => n[0]).join('')}
                                 </HeadingMd>
                             </View>
-                            <HeadingMd style={styles.userName}>{user.name}</HeadingMd>
-                            <Caption style={styles.userRole}>{user.role.toUpperCase()} • {user.id}</Caption>
+                            <HeadingMd style={styles.userName}>{userName}</HeadingMd>
+                            <Caption style={styles.userRole}>{userRoleText}</Caption>
                             
                             <View style={styles.statusToggle}>
                                 <BodySm>Account Active</BodySm>
@@ -99,7 +177,6 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
                             </View>
                         </View>
 
-                        {/* Credentials Section */}
                         <HeadingSm style={styles.sectionTitle}>CREDENTIALS</HeadingSm>
                         <View style={styles.card}>
                             <View style={styles.credentialRow}>
@@ -108,7 +185,7 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
                                 </View>
                                 <View style={styles.credentialInfo}>
                                     <Body>NFC Card UID</Body>
-                                    <Caption>{user.cardUID || 'Not linked'}</Caption>
+                                    <Caption>{(user as any).cardUID || 'Not linked'}</Caption>
                                 </View>
                                 <TouchableOpacity onPress={handleResetUID}>
                                     <BodySm style={styles.actionText}>RE-LINK</BodySm>
@@ -129,11 +206,11 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
                             </View>
                         </View>
 
-                        {/* Access Control */}
                         <HeadingSm style={styles.sectionTitle}>ROOM ACCESS</HeadingSm>
                         <View style={styles.card}>
                             {mockRooms.map((room, idx) => {
-                                const hasAccess = user.allowedRooms.includes('all') || user.allowedRooms.includes(room.id);
+                                const allowedRooms = (user as any).allowedRooms || [];
+                                const hasAccess = allowedRooms.includes('all') || allowedRooms.includes(room.id);
                                 return (
                                     <View key={room.id} style={[
                                         styles.roomRow, 
@@ -146,14 +223,14 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
                                         <Switch 
                                             value={hasAccess}
                                             trackColor={{ false: colors.mist, true: colors.cobalt }}
-                                            disabled={user.allowedRooms.includes('all')}
+                                            disabled={allowedRooms.includes('all')}
                                         />
                                     </View>
                                 );
                             })}
                         </View>
 
-                        <TouchableOpacity style={styles.deleteButton}>
+                        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
                             <BodySm style={styles.deleteText}>REMOVE USER FROM SYSTEM</BodySm>
                         </TouchableOpacity>
                     </ScrollView>
@@ -171,13 +248,12 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
     },
     backButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        width: 80, // Fixed width for balancing
+        width: 80,
     },
     header: {
         marginBottom: spacing.xl,
@@ -192,7 +268,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     headerSpacer: {
-        width: 80, // Same as backButton width
+        width: 80,
     },
     scroll: {
         flex: 1,

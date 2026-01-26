@@ -6,12 +6,14 @@ import {
     TouchableOpacityProps,
     ViewStyle,
     TextStyle,
+    ActivityIndicator,
 } from 'react-native';
 import { colors, radius } from '../theme';
 
 interface ButtonProps extends TouchableOpacityProps {
     variant?: 'primary' | 'secondary' | 'ghost';
     children: React.ReactNode;
+    loading?: boolean;
 }
 
 export const Button = ({
@@ -19,29 +21,34 @@ export const Button = ({
     children,
     style,
     disabled,
+    loading,
     ...props
 }: ButtonProps) => {
     const buttonStyles: any[] = [
         styles.base,
         styles[variant],
-        disabled ? styles.disabled : {},
+        (disabled || loading) ? styles.disabled : {},
         style,
     ];
 
     const textStyles: any[] = [
         styles.text,
         styles[`${variant}Text` as keyof typeof styles],
-        disabled ? styles.disabledText : {},
+        (disabled || loading) ? styles.disabledText : {},
     ];
 
     return (
         <TouchableOpacity
             style={buttonStyles}
             activeOpacity={0.85}
-            disabled={disabled}
+            disabled={disabled || loading}
             {...props}
         >
-            <Text style={textStyles}>{children}</Text>
+            {loading ? (
+                <ActivityIndicator color={variant === 'primary' ? '#FFFFFF' : colors.cobalt} />
+            ) : (
+                <Text style={textStyles}>{children}</Text>
+            )}
         </TouchableOpacity>
     );
 };

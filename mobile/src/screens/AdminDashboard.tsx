@@ -5,7 +5,9 @@ import {
     ScrollView,
     TouchableOpacity,
     Platform,
+    ActivityIndicator,
 } from 'react-native';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
@@ -145,7 +147,35 @@ const DeviceStatusIcon = ({ type, status }: { type: 'gatekeeper' | 'watchman', s
     );
 };
 
-export const AdminDashboard = ({ onProfile, onSecurity, onUsers, onLogs, onRooms, onViewRoom, onOpenGate, alerts = defaultAlerts }: AdminDashboardProps) => {
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import { LoadingView } from '../components';
+import { useAppData } from '../context/AppContext';
+
+interface AdminDashboardProps {
+    onProfile: () => void;
+    onSecurity: () => void;
+    onUsers: () => void;
+    onLogs: () => void;
+    onRooms: () => void;
+    onViewRoom: (roomId: string) => void;
+    onOpenGate: () => void;
+    alerts?: AdminAlert[];
+}
+
+export const AdminDashboard = ({ 
+    onProfile, 
+    onSecurity, 
+    onUsers, 
+    onLogs, 
+    onRooms, 
+    onViewRoom, 
+    onOpenGate, 
+    alerts = defaultAlerts,
+}: AdminDashboardProps) => {
+    const { rooms, devices, recentLogs, userStats, isAdminDataLoaded } = useAppData();
+    const isLoading = !isAdminDataLoaded;
+
     const insets = useSafeAreaInsets();
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-GB', {
@@ -154,19 +184,16 @@ export const AdminDashboard = ({ onProfile, onSecurity, onUsers, onLogs, onRooms
         month: 'long'
     });
 
-    // Simulated local state for demo purposes
-    const [roomStatuses, setRoomStatuses] = useState<Record<string, LockStatus>>(
-        mockRooms.reduce((acc, room) => ({ ...acc, [room.id]: room.lockStatus }), {})
-    );
+    const cycleLockStatusMutation = useMutation(api.rooms.cycleLockStatus);
 
-    const cycleLockStatus = (roomId: string) => {
-        const current = roomStatuses[roomId];
-        const next: LockStatus = 
-            current === 'unlocked' ? 'staff_only' :
-            current === 'staff_only' ? 'locked' : 'unlocked';
-        
-        setRoomStatuses({ ...roomStatuses, [roomId]: next });
+    const cycleLockStatus = async (roomId: string) => {
+        try {
+            await cycleLockStatusMutation({ roomId: roomId as any });
+        } catch (error) {
+            console.error(error);
+        }
     };
+
 
     return (
         <View style={styles.container}>
@@ -216,7 +243,7 @@ export const AdminDashboard = ({ onProfile, onSecurity, onUsers, onLogs, onRooms
                                     <WifiIcon status="online" />
                                 </View>
                                 <View>
-                                    <Body style={styles.healthValue}>{mockDevices.filter(d => d.status === 'online').length}/{mockDevices.length}</Body>
+                                    <Body style={styles.healthValue}>{isLoading ? '--' : (devices?.filter(d => d.status === 'online').length || 0)}/{isLoading ? '--' : (devices?.length || 0)}</Body>
                                     <Caption>Nodes Online</Caption>
                                 </View>
                             </View>
@@ -226,25 +253,27 @@ export const AdminDashboard = ({ onProfile, onSecurity, onUsers, onLogs, onRooms
                                     <DoorIcon />
                                 </View>
                                 <View>
-                                    <Body style={styles.healthValue}>{mockRooms.filter(r => r.lockStatus !== 'unlocked').length}</Body>
-                                    <Caption>Doors Secured</Caption>
+                                    <Body style={styles.healthValue}>{isLoading ? '--' : (rooms?.length || 0)}</Body>
+                                    <Caption>Rooms Active</Caption>
                                 </View>
                             </View>
                         </View>
 
                         {/* Pending Registration Alert - Now integrated into System Health */}
-                        {mockDevices.some(d => !d.roomId) && (
+                        {!isLoading && (devices || []).some(d => !d.roomId) && (
                             <TouchableOpacity style={[styles.registrationCard, { marginTop: spacing.md }]} activeOpacity={0.8} onPress={onSecurity}>
                                 <View style={styles.registrationIcon}>
                                     <PlusIcon />
                                 </View>
                                 <View style={{ flex: 1 }}>
                                     <Body style={{ fontFamily: 'Inter-SemiBold' }}>New Device Detected</Body>
-                                    <Caption>{mockDevices.filter(d => !d.roomId).length} device(s) awaiting room assignment</Caption>
+                                    <Caption>{devices?.filter(d => !d.roomId).length} device(s) awaiting room assignment</Caption>
                                 </View>
                                 <BodySm style={{ color: colors.cobalt, fontFamily: 'Inter-Medium' }}>Assign</BodySm>
                             </TouchableOpacity>
                         )}
+
+
                     </View>
 
                     {/* Alerts & Logs Combined Section */}
@@ -294,67 +323,74 @@ export const AdminDashboard = ({ onProfile, onSecurity, onUsers, onLogs, onRooms
                         </View>
 
                         <View style={styles.roomList}>
-                            {mockRooms.filter(r => r.isPinned).map((room) => {
-                                const roomDevices = mockDevices.filter(d => d.roomId === room.id);
-                                const currentLockStatus = roomStatuses[room.id];
-                                return (
-                                    <TouchableOpacity 
-                                        key={room.id} 
-                                        style={styles.roomContainer}
-                                        activeOpacity={0.85}
-                                        onPress={() => onViewRoom(room.id)}
-                                    >
-                                        <View style={styles.roomHeader}>
-                                            <View style={styles.roomHeaderLeft}>
-                                                <View style={[
-                                                    styles.powerDot,
-                                                    { backgroundColor: room.powerStatus === 'on' ? colors.success : colors.slate }
-                                                ]} />
-                                                <Body style={styles.roomNameMain}>{room.name}</Body>
-                                            </View>
-                                            <View style={styles.roomHeaderRight}>
-                                                <WifiIcon status={room.connectivity.wifi} />
-                                                <View style={styles.deviceIndicatorGroup}>
-                                                    {roomDevices.map(device => (
-                                                        <DeviceStatusIcon 
-                                                            key={device.id}
-                                                            type={device.type} 
-                                                            status={device.status === 'online' ? 'online' : 'offline'} 
-                                                        />
-                                                    ))}
+                            {isLoading ? (
+                                <View style={styles.inlineLoading}>
+                                    <ActivityIndicator color={colors.cobalt} />
+                                </View>
+                            ) : (
+                                (rooms || []).slice(0, 3).map((room) => {
+                                    const roomDevices = (devices || []).filter(d => d.roomId === room._id);
+                                    const currentLockStatus = room.lockStatus || 'unlocked';
+                                    return (
+                                        <TouchableOpacity 
+                                            key={room._id} 
+                                            style={styles.roomContainer}
+                                            activeOpacity={0.85}
+                                            onPress={() => onViewRoom(room._id)}
+                                        >
+                                            <View style={styles.roomHeader}>
+                                                <View style={styles.roomHeaderLeft}>
+                                                    <View style={[
+                                                        styles.powerDot,
+                                                        { backgroundColor: room.powerStatus === 'on' ? colors.success : colors.slate }
+                                                    ]} />
+                                                    <Body style={styles.roomNameMain}>{room.name}</Body>
+                                                </View>
+                                                <View style={styles.roomHeaderRight}>
+                                                    <WifiIcon status="online" />
+                                                    <View style={styles.deviceIndicatorGroup}>
+                                                        {roomDevices.map(device => (
+                                                            <DeviceStatusIcon 
+                                                                key={device._id}
+                                                                type="gatekeeper" 
+                                                                status={device.status === 'online' ? 'online' : 'offline'} 
+                                                            />
+                                                        ))}
+                                                    </View>
                                                 </View>
                                             </View>
-                                        </View>
-                                        
-                                        <View style={styles.roomControlsRow}>
-                                            <TouchableOpacity 
-                                                style={styles.roomStatusInfo}
-                                                activeOpacity={0.6}
-                                                onPress={() => cycleLockStatus(room.id)}
-                                            >
-                                                <LockIcon status={currentLockStatus} />
-                                                <View style={styles.lockStatusRow}>
-                                                    <Caption style={[
-                                                        styles.lockLabel,
-                                                        currentLockStatus !== 'unlocked' && { color: colors.error }
-                                                    ]}>
-                                                        {currentLockStatus.replace('_', ' ').toUpperCase()}
-                                                    </Caption>
-                                                    {currentLockStatus === 'staff_only' && <Caption style={styles.lockDesc}>• Staff & Admins only</Caption>}
-                                                    {currentLockStatus === 'locked' && <Caption style={styles.lockDesc}>• Admins only</Caption>}
-                                                </View>
-                                            </TouchableOpacity>
-                                            <Caption>Occupancy: {room.occupancy}</Caption>
-                                        </View>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                            {mockRooms.filter(r => r.isPinned).length === 0 && (
+                                            
+                                            <View style={styles.roomControlsRow}>
+                                                <TouchableOpacity 
+                                                    style={styles.roomStatusInfo}
+                                                    activeOpacity={0.6}
+                                                    onPress={() => cycleLockStatus(room._id)}
+                                                >
+                                                    <LockIcon status={currentLockStatus as any} />
+                                                    <View style={styles.lockStatusRow}>
+                                                        <Caption style={[
+                                                            styles.lockLabel,
+                                                            currentLockStatus !== 'unlocked' && { color: colors.error }
+                                                        ]}>
+                                                            {currentLockStatus.replace('_', ' ').toUpperCase()}
+                                                        </Caption>
+                                                        {currentLockStatus === 'staff_only' && <Caption style={styles.lockDesc}>• Staff & Admins only</Caption>}
+                                                        {currentLockStatus === 'locked' && <Caption style={styles.lockDesc}>• Admins only</Caption>}
+                                                    </View>
+                                                </TouchableOpacity>
+                                                <Caption>Occupancy: {room.occupancy || 0}</Caption>
+                                            </View>
+                                        </TouchableOpacity>
+                                    );
+                                })
+                            )}
+                            {!isLoading && (rooms?.length || 0) === 0 && (
                                 <View style={styles.emptyPinned}>
-                                    <Caption>No rooms pinned. Tap 'Manage pins' to add rooms here.</Caption>
+                                    <Caption>No rooms found.</Caption>
                                 </View>
                             )}
                         </View>
+
                     </View>
 
                     {/* Recent Activity Mini-Feed */}
@@ -366,24 +402,31 @@ export const AdminDashboard = ({ onProfile, onSecurity, onUsers, onLogs, onRooms
                             </TouchableOpacity>
                         </View>
                         <View style={styles.activityCard}>
-                            {mockLogs.slice(0, 3).map((log, idx) => (
-                                <View key={log.id} style={[styles.activityRow, idx === 2 && { borderBottomWidth: 0 }]}>
-                                    <View style={styles.activityDot} />
-                                    <View style={{ flex: 1 }}>
-                                        <BodySm><BodySm style={{ fontFamily: 'Inter-SemiBold' }}>{log.userName}</BodySm> • {log.roomName}</BodySm>
-                                        <Caption>{log.action.replace('_', ' ')} • {log.method.toUpperCase()} • {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Caption>
-                                    </View>
-                                    <View style={[
-                                        styles.resultBadge,
-                                        { backgroundColor: log.result === 'granted' ? '#F0F9F4' : '#FFF1F1' }
-                                    ]}>
-                                        <Caption style={{ color: log.result === 'granted' ? colors.success : colors.error, fontSize: 10 }}>
-                                            {log.result.toUpperCase()}
-                                        </Caption>
-                                    </View>
+                            {isLoading ? (
+                                <View style={styles.inlineLoading}>
+                                    <ActivityIndicator color={colors.cobalt} />
                                 </View>
-                            ))}
+                            ) : (
+                                (recentLogs || []).slice(0, 3).map((log, idx) => (
+                                    <View key={log._id} style={[styles.activityRow, idx === 2 && { borderBottomWidth: 0 }]}>
+                                        <View style={styles.activityDot} />
+                                        <View style={{ flex: 1 }}>
+                                            <BodySm><BodySm style={{ fontFamily: 'Inter-SemiBold' }}>{log.userName}</BodySm> • {log.roomName}</BodySm>
+                                            <Caption>{log.action.replace('_', ' ')} • {log.method.toUpperCase()} • {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Caption>
+                                        </View>
+                                        <View style={[
+                                            styles.resultBadge,
+                                            { backgroundColor: log.result === 'granted' ? '#F0F9F4' : '#FFF1F1' }
+                                        ]}>
+                                            <Caption style={{ color: log.result === 'granted' ? colors.success : colors.error, fontSize: 10 }}>
+                                                {log.result.toUpperCase()}
+                                            </Caption>
+                                        </View>
+                                    </View>
+                                ))
+                            )}
                         </View>
+
                     </View>
 
                     {/* User Summary */}
@@ -396,20 +439,21 @@ export const AdminDashboard = ({ onProfile, onSecurity, onUsers, onLogs, onRooms
                         </View>
                         <View style={styles.userStatsContainer}>
                             <View style={styles.userStatItem}>
-                                <HeadingMd>{mockUsers.filter(u => u.role === 'student').length}</HeadingMd>
+                                <HeadingMd>{isLoading ? '--' : userStats?.students}</HeadingMd>
                                 <Caption>Students</Caption>
                             </View>
                             <View style={styles.userStatDivider} />
                             <View style={styles.userStatItem}>
-                                <HeadingMd>{mockUsers.filter(u => u.role === 'teacher').length}</HeadingMd>
+                                <HeadingMd>{isLoading ? '--' : userStats?.teachers}</HeadingMd>
                                 <Caption>Teachers</Caption>
                             </View>
                             <View style={styles.userStatDivider} />
                             <View style={styles.userStatItem}>
-                                <HeadingMd>{mockUsers.filter(u => u.role === 'cleaner' || u.role === 'admin').length}</HeadingMd>
+                                <HeadingMd>{isLoading ? '--' : userStats?.staff}</HeadingMd>
                                 <Caption>Staff</Caption>
                             </View>
                         </View>
+
                     </View>
 
                     {/* Analytics Section - Moved to bottom */}
@@ -872,9 +916,15 @@ const styles = StyleSheet.create({
     statusOffline: {
         backgroundColor: colors.error,
     },
+    inlineLoading: {
+        paddingVertical: spacing.xl,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     deviceInfo: {
         flex: 1,
     },
+
     deviceAction: {
         padding: spacing.sm,
     },

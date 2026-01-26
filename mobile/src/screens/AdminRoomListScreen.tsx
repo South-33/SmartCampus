@@ -5,20 +5,22 @@ import {
     ScrollView,
     TouchableOpacity,
     TextInput,
+    ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
-    HeadingLg,
     HeadingMd,
     HeadingSm,
-    Body,
     BodySm,
     Caption,
     ResponsiveContainer,
 } from '../components';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
-import { mockRooms, LockStatus, mockDevices } from '../data/adminMockData';
+import { mockRooms, LockStatus } from '../data/adminMockData';
+import { useMutation, useConvexAuth } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import { useAppData } from '../context/AppContext';
 
 interface AdminRoomListScreenProps {
     onBack: () => void;
@@ -41,12 +43,6 @@ const FilterIcon = () => (
 const BackIcon = () => (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
         <Path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
-const PlusIcon = () => (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={colors.cobalt} strokeWidth={2}>
-        <Path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
 );
 
@@ -100,37 +96,47 @@ const DeviceStatusIcon = ({ type, status }: { type: 'gatekeeper' | 'watchman', s
 };
 
 export const AdminRoomListScreen = ({ onBack, onViewRoom }: AdminRoomListScreenProps) => {
+    const { rooms: allRooms, devices: allDevices, isAdminDataLoaded } = useAppData();
+    const globalLoading = !isAdminDataLoaded;
+
     const insets = useSafeAreaInsets();
+    const { isAuthenticated } = useConvexAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'offline' | 'locked'>('all');
 
-    // Simulated local state for demo purposes
-    const [roomStatuses, setRoomStatuses] = useState<Record<string, LockStatus>>(
-        mockRooms.reduce((acc, room) => ({ ...acc, [room.id]: room.lockStatus }), {})
-    );
-    const [pinnedRooms, setPinnedRooms] = useState<Record<string, boolean>>(
-        mockRooms.reduce((acc, room) => ({ ...acc, [room.id]: !!room.isPinned }), {})
-    );
+    const cycleLockStatusMutation = useMutation(api.rooms.cycleLockStatus);
+    
+    const isLoading = isAuthenticated && globalLoading;
+    const rooms = isAuthenticated ? (allRooms || []) : mockRooms;
+
+    const [roomStatuses, setRoomStatuses] = useState<Record<string, LockStatus>>({});
+    const [pinnedRooms, setPinnedRooms] = useState<Record<string, boolean>>({});
 
     const filteredRooms = useMemo(() => {
-        return mockRooms.filter(room => {
+        return rooms.filter(room => {
             const matchesSearch = room.name.toLowerCase().includes(searchQuery.toLowerCase());
-            const currentStatus = roomStatuses[room.id];
+            const roomId = (room as any)._id || (room as any).id;
+            const currentStatus = (room as any).lockStatus || roomStatuses[roomId] || 'unlocked';
             
             if (filterStatus === 'locked') return matchesSearch && currentStatus === 'locked';
-            if (filterStatus === 'offline') return matchesSearch && (room.connectivity.wifi === 'offline');
-            
             return matchesSearch;
         });
-    }, [searchQuery, filterStatus, roomStatuses]);
+    }, [searchQuery, filterStatus, rooms, roomStatuses]);
 
-    const cycleLockStatus = (roomId: string) => {
-        const current = roomStatuses[roomId];
-        const next: LockStatus = 
-            current === 'unlocked' ? 'staff_only' :
-            current === 'staff_only' ? 'locked' : 'unlocked';
-        
-        setRoomStatuses({ ...roomStatuses, [roomId]: next });
+    const cycleLockStatus = async (roomId: string) => {
+        if (isAuthenticated) {
+            try {
+                await cycleLockStatusMutation({ roomId: roomId as any });
+            } catch (error) {
+                console.error(error);
+            }
+        } else {
+            const current = roomStatuses[roomId] || 'unlocked';
+            const next: LockStatus = 
+                current === 'unlocked' ? 'staff_only' :
+                current === 'staff_only' ? 'locked' : 'unlocked';
+            setRoomStatuses({ ...roomStatuses, [roomId]: next });
+        }
     };
 
     const togglePin = (roomId: string) => {
@@ -189,20 +195,6 @@ export const AdminRoomListScreen = ({ onBack, onViewRoom }: AdminRoomListScreenP
                                 )}
                             </TouchableOpacity>
                         </View>
-                        
-                        {filterStatus !== 'all' && (
-                            <View style={styles.filterChipRow}>
-                                <TouchableOpacity 
-                                    style={styles.filterChip}
-                                    onPress={() => setFilterStatus('all')}
-                                >
-                                    <Caption style={styles.filterChipText}>
-                                        {filterStatus.toUpperCase()}
-                                    </Caption>
-                                    <BackIcon /> 
-                                </TouchableOpacity>
-                            </View>
-                        )}
                     </View>
 
                     <ScrollView
@@ -214,76 +206,87 @@ export const AdminRoomListScreen = ({ onBack, onViewRoom }: AdminRoomListScreenP
                             {filterStatus === 'all' ? 'ALL ROOMS' : `${filterStatus.toUpperCase()} ROOMS`} ({filteredRooms.length})
                         </HeadingSm>
 
-                        <View style={styles.grid}>
-                            {filteredRooms.map((room) => {
-                                const currentLockStatus = roomStatuses[room.id];
-                                const isPinned = pinnedRooms[room.id];
-                                return (
-                                    <TouchableOpacity 
-                                        key={room.id} 
-                                        style={styles.roomCard} 
-                                        activeOpacity={0.85}
-                                        onPress={() => onViewRoom(room.id)}
-                                    >
-                                        <View style={styles.roomHeader}>
-                                            <View style={styles.roomHeaderLeft}>
-                                                <View style={[
-                                                    styles.powerDot,
-                                                    { backgroundColor: room.powerStatus === 'on' ? colors.success : colors.slate }
-                                                ]} />
-                                                <HeadingSm style={styles.roomName}>{room.name}</HeadingSm>
+                        {isLoading ? (
+                            <View style={styles.inlineLoading}>
+                                <ActivityIndicator color={colors.cobalt} />
+                            </View>
+                        ) : (
+                            <View style={styles.grid}>
+                                {filteredRooms.map((room) => {
+                                    const roomId = (room as any)._id || (room as any).id;
+                                    const currentLockStatus = (room as any).lockStatus || roomStatuses[roomId] || 'unlocked';
+                                    const isPinned = pinnedRooms[roomId];
+                                    const roomDevices = (allDevices || []).filter(d => (d as any).roomId === roomId) || [];
+
+                                    return (
+                                        <TouchableOpacity 
+                                            key={roomId} 
+                                            style={styles.roomCard} 
+                                            activeOpacity={0.85}
+                                            onPress={() => onViewRoom(roomId)}
+                                        >
+                                            <View style={styles.roomHeader}>
+                                                <View style={styles.roomHeaderLeft}>
+                                                    <View style={[
+                                                        styles.powerDot,
+                                                        { backgroundColor: (room as any).powerStatus === 'on' ? colors.success : colors.slate }
+                                                    ]} />
+                                                    <HeadingSm style={styles.roomName} numberOfLines={1}>{(room as any).name}</HeadingSm>
+                                                </View>
+                                                <View style={styles.roomHeaderRight}>
+                                                    <TouchableOpacity 
+                                                        activeOpacity={0.7} 
+                                                        onPress={() => togglePin(roomId)}
+                                                        style={styles.pinHeaderAction}
+                                                    >
+                                                        <PinIcon pinned={isPinned} />
+                                                    </TouchableOpacity>
+                                                    <WifiIcon status="online" />
+                                                </View>
                                             </View>
-                                            <View style={styles.roomHeaderRight}>
+                                            
+                                            <View style={styles.roomStats}>
+                                                <View style={styles.statItem}>
+                                                    <UserIcon />
+                                                    <Caption style={styles.statText}>{(room as any).occupancy || 0} Active</Caption>
+                                                </View>
+                                                <View style={styles.deviceIndicatorGroup}>
+                                                    {roomDevices.map(device => (
+                                                        <DeviceStatusIcon 
+                                                            key={(device as any)._id}
+                                                            type="gatekeeper" 
+                                                            status={(device as any).status === 'online' ? 'online' : 'offline'} 
+                                                        />
+                                                    ))}
+                                                </View>
+                                            </View>
+                                            
+                                            <View style={styles.roomFooter}>
                                                 <TouchableOpacity 
-                                                    activeOpacity={0.7} 
-                                                    onPress={() => togglePin(room.id)}
-                                                    style={styles.pinHeaderAction}
+                                                    style={styles.lockAction}
+                                                    activeOpacity={0.6}
+                                                    onPress={() => cycleLockStatus(roomId)}
                                                 >
-                                                    <PinIcon pinned={isPinned} />
-                                                </TouchableOpacity>
-                                                <WifiIcon status={room.connectivity.wifi} />
-                                                {mockDevices.filter(d => d.roomId === room.id).map(device => (
-                                                    <DeviceStatusIcon 
-                                                        key={device.id}
-                                                        type={device.type} 
-                                                        status={device.status === 'online' ? 'online' : 'offline'} 
-                                                    />
-                                                ))}
-                                            </View>
-                                        </View>
-                                        
-                                        <View style={styles.roomStats}>
-                                            <View style={styles.statItem}>
-                                                <UserIcon />
-                                                <Caption style={styles.statText}>{room.occupancy} Active</Caption>
-                                            </View>
-                                        </View>
-                                        
-                                        <View style={styles.roomFooter}>
-                                            <TouchableOpacity 
-                                                style={styles.statItem}
-                                                activeOpacity={0.6}
-                                                onPress={() => cycleLockStatus(room.id)}
-                                            >
-                                                <LockIcon status={currentLockStatus} />
-                                                <View style={styles.lockStatusRow}>
+                                                    <LockIcon status={currentLockStatus} />
                                                     <Caption style={[
                                                         styles.statText, 
                                                         currentLockStatus !== 'unlocked' && { color: colors.error, fontFamily: 'Inter-Medium' }
                                                     ]}>
                                                         {currentLockStatus.replace('_', ' ').toUpperCase()}
                                                     </Caption>
-                                                    {currentLockStatus === 'staff_only' && <Caption style={styles.lockDesc}>• Staff & Admins only</Caption>}
-                                                    {currentLockStatus === 'locked' && <Caption style={styles.lockDesc}>• Admins only</Caption>}
-                                                </View>
-                                            </TouchableOpacity>
-
-                                            <BodySm style={styles.manageLink}>View Details</BodySm>
-                                        </View>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
+                                                </TouchableOpacity>
+                                                <BodySm style={styles.manageLink}>View</BodySm>
+                                            </View>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                                {filteredRooms.length === 0 && (
+                                    <View style={styles.emptyCard}>
+                                        <Caption>No rooms found.</Caption>
+                                    </View>
+                                )}
+                            </View>
+                        )}
                     </ScrollView>
                 </View>
             </ResponsiveContainer>
@@ -299,13 +302,12 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
     },
     backButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        width: 80, // Fixed width for balancing
+        width: 80,
     },
     header: {
         marginBottom: spacing.xl,
@@ -320,7 +322,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     headerSpacer: {
-        width: 80, // Same as backButton width
+        width: 80,
     },
     searchContainer: {
         flexDirection: 'row',
@@ -375,30 +377,6 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontFamily: 'Inter-SemiBold',
     },
-    filterChipRow: {
-        flexDirection: 'row',
-        marginTop: spacing.sm,
-    },
-    filterChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: colors.cobalt,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 4,
-        borderRadius: 16,
-        gap: 4,
-    },
-    filterChipText: {
-        color: '#FFF',
-        fontSize: 10,
-        fontFamily: 'Inter-SemiBold',
-    },
-    addButton: {
-        width: 40,
-        height: 40,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
     scroll: {
         flex: 1,
     },
@@ -412,7 +390,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     roomCard: {
-        width: '48%',
+        width: '48.5%',
         backgroundColor: '#FFF',
         borderWidth: 1,
         borderColor: colors.mist,
@@ -436,16 +414,7 @@ const styles = StyleSheet.create({
     roomHeaderRight: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-    },
-    connectivityGroup: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    deviceIndicatorGroup: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
+        gap: 4,
     },
     powerDot: {
         width: 6,
@@ -453,13 +422,15 @@ const styles = StyleSheet.create({
         borderRadius: 3,
     },
     roomName: {
-        fontSize: 14,
+        fontSize: 13,
         flex: 1,
         color: colors.charcoal,
     },
     roomStats: {
-        marginBottom: spacing.md,
-        gap: 8,
+        marginBottom: spacing.sm,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     statItem: {
         flexDirection: 'row',
@@ -467,7 +438,11 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     statText: {
-        fontSize: 11,
+        fontSize: 10,
+    },
+    deviceIndicatorGroup: {
+        flexDirection: 'row',
+        gap: 2,
     },
     roomFooter: {
         flexDirection: 'row',
@@ -477,31 +452,33 @@ const styles = StyleSheet.create({
         borderTopColor: colors.mist,
         paddingTop: spacing.sm,
     },
-    manageLink: {
-        fontSize: 12,
-        color: colors.cobalt,
-        fontFamily: 'Inter-Medium',
-    },
     lockAction: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 4,
+        flex: 1,
     },
-    lockStatusRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
-    lockDesc: {
-        fontSize: 9,
-        color: colors.slate,
-    },
-    footerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 16,
+    manageLink: {
+        fontSize: 11,
+        color: colors.cobalt,
+        fontFamily: 'Inter-Medium',
     },
     pinHeaderAction: {
-        padding: 4,
+        padding: 2,
+    },
+    inlineLoading: {
+        paddingVertical: spacing.xl,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptyCard: {
+        width: '100%',
+        padding: spacing.xl,
+        alignItems: 'center',
+        backgroundColor: '#FFF',
+        borderRadius: radius.md,
+        borderWidth: 1,
+        borderStyle: 'dashed',
+        borderColor: colors.mist,
     },
 });

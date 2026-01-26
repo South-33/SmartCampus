@@ -11,11 +11,16 @@ import { colors, spacing } from '../theme';
 import { Button, Input, Wordmark, BodySm, Caption } from '../components';
 import Svg, { Path } from 'react-native-svg';
 
+import { useAuthActions } from "@convex-dev/auth/react";
+import { Alert } from 'react-native';
+
 export type UserRole = 'student' | 'teacher' | 'admin' | 'staff';
 
 interface LoginScreenProps {
     onLogin: (role: UserRole) => void;
 }
+
+// ... icons ...
 
 // Simple crest icon
 const CrestIcon = () => (
@@ -36,24 +41,28 @@ const CrestIcon = () => (
     </Svg>
 );
 
-// Demo accounts - simulates backend role lookup
-const DEMO_ACCOUNTS: Record<string, UserRole> = {
-    'student': 'student',
-    'teacher': 'teacher',
-    'admin': 'admin',
-    '2024001': 'student',
-    'prof': 'teacher',
-};
-
 export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
     const insets = useSafeAreaInsets();
-    const [userId, setUserId] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [loading, setLoading] = useState(false);
+    const { signIn } = useAuthActions();
 
-    const handleLogin = () => {
-        // Demo: determine role from ID (in real app, server returns this)
-        const role = DEMO_ACCOUNTS[userId.toLowerCase()] || 'student';
-        onLogin(role);
+    const handleLogin = async () => {
+        if (!email || !password) {
+            Alert.alert('Error', 'Please enter both email and password');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            await signIn("password", { email, password, flow: "signIn" });
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Login Failed', 'Invalid email or password');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -85,12 +94,13 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
                     accessibilityRole={Platform.OS === 'web' ? 'form' : undefined}
                 >
                     <Input
-                        label="User ID"
-                        placeholder="Enter your ID"
-                        value={userId}
-                        onChangeText={setUserId}
+                        label="Email"
+                        placeholder="Enter your email"
+                        value={email}
+                        onChangeText={setEmail}
                         autoCapitalize="none"
-                        autoComplete="username"
+                        autoComplete="email"
+                        keyboardType="email-address"
                     />
                     <Input
                         label="Password"
@@ -104,7 +114,8 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
 
                 {/* Actions */}
                 <View style={styles.actions}>
-                    <Button onPress={handleLogin}>Sign In</Button>
+                    <Button onPress={handleLogin} loading={loading}>Sign In</Button>
+
                     <BodySm style={styles.forgotLink}>Forgot password?</BodySm>
                     
                     <View style={styles.demoContainer}>

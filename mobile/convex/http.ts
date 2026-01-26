@@ -8,19 +8,33 @@ const http = httpRouter();
 auth.addHttpRoutes(http);
 
 /**
+ * Utility to extract hardware credentials from either URL params or JSON body.
+ */
+async function getHardwareCreds(request: Request) {
+  if (request.method === "GET") {
+    const url = new URL(request.url);
+    return {
+      chipId: url.searchParams.get("chipId"),
+      token: url.searchParams.get("token"),
+    };
+  }
+  const body = await request.json();
+  return {
+    chipId: body.chipId,
+    token: body.token,
+    payload: body,
+  };
+}
+
+/**
  * GET /api/whitelist?chipId=XXX&token=YYY
  */
 http.route({
   path: "/api/whitelist",
   method: "GET",
   handler: httpAction(async (ctx, request) => {
-    const url = new URL(request.url);
-    const chipId = url.searchParams.get("chipId");
-    const token = url.searchParams.get("token");
-
-    if (!chipId || !token) {
-      return new Response("Missing credentials", { status: 400 });
-    }
+    const { chipId, token } = await getHardwareCreds(request);
+    if (!chipId || !token) return new Response("Missing credentials", { status: 400 });
 
     try {
       const data = await ctx.runQuery(api.hardware.getWhitelist, { chipId, token });
@@ -42,9 +56,9 @@ http.route({
   path: "/api/logs",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const body = await request.json();
     try {
-      const result = await ctx.runMutation(api.hardware.syncLogs, body);
+      const { payload } = await getHardwareCreds(request);
+      const result = await ctx.runMutation(api.hardware.syncLogs, payload);
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -63,9 +77,9 @@ http.route({
   path: "/api/heartbeat",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const body = await request.json();
     try {
-      const result = await ctx.runMutation(api.hardware.heartbeat, body);
+      const { payload } = await getHardwareCreds(request);
+      const result = await ctx.runMutation(api.hardware.heartbeat, payload);
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -84,8 +98,8 @@ http.route({
   path: "/api/register",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const body = await request.json();
     try {
+      const body = await request.json();
       const result = await ctx.runMutation(api.hardware.register, body);
       return new Response(JSON.stringify(result), {
         status: 200,

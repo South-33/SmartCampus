@@ -1,7 +1,7 @@
 # Hardware Inventory & Resource Tracker
 
 > Last Updated: January 2026
-> Status: **ACTIVE PROCUREMENT**
+> Status: **ALL ORDERED - AWAITING DELIVERY**
 
 ---
 
@@ -17,15 +17,15 @@
   ESP32 Nodes        [##########] 2/2 FULL      No spare controllers
   NFC Modules        [#####-----] 1/2 USED      1 spare for 2nd door
   Radar Sensors      [##########] 1/1 FULL      Buy more for expansion
-  Finger Vein        [##########] 1/1 PLANNED   In cart
-  Face Recognition   [##########] 1/1 PLANNED   In cart
+  Finger Vein        [##########] 1/1 ORDERED   Awaiting delivery
+  Face Recognition   [##########] 1/1 ORDERED   Awaiting delivery
 
   ACTUATORS & POWER
   -----------------
   Relay Modules      [##########] 2/2 FULL      Buy more for expansion
   USB-C Cables       [##########] 2/2 FULL      For flashing
-  USB-C Breakouts    [#---------] 1/5 PLANNED   4 spare after Node A
-  Level Shifters     [##--------] 2/10 PLANNED  8 spare after Node A
+  USB-C Breakouts    [#---------] 1/5 ORDERED   4 spare after Node A
+  Level Shifters     [##--------] 2/10 ORDERED  8 spare after Node A
 
   WIRING & PROTOTYPING
   --------------------
@@ -45,7 +45,7 @@
 | Category | Status | Est. Total |
 |----------|--------|------------|
 | **Order 1** | ORDERED | $55.51 |
-| **Order 2 (Cart)** | TO ORDER | ~$123 |
+| **Order 2** | ORDERED | ~$123 |
 | **GRAND TOTAL** | | **~$178** |
 
 ---
@@ -69,16 +69,16 @@ These items are ordered and cannot be changed.
 
 ---
 
-## Part 2: In Cart - To Order (~$123)
+## Part 2: Ordered - Awaiting Delivery (~$123)
 
-These items are in your AliExpress cart, not yet ordered.
+These items have been ordered and are currently in transit.
 
 ### Core Components
 
 | # | Item | Qty | Price | Store | Purpose |
 |---|------|-----|-------|-------|---------|
 | 1 | **Waveshare Finger Vein Module (A)** | 1 | $29.14 | Ditu Technology | Primary biometric |
-| 2 | **HLK-TX510 Face Recognition Test Suit** | 1 | $42.71 | HI-LINK Component | Secondary biometric (with screen) |
+| 2 | **HLK-TX510 Face Recognition Test Suit** | 1 | $42.71 | HI-LINK Component | Secondary biometric (cables included) |
 
 ### Wiring & Connections
 
@@ -340,11 +340,11 @@ VERDICT: Sufficient wires for the project.
 | **Finger Vein (A)** | 3.3V | 3.3V UART | NO | 57600 | Waveshare Wiki |
 | **PN532 NFC V3** | 3.3-5V VCC | 3.3V I2C | NO | - | Adafruit docs |
 | **HLK-LD2410C** | 5V | 3.3V UART | NO | 256000 | HiLink docs |
-| **HLK-TX510** | 5V/1A | ⚠️ VERIFY | RECOMMENDED | 115200 | Blakadder + verify on arrival |
+| **HLK-TX510** | 5V/1A | ⚠️ VERIFY | RECOMMENDED | 115200 | Seller Confirmed |
 | **5V Relay** | 5V | ⚠️ VERIFY | NO | - | Check trigger mode on arrival |
 
 > **⚠️ VERIFY ON ARRIVAL:**
-> - **TX510 Logic Level:** Conflicting info (some sources say 5V TTL, others say 3.3V tolerant). Blakadder connected ESP32 directly and it worked. **Test:** Measure TX pin voltage with multimeter. Use level shifter as safe default.
+> - **TX510 Logic Level:** Conflicting info (some sources say 5V TTL, others say 3.3V tolerant). Seller confirmed 115200 baud and protocol doc exists. **Test:** Measure TX pin voltage with multimeter. Use level shifter as safe default.
 > - **Relay Trigger Mode:** May be low-level trigger (pull IN to GND to activate = inverted logic). Check for H/L jumper on board. Test before coding.
 
 ### I2C Address Map

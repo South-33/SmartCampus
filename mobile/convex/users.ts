@@ -1,26 +1,21 @@
 import { mutation, query, action } from "./_generated/server";
-import { getAuthUserId, createAccount } from "@convex-dev/auth/server";
+import { createAccount } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
+import { getCurrentUser, mustBeAdmin, mustBeAuthenticated, logActivity, touchRoom } from "./lib/permissions";
 
 export const viewer = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      return null;
-    }
-    return await ctx.db.get(userId);
+    return await getCurrentUser(ctx);
   },
 });
 
 export const get = query({
   args: { id: v.id("users") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) return null;
-    const admin = await ctx.db.get(userId);
-    if (admin?.role !== "admin") return null;
+    const user = await getCurrentUser(ctx);
+    mustBeAdmin(user);
 
     return await ctx.db.get(args.id);
   },
@@ -29,10 +24,8 @@ export const get = query({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) return [];
-    const user = await ctx.db.get(userId);
-    if (user?.role !== "admin") return [];
+    const user = await getCurrentUser(ctx);
+    mustBeAdmin(user);
     
     return await ctx.db.query("users").collect();
   },
@@ -41,10 +34,8 @@ export const list = query({
 export const getStats = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) return null;
-    const user = await ctx.db.get(userId);
-    if (user?.role !== "admin") return null;
+    const user = await getCurrentUser(ctx);
+    mustBeAdmin(user);
 
     const users = await ctx.db.query("users").collect();
     return {
@@ -56,16 +47,9 @@ export const getStats = query({
   },
 });
 
-export const getUserByEmail = query({
-  args: { email: v.string() },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", args.email))
-      .unique();
-  },
-});
-
+/**
+ * Admin-only user creation
+ */
 export const create = action({
   args: {
     email: v.string(),
@@ -80,9 +64,7 @@ export const create = action({
   },
   handler: async (ctx, args) => {
     const user = await ctx.runQuery(api.users.viewer);
-    if (!user || user.role !== "admin") {
-      throw new Error("Not authorized");
-    }
+    mustBeAdmin(user);
 
     const existingUser = await ctx.runQuery(api.users.getUserByEmail, {
       email: args.email,
@@ -103,20 +85,76 @@ export const create = action({
       },
     });
 
+    await ctx.runMutation(api.users.internalLogActivity, {
+      action: "USER_CREATE",
+      description: `Created user ${args.name} (${args.email}) with role ${args.role}`,
+    });
+
     return newUser._id;
   },
 });
 
+/**
+ * Link a device to a user (Anti-sharing)
+ * Should be called when the user first logs in on a device.
+ */
+export const updateDeviceId = mutation({
+  args: { deviceId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    mustBeAuthenticated(user);
+
+    // Hard Anti-Sharing: If deviceId is already set, prevent change.
+    // In a real school, a student would need to visit the admin to reset this.
+    if (user!.deviceId && user!.deviceId !== args.deviceId) {
+      throw new Error("Device already linked. Please contact an administrator to change your device.");
+    }
+
+    await ctx.db.patch(user!._id, { deviceId: args.deviceId });
+    await logActivity(ctx, user!, "DEVICE_LINK", `Linked device ${args.deviceId}`);
+  },
+});
+
+/**
+ * Link an NFC Card to the current user
+ */
+export const linkCard = mutation({
+  args: { cardUID: v.string() },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    mustBeAuthenticated(user);
+
+    // Check if card is already in use
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_cardUID", (q) => q.eq("cardUID", args.cardUID))
+      .unique();
+
+    if (existing && existing._id !== user!._id) {
+      throw new Error("This card is already linked to another account.");
+    }
+
+    await ctx.db.patch(user!._id, { cardUID: args.cardUID });
+    await logActivity(ctx, user!, "CARD_LINK", `Linked card ${args.cardUID}`);
+
+    // If student, touch their rooms so hardware re-syncs
+    if (user!.role === "student" && user!.allowedRooms) {
+      for (const roomId of user!.allowedRooms) {
+        await touchRoom(ctx, roomId);
+      }
+    }
+  },
+});
+
 export const remove = mutation({
+
   args: { id: v.id("users") },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) throw new Error("Not authenticated");
-    const admin = await ctx.db.get(userId);
-    if (admin?.role !== "admin") throw new Error("Not authorized");
+    const admin = await getCurrentUser(ctx);
+    mustBeAdmin(admin);
 
     // Prevent deleting yourself
-    if (args.id === userId) throw new Error("Cannot delete your own account");
+    if (args.id === admin!._id) throw new Error("Cannot delete your own account");
 
     const user = await ctx.db.get(args.id);
     if (!user) throw new Error("User not found");
@@ -141,5 +179,75 @@ export const remove = mutation({
     for (const session of sessions) {
       await ctx.db.delete(session._id);
     }
+
+    await logActivity(ctx, admin!, "USER_DELETE", `Deleted user ${user.name} (${user.email})`);
+  },
+});
+
+/**
+ * Admin-only user update (Role, Status, Allowed Rooms)
+ */
+export const update = mutation({
+  args: {
+    id: v.id("users"),
+    name: v.optional(v.string()),
+    role: v.optional(v.union(
+      v.literal("student"),
+      v.literal("teacher"),
+      v.literal("admin"),
+      v.literal("staff")
+    )),
+    status: v.optional(v.union(
+      v.literal("enrolled"),
+      v.literal("graduated"),
+      v.literal("expelled"),
+      v.literal("active"),
+      v.literal("inactive"),
+      v.literal("temporary")
+    )),
+    allowedRooms: v.optional(v.array(v.id("rooms"))),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getCurrentUser(ctx);
+    mustBeAdmin(admin);
+
+    const user = await ctx.db.get(args.id);
+    if (!user) throw new Error("User not found");
+
+    const { id, ...updates } = args;
+    await ctx.db.patch(id, updates);
+
+    // If allowedRooms changed, touch the rooms
+    if (args.allowedRooms || args.role || args.status) {
+      // Touch old rooms
+      if (user.allowedRooms) {
+        for (const roomId of user.allowedRooms) await touchRoom(ctx, roomId);
+      }
+      // Touch new rooms
+      if (args.allowedRooms) {
+        for (const roomId of args.allowedRooms) await touchRoom(ctx, roomId);
+      }
+    }
+
+    await logActivity(ctx, admin!, "USER_UPDATE", `Updated user ${user.name}`);
+  },
+});
+
+export const getUserByEmail = query({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .unique();
+  },
+});
+
+export const internalLogActivity = mutation({
+  args: { action: v.string(), description: v.string() },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return;
+    await logActivity(ctx, user, args.action, args.description);
   },
 });

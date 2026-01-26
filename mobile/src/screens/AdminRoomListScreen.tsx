@@ -17,7 +17,6 @@ import {
     ResponsiveContainer,
 } from '../components';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
-import { mockRooms, LockStatus } from '../data/adminMockData';
 import { useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAppData } from '../context/AppContext';
@@ -59,7 +58,7 @@ const PinIcon = ({ pinned }: { pinned: boolean }) => (
     </Svg>
 );
 
-const LockIcon = ({ status }: { status: LockStatus }) => {
+const LockIcon = ({ status }: { status: 'unlocked' | 'locked' | 'staff_only' }) => {
     const isLocked = status !== 'unlocked';
     return (
         <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={isLocked ? colors.error : colors.slate} strokeWidth={2}>
@@ -107,16 +106,16 @@ export const AdminRoomListScreen = ({ onBack, onViewRoom }: AdminRoomListScreenP
     const cycleLockStatusMutation = useMutation(api.rooms.cycleLockStatus);
     
     const isLoading = isAuthenticated && globalLoading;
-    const rooms = isAuthenticated ? (allRooms || []) : mockRooms;
+    const rooms = isAuthenticated ? (allRooms || []) : [];
 
-    const [roomStatuses, setRoomStatuses] = useState<Record<string, LockStatus>>({});
+    const [roomStatuses, setRoomStatuses] = useState<Record<string, 'unlocked' | 'locked' | 'staff_only'>>({});
     const [pinnedRooms, setPinnedRooms] = useState<Record<string, boolean>>({});
 
     const filteredRooms = useMemo(() => {
         return rooms.filter(room => {
             const matchesSearch = room.name.toLowerCase().includes(searchQuery.toLowerCase());
-            const roomId = (room as any)._id || (room as any).id;
-            const currentStatus = (room as any).lockStatus || roomStatuses[roomId] || 'unlocked';
+            const roomId = room._id;
+            const currentStatus = room.lockStatus || roomStatuses[roomId] || 'unlocked';
             
             if (filterStatus === 'locked') return matchesSearch && currentStatus === 'locked';
             return matchesSearch;
@@ -132,7 +131,7 @@ export const AdminRoomListScreen = ({ onBack, onViewRoom }: AdminRoomListScreenP
             }
         } else {
             const current = roomStatuses[roomId] || 'unlocked';
-            const next: LockStatus = 
+            const next: 'unlocked' | 'locked' | 'staff_only' = 
                 current === 'unlocked' ? 'staff_only' :
                 current === 'staff_only' ? 'locked' : 'unlocked';
             setRoomStatuses({ ...roomStatuses, [roomId]: next });
@@ -213,10 +212,10 @@ export const AdminRoomListScreen = ({ onBack, onViewRoom }: AdminRoomListScreenP
                         ) : (
                             <View style={styles.grid}>
                                 {filteredRooms.map((room) => {
-                                    const roomId = (room as any)._id || (room as any).id;
-                                    const currentLockStatus = (room as any).lockStatus || roomStatuses[roomId] || 'unlocked';
+                                    const roomId = room._id;
+                                    const currentLockStatus = room.lockStatus || roomStatuses[roomId] || 'unlocked';
                                     const isPinned = pinnedRooms[roomId];
-                                    const roomDevices = (allDevices || []).filter(d => (d as any).roomId === roomId) || [];
+                                    const roomDevices = (allDevices || []).filter(d => d.roomId === roomId) || [];
 
                                     return (
                                         <TouchableOpacity 
@@ -229,9 +228,9 @@ export const AdminRoomListScreen = ({ onBack, onViewRoom }: AdminRoomListScreenP
                                                 <View style={styles.roomHeaderLeft}>
                                                     <View style={[
                                                         styles.powerDot,
-                                                        { backgroundColor: (room as any).powerStatus === 'on' ? colors.success : colors.slate }
+                                                        { backgroundColor: room.powerStatus === 'on' ? colors.success : colors.slate }
                                                     ]} />
-                                                    <HeadingSm style={styles.roomName} numberOfLines={1}>{(room as any).name}</HeadingSm>
+                                                    <HeadingSm style={styles.roomName} numberOfLines={1}>{room.name}</HeadingSm>
                                                 </View>
                                                 <View style={styles.roomHeaderRight}>
                                                     <TouchableOpacity 
@@ -248,14 +247,14 @@ export const AdminRoomListScreen = ({ onBack, onViewRoom }: AdminRoomListScreenP
                                             <View style={styles.roomStats}>
                                                 <View style={styles.statItem}>
                                                     <UserIcon />
-                                                    <Caption style={styles.statText}>{(room as any).occupancy || 0} Active</Caption>
+                                                    <Caption style={styles.statText}>{room.occupancy || 0} Active</Caption>
                                                 </View>
                                                 <View style={styles.deviceIndicatorGroup}>
                                                     {roomDevices.map(device => (
                                                         <DeviceStatusIcon 
-                                                            key={(device as any)._id}
+                                                            key={device._id}
                                                             type="gatekeeper" 
-                                                            status={(device as any).status === 'online' ? 'online' : 'offline'} 
+                                                            status={device.status === 'online' ? 'online' : 'offline'} 
                                                         />
                                                     ))}
                                                 </View>

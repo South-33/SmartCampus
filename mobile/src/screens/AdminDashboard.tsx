@@ -20,15 +20,14 @@ import {
     ResponsiveContainer,
 } from '../components';
 import Svg, { Path, Circle, Rect, Line, Polyline } from 'react-native-svg';
-import { 
-    mockDevices, 
-    mockAlerts as defaultAlerts, 
-    mockRooms, 
-    LockStatus, 
-    AdminAlert,
-    mockUsers,
-    mockLogs
-} from '../data/adminMockData';
+export interface AdminAlert {
+    id: string;
+    type: 'device' | 'suspicious' | 'sharing' | 'gps';
+    priority: 'high' | 'medium' | 'low';
+    message: string;
+    time: string;
+    data?: any;
+}
 
 interface AdminDashboardProps {
     onProfile: () => void;
@@ -40,6 +39,7 @@ interface AdminDashboardProps {
     onOpenGate: () => void;
     alerts?: AdminAlert[];
 }
+
 
 // Icons
 const ShieldIcon = () => (
@@ -111,7 +111,7 @@ const WifiIcon = ({ status }: { status: 'online' | 'offline' }) => (
     </Svg>
 );
 
-const LockIcon = ({ status }: { status: LockStatus }) => {
+const LockIcon = ({ status }: { status: 'unlocked' | 'locked' | 'staff_only' }) => {
     const isLocked = status !== 'unlocked';
     return (
         <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={isLocked ? colors.error : colors.slate} strokeWidth={2}>
@@ -152,15 +152,13 @@ import { api } from '../../convex/_generated/api';
 import { LoadingView } from '../components';
 import { useAppData } from '../context/AppContext';
 
-interface AdminDashboardProps {
-    onProfile: () => void;
-    onSecurity: () => void;
-    onUsers: () => void;
-    onLogs: () => void;
-    onRooms: () => void;
-    onViewRoom: (roomId: string) => void;
-    onOpenGate: () => void;
-    alerts?: AdminAlert[];
+export interface AdminAlert {
+    id: string;
+    type: 'device' | 'suspicious' | 'sharing' | 'gps';
+    priority: 'high' | 'medium' | 'low';
+    message: string;
+    time: string;
+    data?: any;
 }
 
 export const AdminDashboard = ({ 
@@ -171,12 +169,15 @@ export const AdminDashboard = ({
     onRooms, 
     onViewRoom, 
     onOpenGate, 
-    alerts = defaultAlerts,
+    alerts = [],
 }: AdminDashboardProps) => {
-    const { rooms, devices, recentLogs, userStats, isAdminDataLoaded } = useAppData();
+    const { rooms, devices, recentLogs, userStats, isAdminDataLoaded, viewer } = useAppData();
     const isLoading = !isAdminDataLoaded;
 
     const insets = useSafeAreaInsets();
+    
+    if (!viewer) return null;
+
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-GB', {
         weekday: 'long',

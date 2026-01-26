@@ -15,7 +15,6 @@ import {
     Caption,
     ResponsiveContainer,
 } from '../../components';
-import { teachingHistory, teachingHours, classHoursProgress } from '../../data/teacherMockData';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 interface TeachingHoursScreenProps {
@@ -41,6 +40,16 @@ const BookIcon = () => (
         <Path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
     </Svg>
 );
+
+// --- Placeholders (To be replaced by real queries) ---
+const teachingHours = {
+    thisWeek: 0,
+    thisMonth: 0,
+    target: 20
+};
+
+const classHoursProgress: any[] = [];
+const teachingHistory: any[] = [];
 
 export const TeachingHoursScreen = ({ onBack }: TeachingHoursScreenProps) => {
     const insets = useSafeAreaInsets();

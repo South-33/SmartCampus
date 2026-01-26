@@ -26,8 +26,12 @@ export async function touchRoom(ctx: MutationCtx, roomId: Id<"rooms">) {
  * High-level role checks
  */
 export const mustBeAdmin = (user: User | null) => {
-  if (!user || user.role !== "admin") {
-    throw new Error("Only administrators can perform this action.");
+  if (!user) {
+    throw new Error("You must be logged in to perform this action.");
+  }
+  if (user.role !== "admin") {
+    console.log("mustBeAdmin: User", user.email, "has role", user.role, "but expected admin");
+    throw new Error(`Only administrators can perform this action. (Current role: ${user.role})`);
   }
 };
 

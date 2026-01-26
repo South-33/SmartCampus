@@ -46,23 +46,46 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    const { signIn } = useAuthActions();
+    const { signIn, signOut } = useAuthActions();
+
+    const handleQuickAccess = (role: UserRole) => {
+        const credentials = {
+            admin: { email: 'admin@kingsford.edu', password: 'password123' },
+            teacher: { email: 'sarah.williams@kingsford.edu', password: 'password123' },
+            student: { email: 'john.doe@kingsford.edu', password: 'password123' },
+            staff: { email: 'mike.miller@kingsford.edu', password: 'password123' },
+        };
+        const { email, password } = credentials[role];
+        setEmail(email);
+        setPassword(password);
+        
+        // Auto-login after a brief delay to show the credentials being entered
+        setTimeout(() => {
+            handleLoginWithCreds(email, password);
+        }, 100);
+    };
+
+    const handleLoginWithCreds = async (e: string, p: string) => {
+        setLoading(true);
+        try {
+            // Force sign out first to clear any stale sessions
+            await signOut();
+            await signIn("password", { email: e, password: p, flow: "signIn" });
+            // Note: We keep setLoading(true) here intentionally.
+            // The screen will be unmounted by MainLayout once hydration is complete.
+        } catch (error) {
+            console.error(error);
+            setLoading(false); // Only stop loading if there was an error
+            Alert.alert('Login Failed', 'Invalid email or password. If you just seeded, wait 5s for deployment.');
+        }
+    };
 
     const handleLogin = async () => {
         if (!email || !password) {
             Alert.alert('Error', 'Please enter both email and password');
             return;
         }
-
-        setLoading(true);
-        try {
-            await signIn("password", { email, password, flow: "signIn" });
-        } catch (error) {
-            console.error(error);
-            Alert.alert('Login Failed', 'Invalid email or password');
-        } finally {
-            setLoading(false);
-        }
+        await handleLoginWithCreds(email, password);
     };
 
     return (
@@ -123,32 +146,32 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
                         <View style={styles.demoButtons}>
                             <TouchableOpacity 
                                 style={styles.demoChip} 
-                                onPress={() => onLogin('student')}
+                                onPress={() => handleQuickAccess('student')}
                                 activeOpacity={0.7}
                             >
                                 <Caption style={styles.demoChipText}>Student</Caption>
                             </TouchableOpacity>
                             <TouchableOpacity 
                                 style={styles.demoChip} 
-                                onPress={() => onLogin('teacher')}
+                                onPress={() => handleQuickAccess('teacher')}
                                 activeOpacity={0.7}
                             >
                                 <Caption style={styles.demoChipText}>Teacher</Caption>
                             </TouchableOpacity>
-                             <TouchableOpacity 
-                                 style={styles.demoChip} 
-                                 onPress={() => onLogin('admin')}
-                                 activeOpacity={0.7}
-                             >
-                                 <Caption style={styles.demoChipText}>Admin</Caption>
-                             </TouchableOpacity>
-                             <TouchableOpacity 
-                                 style={styles.demoChip} 
-                                 onPress={() => onLogin('staff')}
-                                 activeOpacity={0.7}
-                             >
-                                 <Caption style={styles.demoChipText}>Staff</Caption>
-                             </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={styles.demoChip} 
+                                onPress={() => handleQuickAccess('admin')}
+                                activeOpacity={0.7}
+                            >
+                                <Caption style={styles.demoChipText}>Admin</Caption>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={styles.demoChip} 
+                                onPress={() => handleQuickAccess('staff')}
+                                activeOpacity={0.7}
+                            >
+                                <Caption style={styles.demoChipText}>Staff</Caption>
+                            </TouchableOpacity>
                          </View>
                     </View>
                 </View>

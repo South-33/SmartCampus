@@ -13,20 +13,20 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     // School Specific Fields
-    role: v.union(
+    role: v.optional(v.union(
       v.literal("student"),
       v.literal("teacher"),
       v.literal("admin"),
       v.literal("staff")
-    ),
-    status: v.union(
+    )),
+    status: v.optional(v.union(
       v.literal("enrolled"),
       v.literal("graduated"),
       v.literal("expelled"),
       v.literal("active"),
       v.literal("inactive"),
       v.literal("temporary")
-    ),
+    )),
     cardUID: v.optional(v.string()),
     deviceId: v.optional(v.string()),
     allowedRooms: v.optional(v.array(v.id("rooms"))),
@@ -41,8 +41,36 @@ export default defineSchema({
     lockStatus: v.optional(v.union(v.literal("unlocked"), v.literal("locked"), v.literal("staff_only"))),
     powerStatus: v.optional(v.union(v.literal("on"), v.literal("off"))),
     occupancy: v.optional(v.number()),
+    needsCleaning: v.optional(v.boolean()),
+    lastCleanedAt: v.optional(v.string()),
     lastUpdated: v.optional(v.number()), // Track roster/config changes
   }),
+  classes: defineTable({
+    name: v.string(),
+    code: v.string(),
+    teacherId: v.id("users"),
+    description: v.optional(v.string()),
+  }).index("by_teacher", ["teacherId"]),
+  classSessions: defineTable({
+    classId: v.id("classes"),
+    roomId: v.id("rooms"),
+    startTime: v.string(), // "09:00"
+    endTime: v.string(),   // "10:30"
+    date: v.string(),      // "2026-01-26"
+    status: v.union(v.literal("completed"), v.literal("ongoing"), v.literal("upcoming")),
+  })
+    .index("by_class", ["classId"])
+    .index("by_room", ["roomId"])
+    .index("by_date", ["date"]),
+  staffTasks: defineTable({
+    roomId: v.id("rooms"),
+    type: v.union(v.literal("cleaning"), v.literal("maintenance"), v.literal("inspection")),
+    priority: v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    status: v.union(v.literal("pending"), v.literal("in_progress"), v.literal("completed")),
+    description: v.string(),
+    assignedTo: v.optional(v.id("users")),
+    createdAt: v.number(),
+  }).index("by_room", ["roomId"]),
   devices: defineTable({
     chipId: v.string(),
     tokenHash: v.optional(v.string()), // Hashed security token

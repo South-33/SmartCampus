@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, TouchableOpacity, Platform } from 'react-native';
 import { useAppData } from '../context/AppContext';
 import { Screen, useAppNavigation } from '../hooks/useAppNavigation';
@@ -6,7 +6,8 @@ import { ScreenNavigator } from './ScreenNavigator';
 import { colors, spacing } from '../theme';
 import { Caption } from '../components';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { mockAlerts as initialAlerts, AdminAlert } from '../data/adminMockData';
+import { AdminAlert } from '../screens/AdminDashboard';
+import { LoginScreen } from '../screens';
 
 // Simple Tab Bar Icons
 const HomeIcon = ({ active }: { active: boolean }) => (
@@ -60,7 +61,7 @@ const LogsIcon = ({ active }: { active: boolean }) => (
 );
 
 export const MainLayout = () => {
-  const { userRole, isDemo, isAuthenticated, isLoading } = useAppData();
+  const { userRole, isDemo, isAuthenticated, isLoading, setIsDemo, setUserRole, isAdminDataLoaded } = useAppData();
   const navigation = useAppNavigation();
   const {
     currentScreen,
@@ -72,29 +73,62 @@ export const MainLayout = () => {
     selectedClassId,
     selectedRoomId,
     selectedUserId,
+    resetNavigation
   } = navigation;
 
-  const [alerts, setAlerts] = useState<AdminAlert[]>(initialAlerts);
-  const tabFadeAnim = React.useRef(new Animated.Value(0)).current;
+  const [alerts, setAlerts] = useState<AdminAlert[]>([]);
+  const [isAppVisible, setIsAppVisible] = useState(false);
+  
+  // Single animation value for the Auth Gate Crossfade
+  const authFadeAnim = useRef(new Animated.Value(0)).current;
+  const tabFadeAnim = useRef(new Animated.Value(0)).current;
 
   const mainScreens: Screen[] = ['dashboard', 'classes', 'teacher-classes', 'teacher-hours', 'staff-tasks', 'admin-rooms', 'admin-users', 'admin-logs'];
   const showTabBar = mainScreens.includes(currentScreen);
 
+  // Crossfade logic: Triggered ONLY when app is fully hydrated
+  useEffect(() => {
+    const isReady = isAuthenticated && isAdminDataLoaded;
+    
+    if (isReady) {
+      setIsAppVisible(true);
+      Animated.timing(authFadeAnim, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: Platform.OS !== 'web',
+      }).start();
+    } else {
+      Animated.timing(authFadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: Platform.OS !== 'web',
+      }).start(() => {
+        setIsAppVisible(false);
+      });
+    }
+  }, [isAuthenticated, isAdminDataLoaded]);
+
+  // Tab bar fade
   useEffect(() => {
     Animated.timing(tabFadeAnim, {
       toValue: showTabBar ? 1 : 0,
       duration: 300,
       useNativeDriver: Platform.OS !== 'web',
     }).start();
-  }, [showTabBar, tabFadeAnim]);
+  }, [showTabBar]);
 
+  // Reset internal navigation when logged out
   useEffect(() => {
-    if (isAuthenticated && currentScreen === 'login') {
-      navigateTo('dashboard', { clearHistory: true });
-    } else if (!isAuthenticated && !isLoading && !isDemo && currentScreen !== 'login') {
-      navigateTo('login', { clearHistory: true });
+    if (!isAuthenticated && !isDemo) {
+      resetNavigation('dashboard');
     }
-  }, [isAuthenticated, isLoading, isDemo, currentScreen, navigateTo]);
+  }, [isAuthenticated, isDemo]);
+
+  const handleDemoLogin = (role: any) => {
+    setIsDemo(true);
+    setUserRole(role);
+    navigateTo('dashboard', { clearHistory: true });
+  };
 
   const handleReportIssue = (message: string) => {
     const newAlert: AdminAlert = {
@@ -122,86 +156,89 @@ export const MainLayout = () => {
 
   return (
     <View style={styles.container}>
-      {/* Base screen - always rendered, keeps scroll position */}
-      <View style={[styles.screenLayer, { pointerEvents: isTransitioning ? 'none' : 'auto' }]}>
-        {renderScreenContent(displayedScreen)}
-      </View>
-
-      {/* New screen fades in on top during transition */}
-      {isTransitioning && currentScreen !== displayedScreen && (
-        <Animated.View style={[styles.screenLayer, { opacity: fadeAnim }]}>
-          {renderScreenContent(currentScreen)}
+      {/* LAYER 1: THE AUTH GATE (LOGIN) */}
+      {(!isAuthenticated && !isDemo) || !isAppVisible ? (
+        <Animated.View 
+          style={[
+            styles.authLayer, 
+            { 
+              opacity: authFadeAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 0]
+              }),
+              zIndex: (isAuthenticated && isAdminDataLoaded) ? 0 : 10,
+              pointerEvents: (isAuthenticated && isAdminDataLoaded) ? 'none' : 'auto'
+            }
+          ]}
+        >
+          <LoginScreen onLogin={handleDemoLogin} />
         </Animated.View>
-      )}
+      ) : null}
 
-      {/* Custom Tab Bar */}
-      {showTabBar && (
-        <Animated.View style={[styles.tabBar, { opacity: tabFadeAnim }]}>
-          <TouchableOpacity 
-            style={styles.tabItem} 
-            onPress={() => navigateTo('dashboard')}
-            activeOpacity={0.7}
-          >
-            <HomeIcon active={currentScreen === 'dashboard'} />
-            <Caption style={[styles.tabLabel, currentScreen === 'dashboard' && styles.tabLabelActive]}>Home</Caption>
-          </TouchableOpacity>
+      {/* LAYER 2: THE APP (DASHBOARD + NAV) */}
+      {(isAuthenticated || isDemo) && (
+        <Animated.View style={[styles.appLayer, { opacity: authFadeAnim }]}>
+          {/* Base screen */}
+          <View style={[styles.screenLayer, { pointerEvents: isTransitioning ? 'none' : 'auto' }]}>
+            {renderScreenContent(displayedScreen)}
+          </View>
 
-          <TouchableOpacity 
-            style={styles.tabItem} 
-            onPress={() => {
-              if (userRole === 'staff') {
-                navigateTo('staff-tasks');
-              } else if (userRole === 'admin') {
-                navigateTo('admin-rooms');
-              } else {
-                navigateTo(userRole === 'teacher' ? 'teacher-classes' : 'classes');
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            {userRole === 'staff' ? (
-              <TasksIcon active={currentScreen === 'staff-tasks'} />
-            ) : userRole === 'admin' ? (
-              <RoomsIcon active={currentScreen === 'admin-rooms'} />
-            ) : (
-              <ClassesIcon active={currentScreen === 'classes' || currentScreen === 'teacher-classes'} />
-            )}
-            <Caption style={[styles.tabLabel, (currentScreen === 'classes' || currentScreen === 'teacher-classes' || currentScreen === 'staff-tasks' || currentScreen === 'admin-rooms') && styles.tabLabelActive]}>
-              {userRole === 'teacher' ? 'Schedule' : userRole === 'staff' ? 'Tasks' : userRole === 'admin' ? 'Rooms' : 'Classes'}
-            </Caption>
-          </TouchableOpacity>
-
-          {userRole === 'admin' && (
-            <>
-              <TouchableOpacity 
-                style={styles.tabItem} 
-                onPress={() => navigateTo('admin-users')}
-                activeOpacity={0.7}
-              >
-                <UsersIcon active={currentScreen === 'admin-users'} />
-                <Caption style={[styles.tabLabel, currentScreen === 'admin-users' && styles.tabLabelActive]}>Users</Caption>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={styles.tabItem} 
-                onPress={() => navigateTo('admin-logs')}
-                activeOpacity={0.7}
-              >
-                <LogsIcon active={currentScreen === 'admin-logs'} />
-                <Caption style={[styles.tabLabel, currentScreen === 'admin-logs' && styles.tabLabelActive]}>Logs</Caption>
-              </TouchableOpacity>
-            </>
+          {/* New screen fades in on top during internal transitions */}
+          {isTransitioning && currentScreen !== displayedScreen && (
+            <Animated.View style={[styles.screenLayer, { opacity: fadeAnim }]}>
+              {renderScreenContent(currentScreen)}
+            </Animated.View>
           )}
 
-          {userRole === 'teacher' && (
-            <TouchableOpacity 
-              style={styles.tabItem} 
-              onPress={() => navigateTo('teacher-hours')}
-              activeOpacity={0.7}
-            >
-              <HoursIcon active={currentScreen === 'teacher-hours'} />
-              <Caption style={[styles.tabLabel, currentScreen === 'teacher-hours' && styles.tabLabelActive]}>Hours</Caption>
-            </TouchableOpacity>
+          {/* Tab Bar */}
+          {showTabBar && (
+            <Animated.View style={[styles.tabBar, { opacity: tabFadeAnim }]}>
+              <TouchableOpacity style={styles.tabItem} onPress={() => navigateTo('dashboard')} activeOpacity={0.7}>
+                <HomeIcon active={currentScreen === 'dashboard'} />
+                <Caption style={[styles.tabLabel, currentScreen === 'dashboard' && styles.tabLabelActive]}>Home</Caption>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.tabItem} 
+                onPress={() => {
+                  if (userRole === 'staff') navigateTo('staff-tasks');
+                  else if (userRole === 'admin') navigateTo('admin-rooms');
+                  else navigateTo(userRole === 'teacher' ? 'teacher-classes' : 'classes');
+                }}
+                activeOpacity={0.7}
+              >
+                {userRole === 'staff' ? (
+                  <TasksIcon active={currentScreen === 'staff-tasks'} />
+                ) : userRole === 'admin' ? (
+                  <RoomsIcon active={currentScreen === 'admin-rooms'} />
+                ) : (
+                  <ClassesIcon active={currentScreen === 'classes' || currentScreen === 'teacher-classes'} />
+                )}
+                <Caption style={[styles.tabLabel, (currentScreen === 'classes' || currentScreen === 'teacher-classes' || currentScreen === 'staff-tasks' || currentScreen === 'admin-rooms') && styles.tabLabelActive]}>
+                  {userRole === 'teacher' ? 'Schedule' : userRole === 'staff' ? 'Tasks' : userRole === 'admin' ? 'Rooms' : 'Classes'}
+                </Caption>
+              </TouchableOpacity>
+
+              {userRole === 'admin' && (
+                <>
+                  <TouchableOpacity style={styles.tabItem} onPress={() => navigateTo('admin-users')} activeOpacity={0.7}>
+                    <UsersIcon active={currentScreen === 'admin-users'} />
+                    <Caption style={[styles.tabLabel, currentScreen === 'admin-users' && styles.tabLabelActive]}>Users</Caption>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.tabItem} onPress={() => navigateTo('admin-logs')} activeOpacity={0.7}>
+                    <LogsIcon active={currentScreen === 'admin-logs'} />
+                    <Caption style={[styles.tabLabel, currentScreen === 'admin-logs' && styles.tabLabelActive]}>Logs</Caption>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {userRole === 'teacher' && (
+                <TouchableOpacity style={styles.tabItem} onPress={() => navigateTo('teacher-hours')} activeOpacity={0.7}>
+                  <HoursIcon active={currentScreen === 'teacher-hours'} />
+                  <Caption style={[styles.tabLabel, currentScreen === 'teacher-hours' && styles.tabLabelActive]}>Hours</Caption>
+                </TouchableOpacity>
+              )}
+            </Animated.View>
           )}
         </Animated.View>
       )}
@@ -213,6 +250,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.ivory,
+  },
+  authLayer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.ivory,
+  },
+  appLayer: {
+    flex: 1,
   },
   screenLayer: {
     ...StyleSheet.absoluteFillObject,

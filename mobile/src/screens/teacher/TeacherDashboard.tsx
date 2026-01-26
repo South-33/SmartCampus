@@ -15,12 +15,12 @@ import {
     Caption,
     ResponsiveContainer,
 } from '../../components';
+import { useAppData } from '../../context/AppContext';
 import {
     AttendanceAlertBanner,
     LiveAttendanceCard,
     TeachingHoursWidget,
 } from '../../components/teacher';
-import { teacherProfile, teachingHours, teacherClasses, attendanceAlerts } from '../../data/teacherMockData';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 interface TeacherDashboardProps {
@@ -46,6 +46,13 @@ const CheckIcon = () => (
 );
 
 export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewClass, onViewHours }: TeacherDashboardProps) => {
+    const { viewer } = useAppData();
+    
+    if (!viewer) return null;
+
+    const teacherName = viewer.name?.split(' ')[1] || 'Teacher';
+    const teacherAvatar = viewer?.name?.split(' ').map((n: string) => n[0]).join('') || 'T';
+
     const insets = useSafeAreaInsets();
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-GB', {
@@ -53,8 +60,6 @@ export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewCl
         day: 'numeric',
         month: 'long'
     });
-
-    const liveClass = teacherClasses.find(c => c.status === 'ongoing');
 
     return (
         <View style={styles.container}>
@@ -72,11 +77,11 @@ export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewCl
                     <View style={styles.header}>
                         <View style={styles.greeting}>
                             <HeadingSm>Good morning</HeadingSm>
-                            <HeadingLg>{teacherProfile.name.split(' ')[1]}</HeadingLg>
+                            <HeadingLg>{teacherName}</HeadingLg>
                             <BodySm style={styles.date}>{dateStr}</BodySm>
                         </View>
                         <TouchableOpacity style={styles.avatar} onPress={onProfile} activeOpacity={0.8}>
-                            <HeadingMd style={styles.avatarText}>{teacherProfile.avatar}</HeadingMd>
+                            <HeadingMd style={styles.avatarText}>{teacherAvatar}</HeadingMd>
                         </TouchableOpacity>
                     </View>
 
@@ -109,25 +114,23 @@ export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewCl
 
                     {/* Scan Status & Hours */}
                     <TeachingHoursWidget 
-                        thisWeek={teachingHours.thisWeek} 
-                        target={teachingHours.target} 
-                        status={teachingHours.today.status as any}
+                        thisWeek={12.5} 
+                        target={20} 
+                        status={'teaching'}
                         onPress={onViewHours}
                     />
 
-                    {/* Live Class Widget */}
-                    {liveClass && (
-                        <LiveAttendanceCard 
-                            courseName={liveClass.name}
-                            room={liveClass.room}
-                            present={liveClass.attendance.present}
-                            total={liveClass.attendance.total}
-                            onPress={() => onViewClass(liveClass.id)}
-                        />
-                    )}
+                    {/* Live Class Widget - Placeholder */}
+                    <LiveAttendanceCard 
+                        courseName={"Data Structures"}
+                        room={"Room 305"}
+                        present={28}
+                        total={32}
+                        onPress={() => {}}
+                    />
 
                     {/* Alerts */}
-                    <AttendanceAlertBanner alerts={attendanceAlerts} />
+                    <AttendanceAlertBanner alerts={[]} />
                 </ScrollView>
             </ResponsiveContainer>
         </View>

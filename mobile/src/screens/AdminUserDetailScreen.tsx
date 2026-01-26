@@ -21,10 +21,9 @@ import {
     LoadingView,
 } from '../components';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { mockUsers, mockRooms } from '../data/adminMockData';
-
 import { useQuery, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+import { useAppData } from '../context/AppContext';
 
 interface AdminUserDetailScreenProps {
     userId: string;
@@ -55,18 +54,17 @@ const FingerprintIcon = () => (
 export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenProps) => {
     const insets = useSafeAreaInsets();
     const { isAuthenticated } = useConvexAuth();
+    const { rooms: allRooms } = useAppData();
     
-    // Fetch live user data if authenticated and ID looks valid, otherwise fallback to mock for demo
-    const isRealId = userId && userId.length > 5; // Simple check for Convex ID vs mock "u1"
-    const realUser = useQuery(api.users.get, (isAuthenticated && isRealId) ? { id: userId as any } : 'skip' as any);
+    // Fetch live user data
+    const realUser = useQuery(api.users.get, isAuthenticated ? { id: userId as any } : 'skip' as any);
     const deleteUser = useMutation(api.users.remove);
     
-    const mockUser = mockUsers.find(u => u.id === userId);
-    const user = (isAuthenticated && isRealId) ? realUser : mockUser;
+    const user = realUser;
 
     const [isActive, setIsActive] = useState(true);
 
-    if (isAuthenticated && isRealId && realUser === undefined) {
+    if (isAuthenticated && realUser === undefined) {
         return <LoadingView />;
     }
 
@@ -86,16 +84,11 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
     };
 
     const handleDelete = () => {
-        if (!isAuthenticated || !isRealId) {
-            if (Platform.OS === 'web') {
-                window.alert("Demo Mode: You cannot delete users in demo mode.");
-            } else {
-                Alert.alert("Demo Mode", "You cannot delete users in demo mode.");
-            }
+        if (!isAuthenticated) {
             return;
         }
 
-        const confirmMessage = `Are you sure you want to permanently remove ${user.name || 'this user'}? This action cannot be undone.`;
+        const confirmMessage = `Are you sure you want to permanently remove ${user?.name || 'this user'}? This action cannot be undone.`;
 
         if (Platform.OS === 'web') {
             const confirmed = window.confirm(`Delete User\n\n${confirmMessage}`);
@@ -133,7 +126,7 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
         }
     };
 
-    const userName = user.name || (user as any).email || 'Unnamed User';
+    const userName = user.name || user.email || 'Unnamed User';
     const userRoleText = (user.role || 'unknown').toUpperCase();
 
     return (
@@ -185,7 +178,7 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
                                 </View>
                                 <View style={styles.credentialInfo}>
                                     <Body>NFC Card UID</Body>
-                                    <Caption>{(user as any).cardUID || 'Not linked'}</Caption>
+                                    <Caption>{user.cardUID || 'Not linked'}</Caption>
                                 </View>
                                 <TouchableOpacity onPress={handleResetUID}>
                                     <BodySm style={styles.actionText}>RE-LINK</BodySm>
@@ -208,22 +201,21 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
 
                         <HeadingSm style={styles.sectionTitle}>ROOM ACCESS</HeadingSm>
                         <View style={styles.card}>
-                            {mockRooms.map((room, idx) => {
-                                const allowedRooms = (user as any).allowedRooms || [];
-                                const hasAccess = allowedRooms.includes('all') || allowedRooms.includes(room.id);
+                            {(allRooms || []).map((room, idx) => {
+                                const allowedRooms = user.allowedRooms || [];
+                                const hasAccess = allowedRooms.includes(room._id);
                                 return (
-                                    <View key={room.id} style={[
+                                    <View key={room._id} style={[
                                         styles.roomRow, 
-                                        idx === mockRooms.length - 1 && { borderBottomWidth: 0 }
+                                        idx === (allRooms?.length || 0) - 1 && { borderBottomWidth: 0 }
                                     ]}>
                                         <View style={styles.roomInfo}>
                                             <Body>{room.name}</Body>
-                                            <Caption>{room.id.toUpperCase()}</Caption>
+                                            <Caption>{room._id.toUpperCase()}</Caption>
                                         </View>
                                         <Switch 
                                             value={hasAccess}
                                             trackColor={{ false: colors.mist, true: colors.cobalt }}
-                                            disabled={allowedRooms.includes('all')}
                                         />
                                     </View>
                                 );

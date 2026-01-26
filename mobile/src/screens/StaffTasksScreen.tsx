@@ -8,16 +8,17 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
-    HeadingLg,
     HeadingMd,
     HeadingSm,
     Body,
     BodySm,
     Caption,
     ResponsiveContainer,
+    LoadingView,
 } from '../components';
-import Svg, { Path, Circle } from 'react-native-svg';
-import { mockStaffTasks, StaffTask } from '../data/adminMockData';
+import Svg, { Path } from 'react-native-svg';
+import { useQuery, useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 interface StaffTasksScreenProps {
     onBack: () => void;
@@ -40,11 +41,27 @@ export const StaffTasksScreen = ({ onBack }: StaffTasksScreenProps) => {
     const insets = useSafeAreaInsets();
     const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
-    const filteredTasks = mockStaffTasks.filter(task => {
+    const tasks = useQuery(api.staffTasks.list);
+    const updateTaskStatus = useMutation(api.staffTasks.updateStatus);
+
+    if (tasks === undefined) {
+        return <LoadingView />;
+    }
+
+    const filteredTasks = (tasks || []).filter(task => {
         if (filter === 'all') return true;
         if (filter === 'pending') return task.status !== 'completed';
         return task.status === 'completed';
     });
+
+    const handleToggleStatus = async (taskId: any, currentStatus: string) => {
+        const nextStatus = currentStatus === 'completed' ? 'pending' : 'completed';
+        try {
+            await updateTaskStatus({ taskId, status: nextStatus as any });
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -90,7 +107,7 @@ export const StaffTasksScreen = ({ onBack }: StaffTasksScreenProps) => {
                     >
                         <View style={styles.taskList}>
                             {filteredTasks.map((task) => (
-                                <View key={task.id} style={styles.taskItem}>
+                                <View key={task._id} style={styles.taskItem}>
                                     <View style={styles.taskContent}>
                                         <View style={styles.taskMain}>
                                             <Body style={styles.roomName}>{task.roomName}</Body>
@@ -110,11 +127,19 @@ export const StaffTasksScreen = ({ onBack }: StaffTasksScreenProps) => {
                                             <Caption>{task.status.replace('_', ' ').toUpperCase()}</Caption>
                                         </View>
                                     </View>
-                                    <TouchableOpacity style={styles.checkAction}>
+                                    <TouchableOpacity 
+                                        style={styles.checkAction}
+                                        onPress={() => handleToggleStatus(task._id, task.status)}
+                                    >
                                         <CheckCircleIcon completed={task.status === 'completed'} />
                                     </TouchableOpacity>
                                 </View>
                             ))}
+                            {filteredTasks.length === 0 && (
+                                <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                                    <Caption>No tasks found.</Caption>
+                                </View>
+                            )}
                         </View>
                     </ScrollView>
                 </View>
@@ -131,13 +156,12 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
     },
     backButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        width: 80, // Fixed width for balancing
+        width: 80,
     },
     header: {
         marginBottom: spacing.xl,
@@ -152,7 +176,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     headerSpacer: {
-        width: 80, // Same as backButton width
+        width: 80, 
     },
     tabContainer: {
         flexDirection: 'row',

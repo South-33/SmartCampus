@@ -25,6 +25,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
+    if (!user) return [];
     mustBeAdmin(user);
     
     return await ctx.db.query("users").collect();
@@ -35,6 +36,7 @@ export const getStats = query({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
+    if (!user) return { total: 0, students: 0, teachers: 0, staff: 0 };
     mustBeAdmin(user);
 
     const users = await ctx.db.query("users").collect();

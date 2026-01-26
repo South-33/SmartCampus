@@ -26,7 +26,6 @@ import {
 import Svg, { Path } from 'react-native-svg';
 import { useAction, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { mockUsers } from '../data/adminMockData';
 import { useAppData } from '../context/AppContext';
 
 interface AdminUserListScreenProps {
@@ -62,8 +61,7 @@ export const AdminUserListScreen = ({ onBack, onViewUser }: AdminUserListScreenP
 
     const createUser = useAction(api.users.create);
 
-    // Use real users if authenticated, otherwise use mock users for demo
-    const users = isAuthenticated ? (allUsers || []) : (mockUsers as any[]);
+    const users = isAuthenticated ? (allUsers || []) : [];
     const isLoading = isAuthenticated && globalLoading;
 
     const handleCreateUser = async () => {
@@ -164,12 +162,13 @@ export const AdminUserListScreen = ({ onBack, onViewUser }: AdminUserListScreenP
                         ) : (
                             <View style={styles.userList}>
                                 {filteredUsers.map((user) => (
-                                    <TouchableOpacity 
-                                        key={user._id || user.id} 
-                                        style={styles.userRow} 
-                                        activeOpacity={0.7}
-                                        onPress={() => onViewUser(user._id || user.id)}
-                                    >
+                                <TouchableOpacity 
+                                    key={user._id} 
+                                    style={styles.userRow}
+                                    activeOpacity={0.8}
+                                    onPress={() => onViewUser(user._id)}
+                                >
+
                                     <View style={styles.avatar}>
                                         <HeadingSm style={styles.avatarText}>
                                             {((user as any).name || 'U').split(' ').map((n: string) => n[0]).join('')}

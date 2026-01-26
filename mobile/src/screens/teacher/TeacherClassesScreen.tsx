@@ -18,7 +18,6 @@ import {
     CalendarStrip,
     AcademicCalendarModal,
 } from '../../components';
-import { teacherClasses } from '../../data/teacherMockData';
 import { getTermInfo } from '../../data/academicUtils';
 import Svg, { Path, Rect } from 'react-native-svg';
 
@@ -44,8 +43,9 @@ export const TeacherClassesScreen = ({ onViewClass }: TeacherClassesScreenProps)
     
     const termInfo = useMemo(() => getTermInfo(viewMonth, viewYear), [viewMonth, viewYear]);
 
-    // Filter classes for selected date (mock filtering)
-    const filteredClasses = teacherClasses; 
+    // Placeholder until Convex sessions are queryable
+    const filteredClasses: any[] = []; 
+
 
     return (
         <View style={styles.container}>

@@ -18,6 +18,8 @@ import {
 } from '../components';
 import { DoorOpen, CircleCheckBig } from 'lucide-react-native';
 
+import { useAppData } from '../context/AppContext';
+
 interface DashboardScreenProps {
     onOpenGate: () => void;
     onAttendance: () => void;
@@ -25,7 +27,7 @@ interface DashboardScreenProps {
     onViewAllClasses: () => void;
 }
 
-// Sample class data
+// Sample class data (Placeholder until sessions are fully integrated)
 const todayClasses = [
     {
         id: '1',
@@ -35,25 +37,15 @@ const todayClasses = [
         endTime: '10:30',
         status: 'open',
     },
-    {
-        id: '2',
-        name: 'MATH201 — Linear Algebra',
-        room: 'Room 112, Science',
-        startTime: '11:00',
-        endTime: '12:30',
-        status: 'upcoming',
-    },
-    {
-        id: '3',
-        name: 'ENG105 — Technical Writing',
-        room: 'Room 408, Liberal Arts',
-        startTime: '14:00',
-        endTime: '15:30',
-        status: 'upcoming',
-    },
 ];
 
 export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAllClasses }: DashboardScreenProps) => {
+    const { viewer } = useAppData();
+    
+    if (!viewer) return null;
+
+    const firstName = viewer.name?.split(' ')[0] || 'User';
+
     const insets = useSafeAreaInsets();
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-GB', {
@@ -78,11 +70,11 @@ export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAll
                     <View style={styles.header}>
                         <View style={styles.greeting}>
                             <HeadingSm>Good morning</HeadingSm>
-                            <HeadingLg>Jonathan</HeadingLg>
+                            <HeadingLg>{firstName}</HeadingLg>
                             <BodySm style={styles.date}>{dateStr}</BodySm>
                         </View>
                         <TouchableOpacity style={styles.avatar} onPress={onProfile} activeOpacity={0.8}>
-                            <HeadingMd style={styles.avatarText}>J</HeadingMd>
+                            <HeadingMd style={styles.avatarText}>{firstName[0]}</HeadingMd>
                         </TouchableOpacity>
                     </View>
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
     View,
     StyleSheet,
@@ -19,7 +19,7 @@ import {
     ResponsiveContainer,
 } from '../components';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { mockRooms, mockStaffTasks, AdminRoom } from '../data/adminMockData';
+import { useAppData } from '../context/AppContext';
 import { 
     DoorOpen, 
     ClipboardList, 
@@ -56,9 +56,16 @@ const RoomIcon = ({ type, size = 20, color = colors.slate }: { type: string, siz
 };
 
 export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGate }: StaffDashboardProps) => {
+    const { rooms: allRooms, viewer } = useAppData();
     const insets = useSafeAreaInsets();
-    const [rooms, setRooms] = useState<AdminRoom[]>(mockRooms);
+    const [localRooms, setLocalRooms] = useState<any[]>([]);
+
+    useEffect(() => {
+        if (allRooms) setLocalRooms(allRooms);
+    }, [allRooms]);
     
+    if (!viewer) return null;
+
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-GB', {
         weekday: 'long',
@@ -66,9 +73,11 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
         month: 'long'
     });
 
+    const rooms = localRooms;
+
     // Filtering logic for cleaner utility
     const readyToClean = useMemo(() => 
-        rooms.filter(r => r.needsCleaning && r.occupancy === 0),
+        rooms.filter(r => r.needsCleaning && (r.occupancy || 0) === 0),
     [rooms]);
 
     const bathrooms = useMemo(() => 
@@ -76,10 +85,9 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
     [rooms]);
 
     const inUse = useMemo(() => 
-        rooms.filter(r => r.occupancy > 0),
+        rooms.filter(r => (r.occupancy || 0) > 0),
     [rooms]);
 
-    const pendingTasks = mockStaffTasks.filter(t => t.status !== 'completed');
     const cleanedToday = rooms.filter(r => !r.needsCleaning).length;
 
     const handleMarkCleaned = (roomId: string) => {
@@ -91,8 +99,8 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
                 { 
                     text: "Mark Cleaned", 
                     onPress: () => {
-                        setRooms(prev => prev.map(r => 
-                            r.id === roomId ? { ...r, needsCleaning: false, lastCleanedAt: 'Just now' } : r
+                        setLocalRooms(prev => prev.map(r => 
+                            r._id === roomId ? { ...r, needsCleaning: false, lastCleanedAt: 'Just now' } : r
                         ));
                     } 
                 }
@@ -120,13 +128,13 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
         );
     };
 
-    const RoomCard = ({ room, priority = false }: { room: AdminRoom, priority?: boolean }) => (
-        <View key={room.id} style={[styles.roomContainer, priority && styles.priorityRoom]}>
+    const RoomCard = ({ room, priority = false }: { room: any, priority?: boolean }) => (
+        <View key={room._id} style={[styles.roomContainer, priority && styles.priorityRoom]}>
             <View style={styles.roomHeader}>
                 <View style={styles.roomHeaderLeft}>
                     <View style={[
-                        styles.powerDot,
-                        { backgroundColor: room.occupancy > 0 ? colors.error : colors.success }
+                        styles.pulseDot,
+                        { backgroundColor: (room.occupancy || 0) > 0 ? colors.error : colors.success }
                     ]} />
                     <Body style={styles.roomName}>{room.name.toUpperCase()}</Body>
                 </View>
@@ -146,7 +154,7 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
                     <View style={styles.roomStatusInfo}>
                         <Users size={14} color={colors.slate} />
                         <Caption style={styles.lockLabel}>
-                            {room.occupancy} ACTIVE
+                            {(room.occupancy || 0)} ACTIVE
                         </Caption>
                     </View>
                 </View>
@@ -159,10 +167,10 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
                 </View>
                 
                 <View>
-                    {room.needsCleaning && (room.type === 'bathroom' || room.occupancy === 0) ? (
+                    {room.needsCleaning && (room.type === 'bathroom' || (room.occupancy || 0) === 0) ? (
                         <TouchableOpacity 
                             style={styles.cleanButton} 
-                            onPress={() => handleMarkCleaned(room.id)}
+                            onPress={() => handleMarkCleaned(room._id)}
                         >
                             <RefreshCcw size={14} color="#FFF" />
                             <BodySm style={styles.cleanButtonText}>MARK CLEANED</BodySm>
@@ -182,6 +190,24 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
             </View>
         </View>
     );
+
+    const ReadyToCleanSection = () => {
+        if (readyToClean.length === 0) return null;
+        return (
+            <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                    <HeadingSm style={styles.priorityTitle}>READY TO CLEAN</HeadingSm>
+                    <View style={styles.liveBadge}>
+                        <View style={styles.pulseDot} />
+                        <Caption style={{ color: colors.cobalt }}>LIVE RADAR</Caption>
+                    </View>
+                </View>
+                <View style={styles.roomList}>
+                    {readyToClean.map(room => <RoomCard key={room._id} room={room} priority />)}
+                </View>
+            </View>
+        );
+    };
 
     return (
         <View style={styles.container}>
@@ -251,20 +277,7 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
                     </View>
 
                     {/* READY TO CLEAN Section */}
-                    {readyToClean.length > 0 && (
-                        <View style={styles.section}>
-                            <View style={styles.sectionHeader}>
-                                <HeadingSm style={styles.priorityTitle}>READY TO CLEAN</HeadingSm>
-                                <View style={styles.liveBadge}>
-                                    <View style={styles.pulseDot} />
-                                    <Caption style={{ color: colors.cobalt }}>LIVE RADAR</Caption>
-                                </View>
-                            </View>
-                            <View style={styles.roomList}>
-                                {readyToClean.map(room => <RoomCard key={room.id} room={room} priority />)}
-                            </View>
-                        </View>
-                    )}
+                    <ReadyToCleanSection />
 
                     {/* BATHROOM MONITOR Section */}
                     <View style={styles.section}>
@@ -273,7 +286,7 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
                             <Caption>Real-time status</Caption>
                         </View>
                         <View style={styles.roomList}>
-                            {bathrooms.map(room => <RoomCard key={room.id} room={room} />)}
+                            {bathrooms.map(room => <RoomCard key={room._id} room={room} />)}
                         </View>
                     </View>
 
@@ -286,7 +299,7 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
                             </View>
                             <View style={styles.roomList}>
                                 {inUse.filter(r => r.type !== 'bathroom').map(room => (
-                                    <View key={room.id} style={[styles.roomContainer, { opacity: 0.7 }]}>
+                                    <View key={room._id} style={[styles.roomContainer, { opacity: 0.7 }]}>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                                 <RoomIcon type={room.type} color={colors.slate} />
@@ -295,7 +308,7 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
                                             <View style={styles.statusBadgeError}>
                                                 <Users size={12} color={colors.error} />
                                                 <Caption style={{ color: colors.error, marginLeft: 4, fontFamily: 'Inter-SemiBold', fontSize: 10 }}>
-                                                    {room.occupancy} PPL
+                                                    {(room.occupancy || 0)} PPL
                                                 </Caption>
                                             </View>
                                         </View>

@@ -15,13 +15,15 @@ import {
     BodySm,
     Caption,
     ResponsiveContainer,
+    LoadingView,
 } from '../../components';
 import {
     StudentAttendanceRow,
     MarkPresentModal,
 } from '../../components/teacher';
-import { teacherClasses, classRoster } from '../../data/teacherMockData';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 
 interface ClassDetailScreenProps {
     classId: string;
@@ -36,11 +38,41 @@ const BackIcon = () => (
 
 export const ClassDetailScreen = ({ classId, onBack }: ClassDetailScreenProps) => {
     const insets = useSafeAreaInsets();
-    const classInfo = teacherClasses.find(c => c.id === classId) || teacherClasses[0];
-    const roster = classRoster[classId as keyof typeof classRoster] || classRoster['2'];
+    
+    // Fetch live data from Convex
+    const classData = useQuery(api.classes.getDetails, { classId: classId as any });
     
     const [selectedStudent, setSelectedStudent] = useState<{name: string, id: string} | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
+
+    if (classData === undefined) {
+        return <LoadingView />;
+    }
+
+    if (!classData) {
+        return (
+            <View style={styles.container}>
+                <ResponsiveContainer>
+                    <View style={styles.header}>
+                        <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                            <BackIcon />
+                            <BodySm>Back</BodySm>
+                        </TouchableOpacity>
+                        <HeadingMd>Class Not Found</HeadingMd>
+                    </View>
+                </ResponsiveContainer>
+            </View>
+        );
+    }
+
+    const classInfo = {
+        code: classData.code,
+        room: "Room 305", // Default for now
+        name: classData.name,
+        attendance: { present: 0, late: 0, absent: 0, total: 0 }
+    };
+    
+    const roster: any[] = []; // Roster logic will follow in next phase
 
     const handleMarkPresent = (student: {name: string, id: string}) => {
         setSelectedStudent(student);
@@ -50,7 +82,6 @@ export const ClassDetailScreen = ({ classId, onBack }: ClassDetailScreenProps) =
     const handleModalSubmit = (reason: string, note: string) => {
         console.log(`Marking ${selectedStudent?.name} present. Reason: ${reason}, Note: ${note}`);
         setModalVisible(false);
-        // In real app, update state/backend here
     };
 
     return (
@@ -125,12 +156,16 @@ export const ClassDetailScreen = ({ classId, onBack }: ClassDetailScreenProps) =
                                     onMarkPresent={() => handleMarkPresent({ name: student.name, id: student.id })}
                                 />
                             ))}
+                            {roster.length === 0 && (
+                                <View style={{ padding: spacing.xl, alignItems: 'center' }}>
+                                    <Caption>No students enrolled yet.</Caption>
+                                </View>
+                            )}
                         </View>
                     </View>
                     </ScrollView>
                 </View>
             </ResponsiveContainer>
-
 
             <MarkPresentModal 
                 visible={modalVisible}
@@ -150,13 +185,12 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
     },
     backButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        width: 80, // Fixed width for balancing
+        width: 80, 
     },
     header: {
         marginBottom: spacing.xl,
@@ -174,7 +208,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     headerSpacer: {
-        width: 80, // Same as backButton width
+        width: 80, 
     },
     subtitle: {
         color: colors.cobalt,
@@ -225,4 +259,3 @@ const styles = StyleSheet.create({
         borderColor: colors.mist,
     },
 });
-

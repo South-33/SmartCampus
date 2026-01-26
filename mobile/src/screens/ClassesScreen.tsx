@@ -4,7 +4,6 @@ import {
     StyleSheet,
     ScrollView,
     TouchableOpacity,
-    Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
@@ -35,130 +34,30 @@ interface ClassesScreenProps {
     onBack?: () => void;
 }
 
-// --- Mock Data ---
+// --- Placeholders (To be replaced by real queries) ---
 
 const nextClass = {
     code: 'CS101',
     name: 'Data Structures',
     room: 'Room 305',
     startTime: '09:00',
-    minutesUntil: 47,
+    minutesUntil: 45,
 };
 
 const attendanceMetrics = {
-    currentStreak: 12,
-    weekAttended: 4,
-    weekTotal: 5,
-    overallPercent: 92.4,
+    currentStreak: 0,
+    weekAttended: 0,
+    weekTotal: 0,
+    overallPercent: 0,
     status: 'good',
 };
 
-const enrolledCourses = [
-    {
-        id: '1',
-        code: 'CS101',
-        name: 'Data Structures',
-        professor: 'Dr. Aris Thorne',
-        color: colors.cobalt,
-        attendancePercent: 94,
-        classesAttended: 31,
-        classesTotal: 33,
-        currentStreak: 8,
-        nextClass: {
-            day: 'Wed',
-            time: '09:00',
-            room: 'Room 305',
-            status: 'upcoming',
-        },
-        schedule: [
-            { day: 'Mon', time: '09:00 - 10:30', room: 'Room 305' },
-            { day: 'Wed', time: '09:00 - 10:30', room: 'Room 305' },
-        ],
-        recentLog: [
-            { date: 'Oct 21', time: '09:02', status: 'present' },
-            { date: 'Oct 19', time: '09:01', status: 'present' },
-            { date: 'Oct 16', time: '09:15', status: 'late' },
-            { date: 'Oct 14', time: '—', status: 'absent' },
-            { date: 'Oct 12', time: '09:00', status: 'present' },
-        ],
-    },
-    {
-        id: '2',
-        code: 'MATH201',
-        name: 'Linear Algebra',
-        professor: 'Prof. Sarah Vance',
-        color: '#6366F1',
-        attendancePercent: 78,
-        classesAttended: 18,
-        classesTotal: 23,
-        currentStreak: 0,
-        nextClass: {
-            day: 'Thu',
-            time: '11:00',
-            room: 'Room 112',
-            status: 'warning',
-        },
-        schedule: [
-            { day: 'Tue', time: '11:00 - 12:30', room: 'Room 112' },
-            { day: 'Thu', time: '11:00 - 12:30', room: 'Room 112' },
-        ],
-        recentLog: [
-            { date: 'Oct 20', time: '—', status: 'absent' },
-            { date: 'Oct 18', time: '—', status: 'absent' },
-            { date: 'Oct 15', time: '11:05', status: 'present' },
-            { date: 'Oct 13', time: '11:02', status: 'present' },
-            { date: 'Oct 11', time: '11:00', status: 'present' },
-        ],
-        isAtRisk: true,
-        riskMessage: '2 more absences = Academic Probation',
-    },
-    {
-        id: '3',
-        code: 'ENG105',
-        name: 'Technical Writing',
-        professor: 'James Sterling',
-        color: '#8B5CF6',
-        attendancePercent: 100,
-        classesAttended: 12,
-        classesTotal: 12,
-        currentStreak: 12,
-        nextClass: {
-            day: 'Fri',
-            time: '14:00',
-            room: 'Room 408',
-            status: 'upcoming',
-        },
-        schedule: [
-            { day: 'Fri', time: '14:00 - 15:30', room: 'Room 408' },
-        ],
-        recentLog: [
-            { date: 'Oct 18', time: '14:00', status: 'present' },
-            { date: 'Oct 11', time: '14:01', status: 'present' },
-            { date: 'Oct 04', time: '14:00', status: 'present' },
-            { date: 'Sep 27', time: '13:58', status: 'present' },
-            { date: 'Sep 20', time: '14:00', status: 'present' },
-        ],
-    },
-];
-
-const attendanceAlerts = [
-    {
-        id: '1',
-        type: 'warning',
-        course: 'MATH201',
-        message: '2 consecutive absences. Next absence triggers warning.',
-    },
-    {
-        id: '2',
-        type: 'success',
-        course: 'ENG105',
-        message: 'Perfect attendance! 12/12 classes attended.',
-    },
-];
+const enrolledCourses: any[] = [];
+const attendanceAlerts: any[] = [];
 
 // --- Components ---
 
-const CourseCard = ({ course }: { course: typeof enrolledCourses[0] }) => {
+const CourseCard = ({ course }: { course: any }) => {
     const [expanded, setExpanded] = useState(false);
     
     const getStatusColor = (status: string) => {
@@ -230,7 +129,7 @@ const CourseCard = ({ course }: { course: typeof enrolledCourses[0] }) => {
                 <View style={styles.expandedContent}>
                     <View style={styles.expandedSection}>
                         <HeadingSm style={styles.expandedSectionTitle}>WEEKLY SCHEDULE</HeadingSm>
-                        {course.schedule.map((s, i) => (
+                        {course.schedule.map((s: any, i: number) => (
                             <View key={i} style={styles.scheduleRow}>
                                 <BodySm style={styles.scheduleDay}>{s.day}</BodySm>
                                 <BodySm style={styles.scheduleTime}>{s.time}</BodySm>
@@ -259,7 +158,7 @@ const CourseCard = ({ course }: { course: typeof enrolledCourses[0] }) => {
 
                     <View style={styles.expandedSection}>
                         <HeadingSm style={styles.expandedSectionTitle}>RECENT CHECK-INS</HeadingSm>
-                        {course.recentLog.map((log, i) => (
+                        {course.recentLog.map((log: any, i: number) => (
                             <View key={i} style={styles.logRow}>
                                 <BodySm style={styles.logDate}>{log.date}</BodySm>
                                 <BodySm style={styles.logTime}>{log.time}</BodySm>
@@ -365,7 +264,7 @@ export const ClassesScreen = () => {
                                 <HeadingSm style={styles.sectionTitle}>ATTENDANCE ALERTS</HeadingSm>
                             </View>
                             <View style={styles.alertsContainer}>
-                                {attendanceAlerts.map((alert) => (
+                                {attendanceAlerts.map((alert: any) => (
                                     <View key={alert.id} style={[styles.alertCard, { borderColor: alert.type === 'warning' ? colors.error + '30' : colors.success + '30' }]}>
                                         {alert.type === 'warning' ? <AlertCircleIcon size={16} /> : <CheckCircleIcon size={16} />}
                                         <View style={styles.alertContent}>
@@ -382,7 +281,7 @@ export const ClassesScreen = () => {
                                 <HeadingSm style={styles.sectionTitle}>Enrolled Classes</HeadingSm>
                             </View>
                             <View style={styles.classList}>
-                                {enrolledCourses.map((course) => (
+                                {enrolledCourses.map((course: any) => (
                                     <CourseCard key={course.id} course={course} />
                                 ))}
                             </View>

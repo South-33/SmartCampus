@@ -17,7 +17,6 @@ import {
     ResponsiveContainer,
 } from '../components';
 import Svg, { Path } from 'react-native-svg';
-import { mockLogs } from '../data/adminMockData';
 import { useConvexAuth } from 'convex/react';
 import { useAppData } from '../context/AppContext';
 
@@ -43,7 +42,7 @@ export const AdminLogsScreen = ({ onBack }: AdminLogsScreenProps) => {
     const { recentLogs: allLogs, isAdminDataLoaded } = useAppData();
     
     const isLoading = isAuthenticated && !isAdminDataLoaded;
-    const logs = isAuthenticated ? (allLogs || []) : mockLogs;
+    const logs = allLogs || [];
 
     return (
         <View style={styles.container}>

@@ -17,7 +17,7 @@ import {
     ResponsiveContainer,
 } from '../components';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { mockRooms, mockDevices, DeviceStatus, LockStatus } from '../data/adminMockData';
+import { useAppData } from '../context/AppContext';
 
 interface AdminRoomDetailScreenProps {
     roomId: string;
@@ -43,10 +43,10 @@ const UnlockIcon = () => (
     </Svg>
 );
 
-const StatusBadge = ({ status }: { status: DeviceStatus }) => {
+const StatusBadge = ({ status }: { status: string }) => {
     const isOnline = status === 'online';
     return (
-        <View style={[styles.badge, { backgroundColor: isOnline ? colors.successBg : colors.errorBg }]}>
+        <View style={[styles.badge, { backgroundColor: isOnline ? '#F0F9F4' : '#FFF1F1' }]}>
             <Caption style={{ color: isOnline ? colors.success : colors.error, fontSize: 10, fontFamily: 'Inter-SemiBold' }}>
                 {status.toUpperCase()}
             </Caption>
@@ -71,19 +71,15 @@ const DeviceIcon = ({ type, color }: { type: 'gatekeeper' | 'watchman', color: s
     </Svg>
 );
 
-const LockIconSmall = ({ active }: { active: boolean }) => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={active ? colors.error : colors.slate} strokeWidth={2}>
-        <Rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-        <Path d={active ? "M7 11V7a5 5 0 0 1 10 0v4" : "M7 11V7a5 5 0 0 1 9.9-1"} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-);
-
 export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenProps) => {
+
     const insets = useSafeAreaInsets();
-    const room = mockRooms.find(r => r.id === roomId);
-    const devices = mockDevices.filter(d => d.roomId === roomId);
+    const { rooms, devices: allDevices } = useAppData();
+    const room = (rooms || []).find((r: any) => r._id === roomId);
+    const devices = (allDevices || []).filter((d: any) => d.roomId === roomId);
 
     if (!room) return null;
+
 
     return (
         <View style={styles.container}>
@@ -120,11 +116,12 @@ export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenP
                             <View style={styles.metaItem}>
                                 <Caption>Access Level</Caption>
                                 <Body style={{ 
-                                    color: room.lockStatus === 'unlocked' ? colors.success : colors.error,
+                                    color: (room.lockStatus || 'unlocked') === 'unlocked' ? colors.success : colors.error,
                                     fontFamily: 'Inter-SemiBold'
                                 }}>
-                                    {room.lockStatus.replace('_', ' ').toUpperCase()}
+                                    {(room.lockStatus || 'unlocked').replace('_', ' ').toUpperCase()}
                                 </Body>
+
                             </View>
                         </View>
                     </View>
@@ -132,24 +129,25 @@ export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenP
                     {/* Lock Controls */}
                     <HeadingSm style={styles.sectionTitle}>LOCK STATUS</HeadingSm>
                     <View style={styles.lockSelector}>
-                        {(['unlocked', 'staff_only', 'locked'] as LockStatus[]).map((status) => (
+                        {(['unlocked', 'staff_only', 'locked'] as const).map((status) => (
                             <TouchableOpacity 
                                 key={status} 
                                 style={[
                                     styles.lockTab, 
-                                    room.lockStatus === status && styles.lockTabActive,
-                                    room.lockStatus === status && status !== 'unlocked' && styles.lockTabActiveError
+                                    (room.lockStatus || 'unlocked') === status && styles.lockTabActive,
+                                    (room.lockStatus || 'unlocked') === status && status !== 'unlocked' && styles.lockTabActiveError
                                 ]}
                             >
                                 <BodySm style={[
                                     styles.lockTabText, 
-                                    room.lockStatus === status && styles.lockTabTextActive
+                                    (room.lockStatus || 'unlocked') === status && styles.lockTabTextActive
                                 ]}>
                                     {status.split('_')[0].toUpperCase()}
                                 </BodySm>
                             </TouchableOpacity>
                         ))}
                     </View>
+
 
                     {/* Quick Controls */}
                     <HeadingSm style={styles.sectionTitle}>REMOTE ACTIONS</HeadingSm>
@@ -166,17 +164,17 @@ export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenP
 
                     {/* Connected Devices */}
                     <HeadingSm style={styles.sectionTitle}>CONNECTED HARDWARE</HeadingSm>
-                    {devices.map((device) => (
-                        <View key={device.id} style={styles.deviceCard}>
+                    {devices.map((device: any) => (
+                        <View key={device._id} style={styles.deviceCard}>
                             <View style={styles.deviceHeader}>
                                 <View style={styles.deviceTitleGroup}>
                                     <DeviceIcon 
-                                        type={device.type} 
+                                        type={device.type || 'gatekeeper'} 
                                         color={device.status === 'online' ? colors.success : colors.error} 
                                     />
                                     <View>
                                         <Body style={styles.deviceName}>{device.name}</Body>
-                                        <Caption>{device.type.toUpperCase()}</Caption>
+                                        <Caption>{(device.type || 'gatekeeper').toUpperCase()}</Caption>
                                     </View>
                                 </View>
                                 <StatusBadge status={device.status} />
@@ -189,11 +187,11 @@ export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenP
                                 </View>
                                 <View style={styles.detailRow}>
                                     <Caption>Firmware</Caption>
-                                    <BodySm>v{device.firmwareVersion}</BodySm>
+                                    <BodySm>v{device.firmwareVersion || '0.0.0'}</BodySm>
                                 </View>
                                 <View style={styles.detailRow}>
                                     <Caption>Last Seen</Caption>
-                                    <BodySm>{device.lastSeen}</BodySm>
+                                    <BodySm>{device.lastSeen ? new Date(device.lastSeen).toLocaleTimeString() : 'Never'}</BodySm>
                                 </View>
                             </View>
 
@@ -207,6 +205,7 @@ export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenP
                             </View>
                         </View>
                     ))}
+
 
                     {devices.length === 0 && (
                         <View style={styles.emptyCard}>

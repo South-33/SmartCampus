@@ -9,6 +9,7 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     const user = await getCurrentUser(ctx);
+    if (!user) return [];
     mustBeAdmin(user);
     
     return await ctx.db.query("devices").collect();

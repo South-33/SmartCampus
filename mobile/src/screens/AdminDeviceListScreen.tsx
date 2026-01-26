@@ -8,7 +8,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
-    HeadingLg,
     HeadingMd,
     HeadingSm,
     Body,
@@ -16,8 +15,8 @@ import {
     Caption,
     ResponsiveContainer,
 } from '../components';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { mockDevices, DeviceStatus } from '../data/adminMockData';
+import Svg, { Path } from 'react-native-svg';
+import { useAppData } from '../context/AppContext';
 
 interface AdminDeviceListScreenProps {
     onBack: () => void;
@@ -35,13 +34,13 @@ const PowerIcon = ({ active }: { active: boolean }) => (
     </Svg>
 );
 
-const StatusBadge = ({ status }: { status: DeviceStatus }) => {
+const StatusBadge = ({ status }: { status: string }) => {
     const getStatusStyles = () => {
         switch (status) {
             case 'online':
-                return { bg: colors.successBg, text: colors.success, label: 'ONLINE' };
+                return { bg: '#F0F9F4', text: colors.success, label: 'ONLINE' };
             case 'offline':
-                return { bg: colors.errorBg, text: colors.error, label: 'OFFLINE' };
+                return { bg: '#FFF1F1', text: colors.error, label: 'OFFLINE' };
             default:
                 return { bg: colors.mist, text: colors.slate, label: 'UNKNOWN' };
         }
@@ -58,6 +57,8 @@ const StatusBadge = ({ status }: { status: DeviceStatus }) => {
 
 export const AdminDeviceListScreen = ({ onBack }: AdminDeviceListScreenProps) => {
     const insets = useSafeAreaInsets();
+    const { devices, rooms } = useAppData();
+
     return (
         <View style={styles.container}>
             <ResponsiveContainer>
@@ -87,41 +88,43 @@ export const AdminDeviceListScreen = ({ onBack }: AdminDeviceListScreenProps) =>
                     >
                     <HeadingSm style={styles.sectionTitle}>ALL HARDWARE NODES</HeadingSm>
                     
-                    {mockDevices.map((device) => (
-                        <TouchableOpacity key={device.id} style={styles.deviceCard} activeOpacity={0.8}>
-                            <View style={styles.deviceMain}>
-                                <View style={styles.deviceHeader}>
-                                    <Body style={styles.deviceName}>{device.name}</Body>
-                                    <StatusBadge status={device.status} />
+                    {(devices || []).map((device: any) => {
+                        const room = (rooms || []).find((r: any) => r._id === device.roomId);
+                        return (
+                            <TouchableOpacity key={device._id} style={styles.deviceCard} activeOpacity={0.8}>
+                                <View style={styles.deviceMain}>
+                                    <View style={styles.deviceHeader}>
+                                        <Body style={styles.deviceName}>{device.name}</Body>
+                                        <StatusBadge status={device.status} />
+                                    </View>
+                                    
+                                    <View style={styles.deviceMeta}>
+                                        <View style={styles.metaItem}>
+                                            <Caption>Chip ID</Caption>
+                                            <BodySm>{device.chipId}</BodySm>
+                                        </View>
+                                        <View style={styles.metaItem}>
+                                            <Caption>Room</Caption>
+                                            <BodySm>{room?.name || 'Unassigned'}</BodySm>
+                                        </View>
+                                    </View>
                                 </View>
                                 
-                                <View style={styles.deviceMeta}>
-                                    <View style={styles.metaItem}>
-                                        <Caption>Chip ID</Caption>
-                                        <BodySm>{device.chipId}</BodySm>
-                                    </View>
-                                    <View style={styles.metaItem}>
-                                        <Caption>Room</Caption>
-                                        <BodySm>{device.roomName || 'Unassigned'}</BodySm>
-                                    </View>
+                                <View style={styles.deviceFooter}>
+                                    <Caption>Last seen: {device.lastSeen ? new Date(device.lastSeen).toLocaleTimeString() : 'Never'}</Caption>
+                                    <TouchableOpacity style={styles.powerAction}>
+                                        <PowerIcon active={device.status === 'online'} />
+                                    </TouchableOpacity>
                                 </View>
-                            </View>
-                            
-                            <View style={styles.deviceFooter}>
-                                <Caption>Last seen: {device.lastSeen}</Caption>
-                                <TouchableOpacity style={styles.powerAction}>
-                                    <PowerIcon active={device.status === 'online'} />
-                                </TouchableOpacity>
-                            </View>
-                        </TouchableOpacity>
-                    ))}
+                            </TouchableOpacity>
+                        );
+                    })}
                     </ScrollView>
                 </View>
             </ResponsiveContainer>
         </View>
     );
 };
-
 
 const styles = StyleSheet.create({
     container: {

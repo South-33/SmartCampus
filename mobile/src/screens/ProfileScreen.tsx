@@ -27,6 +27,8 @@ import {
     CircleHelp 
 } from 'lucide-react-native';
 
+import { useAppData } from '../context/AppContext';
+
 interface ProfileScreenProps {
     onBack: () => void;
     onLinkCard: () => void;
@@ -36,26 +38,27 @@ interface ProfileScreenProps {
     onSignOut: () => void;
 }
 
-// Sample user data
-const userData = {
-    name: 'Jonathan Doe',
-    email: 'jonathan.doe@university.edu',
-    studentId: 'STU-2024-0847',
-    department: 'Computer Science',
-    year: '3rd Year',
-    cardLinked: true,
-    cardLastDigits: '7D00',
-};
-
 export const ProfileScreen = ({ 
     onBack, 
     onLinkCard, 
     onNotifications, 
     onPrivacy, 
-    onHelp,
+    onHelp, 
     onSignOut,
 }: ProfileScreenProps) => {
     const insets = useSafeAreaInsets();
+    const { viewer } = useAppData();
+    
+    if (!viewer) return null;
+
+    const name = viewer.name || 'User';
+    const email = viewer.email || '';
+    const initials = name.split(' ').map((n: string) => n[0]).join('');
+    const roleLabel = (viewer.role || 'student').toUpperCase();
+    const statusLabel = (viewer.status || 'active').toUpperCase();
+    const cardLinked = !!viewer.cardUID;
+    const cardLastDigits = viewer.cardUID ? viewer.cardUID.slice(-4) : '';
+
     return (
         <View style={styles.container}>
             <ResponsiveContainer>
@@ -87,30 +90,18 @@ export const ProfileScreen = ({
                     <View style={styles.profileHeader}>
                         <View style={styles.avatar}>
                             <HeadingLg style={styles.avatarText}>
-                                {userData.name.split(' ').map(n => n[0]).join('')}
+                                {initials}
                             </HeadingLg>
                         </View>
-                        <HeadingLg style={styles.userName}>{userData.name}</HeadingLg>
-                        <BodySm style={styles.userEmail}>{userData.email}</BodySm>
+                        <HeadingLg style={styles.userName}>{name}</HeadingLg>
+                        <BodySm style={styles.userEmail}>{email}</BodySm>
                         <View style={styles.badge}>
-                            <Caption style={styles.badgeText}>{userData.studentId}</Caption>
-                        </View>
-                    </View>
-
-                    {/* Student Info Card */}
-                    <View style={styles.infoCard}>
-                        <View style={styles.infoRow}>
-                            <BodySm style={styles.infoLabel}>Department</BodySm>
-                            <Body style={styles.infoValue}>{userData.department}</Body>
-                        </View>
-                        <View style={styles.divider} />
-                        <View style={styles.infoRow}>
-                            <BodySm style={styles.infoLabel}>Academic Year</BodySm>
-                            <Body style={styles.infoValue}>{userData.year}</Body>
+                            <Caption style={styles.badgeText}>{roleLabel} • {statusLabel}</Caption>
                         </View>
                     </View>
 
                     {/* NFC Card Section */}
+
                     <View style={styles.section}>
                         <HeadingSm style={styles.sectionTitle}>Access Card</HeadingSm>
 
@@ -124,13 +115,13 @@ export const ProfileScreen = ({
                             </View>
                             <View style={styles.cardInfo}>
                                 <Body style={styles.cardTitle}>
-                                    {userData.cardLinked ? 'NFC Card Linked' : 'Link Your Card'}
+                                    {cardLinked ? 'NFC Card Linked' : 'Link Your Card'}
                                 </Body>
-                                {userData.cardLinked ? (
+                                {cardLinked ? (
                                     <View style={styles.cardStatus}>
                                         <CheckCircle size={16} color={colors.success} strokeWidth={2} />
                                         <Caption style={styles.cardStatusText}>
-                                            •••• {userData.cardLastDigits}
+                                            •••• {cardLastDigits}
                                         </Caption>
                                     </View>
                                 ) : (

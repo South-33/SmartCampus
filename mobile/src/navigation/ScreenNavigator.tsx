@@ -51,23 +51,16 @@ export const ScreenNavigator = ({
 }: ScreenNavigatorProps) => {
   const { 
     userRole, 
-    setUserRole, 
     setIsDemo, 
     rooms, 
     devices, 
     recentLogs, 
     userStats, 
     allUsers, 
-    isAdminDataLoaded 
+    isAdminDataLoaded,
   } = useAppData();
   
   const { signOut } = useAuthActions();
-
-  const handleLogin = (role: any) => {
-    setIsDemo(true);
-    setUserRole(role);
-    navigateTo('dashboard', { clearHistory: true });
-  };
 
   const handleViewClass = (classId: string) => {
     navigateTo('class-detail', { classId });
@@ -83,6 +76,8 @@ export const ScreenNavigator = ({
       allUsers,
       isLoading: !isAdminDataLoaded
     };
+
+    if (!userRole) return null;
 
     switch (userRole) {
       case 'student':
@@ -134,8 +129,6 @@ export const ScreenNavigator = ({
   };
 
   switch (screen) {
-    case 'login':
-      return <LoginScreen key="login" onLogin={handleLogin} />;
     case 'dashboard':
       return renderDashboard();
     case 'opengate':
@@ -154,7 +147,6 @@ export const ScreenNavigator = ({
           onSignOut={() => {
             signOut();
             setIsDemo(false);
-            navigateTo('login', { clearHistory: true });
           }}
         />
       );

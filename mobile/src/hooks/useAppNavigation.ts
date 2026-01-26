@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { Animated, Platform } from 'react-native';
 
-export type Screen = 'login' | 'dashboard' | 'attendance' | 'opengate' | 'profile' | 'linkcard' | 'notifications' | 'privacy' | 'help' | 'classes' | 'teacher-classes' | 'teacher-hours' | 'class-detail' | 'admin-users' | 'admin-user-detail' | 'admin-logs' | 'admin-rooms' | 'admin-room-detail' | 'admin-security' | 'staff-tasks';
+export type Screen = 'dashboard' | 'attendance' | 'opengate' | 'profile' | 'linkcard' | 'notifications' | 'privacy' | 'help' | 'classes' | 'teacher-classes' | 'teacher-hours' | 'class-detail' | 'admin-users' | 'admin-user-detail' | 'admin-logs' | 'admin-rooms' | 'admin-room-detail' | 'admin-security' | 'staff-tasks';
 
 export type HistoryItem = {
   screen: Screen;
@@ -11,8 +11,8 @@ export type HistoryItem = {
 };
 
 export function useAppNavigation() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('login');
-  const [displayedScreen, setDisplayedScreen] = useState<Screen>('login');
+  const [currentScreen, setCurrentScreen] = useState<Screen>('dashboard');
+  const [displayedScreen, setDisplayedScreen] = useState<Screen>('dashboard');
   const [navigationHistory, setNavigationHistory] = useState<HistoryItem[]>([]);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
@@ -23,7 +23,7 @@ export function useAppNavigation() {
   const navigateTo = useCallback((screen: Screen, params: { classId?: string, roomId?: string, userId?: string, clearHistory?: boolean } = {}) => {
     if ((screen === currentScreen && !params.classId && !params.roomId && !params.userId) || isTransitioning) return;
 
-    if (params.clearHistory || screen === 'login') {
+    if (params.clearHistory) {
       setNavigationHistory([]);
     } else {
       setNavigationHistory(prev => [...prev, {
@@ -76,7 +76,7 @@ export function useAppNavigation() {
     });
   }, [navigationHistory, isTransitioning, fadeAnim]);
 
-  const resetNavigation = useCallback((screen: Screen = 'login') => {
+  const resetNavigation = useCallback((screen: Screen = 'dashboard') => {
     setNavigationHistory([]);
     setCurrentScreen(screen);
     setDisplayedScreen(screen);

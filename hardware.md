@@ -25,7 +25,7 @@
   Relay Modules      [##########] 2/2 FULL      Buy more for expansion
   USB-C Cables       [##########] 2/2 FULL      For flashing
   USB-C Breakouts    [#---------] 1/5 ORDERED   4 spare after Node A
-  Level Shifters     [##--------] 2/10 ORDERED  8 spare after Node A
+  Level Shifters     [----------] 0/10 ORDERED  All 10 spare (Node A 3.3V confirmed)
 
   WIRING & PROTOTYPING
   --------------------
@@ -127,7 +127,6 @@ These items have been ordered and are currently in transit.
 |  [x] TX510 Face (UART2)   |          |  [x] USB-C Cable #2       |
 |  [x] Relay #1             |          |                           |
 |  [x] USB-C Cable #1       |          |                           |
-|  [x] Level Shifter x2     |          |                           |
 |  [x] USB-C Breakout #1    |          |                           |
 |                           |          |                           |
 |  [ ] PN532 NFC #2 (SPARE) |          |                           |
@@ -177,8 +176,8 @@ These items have been ordered and are currently in transit.
      |                                          |
      |  GPIO 25 [DIGITAL]----> Relay #1 IN      | USED (door lock)
      |                                          |
-     |  GPIO 4  [DIGITAL]----> TX510 RX (via LLC)| USED (Face)
-     |  GPIO 5  [DIGITAL]----> TX510 TX (via LLC)| USED (Face)
+     |  GPIO 4  [DIGITAL]----> TX510 RX (Direct Connect)| USED (Face)
+     |  GPIO 5  [DIGITAL]----> TX510 TX (Direct Connect)| USED (Face)
      |                                          |
      |  GPIO 18 [DIGITAL]----> (available)      | FREE
      |  GPIO 19 [DIGITAL]----> (available)      | FREE
@@ -197,7 +196,7 @@ These items have been ordered and are currently in transit.
 |-----------|--------|-------------|-----------|
 | I2C (21/22) | **USED** | PN532 NFC | Can add more I2C devices |
 | UART2 (16/17) | **USED** | Finger Vein | - |
-| GPIO 4/5 | **USED** | TX510 (software UART) | - |
+| UART1 (4/5) | **USED** | TX510 (Direct Connect) | - |
 | GPIO 25 | **USED** | Relay #1 | - |
 | GPIO 18,19,23,26,27,32,33 | **FREE** | - | 7 GPIOs available |
 
@@ -275,13 +274,13 @@ GPIO 16 <---------------------------------------- TX
 GPIO 17 ----------------------------------------> RX
 
 
-              TX510 Face (via Level Shifter)
-              ------------------------------
-              VCC <-- 5V Rail (from USB-C Breakout)
-              GND <-- Common Ground
-              
-GPIO 4 -----> LLC LV1 ----> LLC HV1 -----> TX510 RX
-GPIO 5 <----- LLC LV2 <---- LLC HV2 <----- TX510 TX
+               TX510 Face (3.3V Logic)
+               ------------------------------
+               VCC <-- 5V Rail (from USB-C Breakout)
+               GND <-- Common Ground
+               
+GPIO 4 <---------------------------------------- TX
+GPIO 5 ----------------------------------------> RX
 
 
 NODE B WIRING (Ceiling)
@@ -340,11 +339,10 @@ VERDICT: Sufficient wires for the project.
 | **Finger Vein (A)** | 3.3V | 3.3V UART | NO | 57600 | Waveshare Wiki |
 | **PN532 NFC V3** | 3.3-5V VCC | 3.3V I2C | NO | - | Adafruit docs |
 | **HLK-LD2410C** | 5V | 3.3V UART | NO | 256000 | HiLink docs |
-| **HLK-TX510** | 5V/1A | ⚠️ VERIFY | RECOMMENDED | 115200 | Seller Confirmed |
+| **HLK-TX510** | 5V | 3.3V UART1 | NO | 115200 | HLK Pin Defs PDF |
 | **5V Relay** | 5V | ⚠️ VERIFY | NO | - | Check trigger mode on arrival |
 
 > **⚠️ VERIFY ON ARRIVAL:**
-> - **TX510 Logic Level:** Conflicting info (some sources say 5V TTL, others say 3.3V tolerant). Seller confirmed 115200 baud and protocol doc exists. **Test:** Measure TX pin voltage with multimeter. Use level shifter as safe default.
 > - **Relay Trigger Mode:** May be low-level trigger (pull IN to GND to activate = inverted logic). Check for H/L jumper on board. Test before coding.
 
 ### I2C Address Map
@@ -369,24 +367,24 @@ VERDICT: Sufficient wires for the project.
        |      |
        | VCC  | GND
        v      v
-   [ 5V RAIL ] [ GND RAIL ]  <-- The Main Power Bus
-       |            |
-       +---> ESP32 VIN
-       +---> TX510 (5V, ~1A peak)
-       +---> PN532 VCC (5V input, 3.3V internal)
-       +---> Relay VCC (5V)
-       |
-       +---> Level Shifter HV side (5V)
-       
-   [ 3V3 from ESP32 ]
-       |
-       +---> Level Shifter LV side (3.3V)
-       +---> Finger Vein VCC (3.3V)
+    [ 5V RAIL ] [ GND RAIL ]  <-- The Main Power Bus
+        |            |
+        +---> ESP32 VIN
+        +---> TX510 (5V, ≥ 800mA peak)
+        +---> PN532 VCC (5V input, 3.3V internal)
+        +---> Relay VCC (5V)
+        |
+        +---> Level Shifter HV side (UNUSED)
+        
+    [ 3V3 from ESP32 ]
+        |
+        +---> Level Shifter LV side (UNUSED)
+        +---> Finger Vein VCC (3.3V)
 ```
 
 ### Why USB-C Breakout?
 
-The ESP32's onboard voltage regulator can only supply ~500mA safely. The TX510 may draw ~1A during face recognition. Connecting high-power devices directly to ESP32 VIN risks:
+The ESP32's onboard voltage regulator can only supply ~500mA safely. The TX510 requires **≥ 800mA** during face recognition. Connecting high-power devices directly to ESP32 VIN risks:
 - Overheating the ESP32's regulator
 - Brownouts during peak current
 - Unstable operation

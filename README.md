@@ -81,15 +81,15 @@ A two-node wireless system for secure gate access and intelligent energy managem
 | | GND | GND | |
 | | TX | GPIO 16 | Direct connect OK (3.3V UART) |
 | | RX | GPIO 17 | Direct connect OK (3.3V UART) |
-| **TX510 Face** | VCC | **5V Rail** | From USB-C breakout (~1A peak) |
+| **TX510 Face** | VCC | **5V Rail** | Module Max 500mA (Supply >800mA rec.) |
 | | GND | GND | |
-| | TX | GPIO 4 | Via level shifter (optional) |
-| | RX | GPIO 5 | Via level shifter (optional) |
+| | TX | GPIO 4 | Direct connect OK (3.3V UART1) |
+| | RX | GPIO 5 | Direct connect OK (3.3V UART1) |
 
 > **Note on Level Shifters:**
 > - **PN532**: NOT required - uses 3.3V I2C logic despite 5V VCC input
 > - **Finger Vein**: NOT required - native 3.3V module
-> - **TX510**: UNCERTAIN - Blakadder connected ESP directly without issues, but we have level shifters as cheap insurance
+> - **TX510**: NOT required - confirmed 3.3V UART domain (Pins 38/39)
 > - Add **4.7K pull-up resistors** on I2C lines (SDA/SCL) for reliable PN532 communication
 
 ### Node B: Watchman (Ceiling) - UPDATED (SAFE)
@@ -572,6 +572,7 @@ Each ESP32 stores only students allowed in **its room**:
 | Replay attack | lastScan[studentId] < 30 min |
 | Stolen ESP32 | No secrets stored |
 | Power loss | NVS (flash), not RAM |
+| Photo/Video Spoofing | TX510 3D + IR Live Detection |
 
 ---
 

@@ -123,8 +123,8 @@ These items have been ordered and are currently in transit.
 |                           |          |                           |
 |  [x] ESP32 #1             |  ESP-NOW |  [x] ESP32 #2             |
 |  [x] PN532 NFC #1 (I2C)   | <------> |  [x] HLK-LD2410C Radar    |
-|  [x] Finger Vein (UART1)  |          |  [x] Relay #2             |
-|  [x] TX510 Face (UART2)   |          |  [x] USB-C Cable #2       |
+|  [x] Finger Vein (UART2)  |          |  [x] Relay #2             |
+|  [x] TX510 Face (UART1)   |          |  [x] USB-C Cable #2       |
 |  [x] Relay #1             |          |                           |
 |  [x] USB-C Cable #1       |          |                           |
 |  [x] USB-C Breakout #1    |          |                           |
@@ -171,13 +171,13 @@ These items have been ordered and are currently in transit.
      |  GPIO 21 [I2C SDA]---> PN532 SDA         | USED (NFC)
      |  GPIO 22 [I2C SCL]---> PN532 SCL         | USED (NFC)
      |                                          |
-     |  GPIO 16 [UART2 RX]---> Finger Vein TX   | USED (Biometric)
-     |  GPIO 17 [UART2 TX]---> Finger Vein RX   | USED (Biometric)
+      |  GPIO 16 [UART2 RX]<--- Finger Vein TX   | USED (Biometric)
+      |  GPIO 17 [UART2 TX]---> Finger Vein RX   | USED (Biometric)
      |                                          |
      |  GPIO 25 [DIGITAL]----> Relay #1 IN      | USED (door lock)
      |                                          |
-     |  GPIO 4  [DIGITAL]----> TX510 RX (Direct Connect)| USED (Face)
-     |  GPIO 5  [DIGITAL]----> TX510 TX (Direct Connect)| USED (Face)
+     |  GPIO 4  [DIGITAL]<---- TX510 TX (Direct Connect)| USED (Face) - ESP RX
+     |  GPIO 5  [DIGITAL]----> TX510 RX (Direct Connect)| USED (Face) - ESP TX
      |                                          |
      |  GPIO 18 [DIGITAL]----> (available)      | FREE
      |  GPIO 19 [DIGITAL]----> (available)      | FREE
@@ -213,8 +213,8 @@ These items have been ordered and are currently in transit.
      |  GPIO 21 [I2C SDA]---> (available)       | FREE
      |  GPIO 22 [I2C SCL]---> (available)       | FREE
      |                                          |
-     |  GPIO 16 [UART2 RX]---> Radar TX         | USED (Radar)
-     |  GPIO 17 [UART2 TX]---> Radar RX         | USED (Radar)
+      |  GPIO 16 [UART2 RX]<--- Radar TX         | USED (Radar)
+      |  GPIO 17 [UART2 TX]---> Radar RX         | USED (Radar)
      |                                          |
      |  GPIO 26 [DIGITAL]----> Relay #2 IN      | USED (lights)
      |                                          |
@@ -341,6 +341,12 @@ VERDICT: Sufficient wires for the project.
 | **HLK-LD2410C** | 5V | 3.3V UART | NO | 256000 | HiLink docs |
 | **HLK-TX510** | 5V | 3.3V UART1 | NO | 115200 | HLK Pin Defs PDF |
 | **5V Relay** | 5V | ⚠️ VERIFY | NO | - | Check trigger mode on arrival |
+
+> **⚠️ IMPORTANT NOTE ON TX510 PORTS:**
+> - The module has two main UARTs: **USI1** (Pins 36/37) and **UART1** (Pins 38/39).
+> - **USI1** is connected to the USB-C port on the manufacturer test kit (via CH340).
+> - **UART1** is the separate header we are using for the ESP32 (Pins 38/39).
+> - If `UART1` is silent, the module might be configured to output only to `USI1`. Check manufacturer software settings.
 
 > **⚠️ VERIFY ON ARRIVAL:**
 > - **Relay Trigger Mode:** May be low-level trigger (pull IN to GND to activate = inverted logic). Check for H/L jumper on board. Test before coding.

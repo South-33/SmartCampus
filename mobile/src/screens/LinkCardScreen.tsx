@@ -26,7 +26,7 @@ interface LinkCardScreenProps {
 
 // Icons
 const BackIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
         <Path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
 );
@@ -130,17 +130,16 @@ export const LinkCardScreen = ({ onBack, onSuccess }: LinkCardScreenProps) => {
             <ResponsiveContainer>
                 <View style={[
                     styles.content,
-                    { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                    { paddingTop: insets.top + spacing.lg }
                 ]}>
                     {/* Header Row */}
                     <View style={styles.header}>
                         <View style={styles.headerRow}>
-                            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                            <TouchableOpacity style={styles.backButton} onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                                 <BackIcon />
-                                <BodySm>Back</BodySm>
                             </TouchableOpacity>
                             
-                            <HeadingMd style={styles.headerTitle}>Link Your Card</HeadingMd>
+                            <HeadingLg style={styles.headerTitle}>Link Your Card</HeadingLg>
                             
                             {/* Spacer for centering */}
                             <View style={styles.headerSpacer} />
@@ -262,16 +261,16 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
     },
     backButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        width: 80, // Fixed width for balancing
+        width: 68,
+        height: 44,
     },
     header: {
-        marginBottom: spacing.xl,
+        marginBottom: spacing.lg,
     },
     headerRow: {
         flexDirection: 'row',
@@ -284,7 +283,8 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     headerSpacer: {
-        width: 80, // Same as backButton width
+        width: 68,
+        height: 44,
     },
     headerMeta: {
         textAlign: 'center',
@@ -441,6 +441,6 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
     footer: {
-        paddingBottom: 60,
+        paddingBottom: spacing.xl,
     },
 });

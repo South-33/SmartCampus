@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     StyleSheet,
@@ -6,6 +6,8 @@ import {
     TouchableOpacity,
     Platform,
     ActivityIndicator,
+    Animated,
+    useWindowDimensions,
 } from 'react-native';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -147,10 +149,10 @@ const DeviceStatusIcon = ({ type, status }: { type: 'gatekeeper' | 'watchman', s
     );
 };
 
-import { useQuery, useMutation } from 'convex/react';
+import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
-import { LoadingView } from '../components';
 import { useAppData } from '../context/AppContext';
+import { useFadeIn } from '../hooks/useFadeIn';
 
 export interface AdminAlert {
     id: string;
@@ -161,22 +163,27 @@ export interface AdminAlert {
     data?: any;
 }
 
-export const AdminDashboard = ({ 
-    onProfile, 
-    onSecurity, 
-    onUsers, 
-    onLogs, 
-    onRooms, 
-    onViewRoom, 
-    onOpenGate, 
+export const AdminDashboard = ({
+    onProfile,
+    onSecurity,
+    onUsers,
+    onLogs,
+    onRooms,
+    onViewRoom,
+    onOpenGate,
     alerts = [],
 }: AdminDashboardProps) => {
-    const { rooms, devices, recentLogs, userStats, isAdminDataLoaded, viewer } = useAppData();
+    const { rooms, devices, recentLogs, userStats, isAdminDataLoaded, viewer, cachedProfile } = useAppData();
     const isLoading = !isAdminDataLoaded;
 
     const insets = useSafeAreaInsets();
-    
-    if (!viewer) return null;
+    const { width } = useWindowDimensions();
+    const isTablet = width > 600;
+
+    // Use cached profile for instant render, fallback to viewer when loaded
+    const avatarInitials = viewer?.name?.split(' ').map((n: string) => n[0]).join('')
+        || cachedProfile?.avatarInitials
+        || 'A';
 
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-GB', {
@@ -195,6 +202,8 @@ export const AdminDashboard = ({
         }
     };
 
+    // Component-level fade for data sections
+    const dataFadeAnim = useFadeIn({ trigger: !isLoading, duration: 400 });
 
     return (
         <View style={styles.container}>
@@ -203,294 +212,304 @@ export const AdminDashboard = ({
                     style={styles.scroll}
                     contentContainerStyle={[
                         styles.content,
-                        { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                        { paddingTop: insets.top + spacing.lg }
                     ]}
                     alwaysBounceVertical={false}
                     keyboardShouldPersistTaps="handled"
                 >
-                    {/* Header */}
-                    <View style={styles.header}>
-                        <View style={styles.greeting}>
-                            <HeadingSm>Admin Panel</HeadingSm>
-                            <HeadingLg>Kingsford</HeadingLg>
-                            <BodySm style={styles.date}>{dateStr}</BodySm>
-                        </View>
-                        <TouchableOpacity style={styles.avatar} onPress={onProfile} activeOpacity={0.8}>
-                            <HeadingMd style={styles.avatarText}>A</HeadingMd>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Quick Actions Grid - Now at the Top */}
-                    <View style={styles.actionsGrid}>
-                        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85} onPress={onOpenGate}>
-                            <DoorIcon />
-                            <BodySm>Open Gate</BodySm>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionCard} activeOpacity={0.85} onPress={onSecurity}>
-                            <SecurityIcon />
-                            <BodySm>Security</BodySm>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* System Health Overview */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <HeadingSm>System Health</HeadingSm>
-                            <Caption>All systems operational</Caption>
-                        </View>
-                        <View style={styles.healthCard}>
-                            <View style={styles.healthItem}>
-                                <View style={styles.healthIconContainer}>
-                                    <WifiIcon status="online" />
-                                </View>
-                                <View>
-                                    <Body style={styles.healthValue}>{isLoading ? '--' : (devices?.filter(d => d.status === 'online').length || 0)}/{isLoading ? '--' : (devices?.length || 0)}</Body>
-                                    <Caption>Nodes Online</Caption>
-                                </View>
+                    <View>
+                        {/* Header */}
+                        <View style={styles.header}>
+                            <View style={styles.greeting}>
+                                <HeadingSm>Admin Panel</HeadingSm>
+                                <HeadingLg>Kingsford</HeadingLg>
+                                <BodySm style={styles.date}>{dateStr}</BodySm>
                             </View>
-                            <View style={styles.healthDivider} />
-                            <View style={styles.healthItem}>
-                                <View style={[styles.healthIconContainer, { backgroundColor: colors.cream }]}>
-                                    <DoorIcon />
-                                </View>
-                                <View>
-                                    <Body style={styles.healthValue}>{isLoading ? '--' : (rooms?.length || 0)}</Body>
-                                    <Caption>Rooms Active</Caption>
-                                </View>
-                            </View>
-                        </View>
-
-                        {/* Pending Registration Alert - Now integrated into System Health */}
-                        {!isLoading && (devices || []).some(d => !d.roomId) && (
-                            <TouchableOpacity style={[styles.registrationCard, { marginTop: spacing.md }]} activeOpacity={0.8} onPress={onSecurity}>
-                                <View style={styles.registrationIcon}>
-                                    <PlusIcon />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Body style={{ fontFamily: 'Inter-SemiBold' }}>New Device Detected</Body>
-                                    <Caption>{devices?.filter(d => !d.roomId).length} device(s) awaiting room assignment</Caption>
-                                </View>
-                                <BodySm style={{ color: colors.cobalt, fontFamily: 'Inter-Medium' }}>Assign</BodySm>
-                            </TouchableOpacity>
-                        )}
-
-
-                    </View>
-
-                    {/* Alerts & Logs Combined Section */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                <HeadingSm>Alerts</HeadingSm>
-                                <View style={styles.alertBadge}>
-                                    <Caption style={styles.alertBadgeText}>{alerts.length}</Caption>
-                                </View>
-                            </View>
-                            <TouchableOpacity onPress={onLogs}>
-                                <BodySm style={styles.sectionLink}>See All Logs</BodySm>
+                            <TouchableOpacity style={styles.avatar} onPress={onProfile} activeOpacity={0.8}>
+                                <HeadingMd style={styles.avatarText}>{avatarInitials}</HeadingMd>
                             </TouchableOpacity>
                         </View>
 
-                        <View style={styles.alertsList}>
-                            {alerts.map((alert: any) => (
-                                <TouchableOpacity 
-                                    key={alert.id} 
-                                    style={[
-                                        styles.alertCard,
-                                        alert.priority === 'high' && styles.alertCardHigh
-                                    ]} 
-                                    activeOpacity={0.8}
-                                >
-                                    <View style={[
-                                        styles.alertIcon,
-                                        alert.priority === 'high' && styles.alertIconHigh,
-                                    ]} />
-                                    <View style={styles.alertContent}>
-                                        <Body style={styles.alertMessage}>{alert.message}</Body>
-                                        <Caption>{alert.time}</Caption>
+                        {/* Quick Actions Grid - Now at the Top */}
+                        <View style={styles.actionsGrid}>
+                            <TouchableOpacity 
+                                style={[styles.actionCard, { width: isTablet ? '48.5%' : '100%' }]} 
+                                activeOpacity={0.85} 
+                                onPress={onOpenGate}
+                            >
+                                <DoorIcon />
+                                <BodySm>Open Gate</BodySm>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.actionCard, { width: isTablet ? '48.5%' : '100%' }]} 
+                                activeOpacity={0.85} 
+                                onPress={onSecurity}
+                            >
+                                <SecurityIcon />
+                                <BodySm>Security</BodySm>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* System Health Overview */}
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <HeadingSm>System Health</HeadingSm>
+                                <Caption>All systems operational</Caption>
+                            </View>
+                            <View style={styles.healthCard}>
+                                <View style={styles.healthItem}>
+                                    <View style={styles.healthIconContainer}>
+                                        <WifiIcon status="online" />
                                     </View>
+                                    <View>
+                                        <Body style={styles.healthValue}>{isLoading ? '--' : (devices?.filter(d => d.status === 'online').length || 0)}/{isLoading ? '--' : (devices?.length || 0)}</Body>
+                                        <Caption>Nodes Online</Caption>
+                                    </View>
+                                </View>
+                                <View style={styles.healthDivider} />
+                                <View style={styles.healthItem}>
+                                    <View style={[styles.healthIconContainer, { backgroundColor: colors.cream }]}>
+                                        <DoorIcon />
+                                    </View>
+                                    <View>
+                                        <Body style={styles.healthValue}>{isLoading ? '--' : (rooms?.length || 0)}</Body>
+                                        <Caption>Rooms Active</Caption>
+                                    </View>
+                                </View>
+                            </View>
+
+                            {/* Pending Registration Alert - Now integrated into System Health */}
+                            {!isLoading && (devices || []).some(d => !d.roomId) && (
+                                <TouchableOpacity style={[styles.registrationCard, { marginTop: spacing.md }]} activeOpacity={0.8} onPress={onSecurity}>
+                                    <View style={styles.registrationIcon}>
+                                        <PlusIcon />
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Body style={{ fontFamily: 'Inter-SemiBold' }}>New Device Detected</Body>
+                                        <Caption>{devices?.filter(d => !d.roomId).length} device(s) awaiting room assignment</Caption>
+                                    </View>
+                                    <BodySm style={{ color: colors.cobalt, fontFamily: 'Inter-Medium' }}>Assign</BodySm>
                                 </TouchableOpacity>
-                            ))}
-                        </View>
-                    </View>
-
-                    {/* Pinned Rooms Section */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <HeadingSm>Pinned Rooms</HeadingSm>
-                            <TouchableOpacity onPress={onRooms}>
-                                <BodySm style={styles.sectionLink}>Manage pins</BodySm>
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.roomList}>
-                            {isLoading ? (
-                                <View style={styles.inlineLoading}>
-                                    <ActivityIndicator color={colors.cobalt} />
-                                </View>
-                            ) : (
-                                (rooms || []).slice(0, 3).map((room) => {
-                                    const roomDevices = (devices || []).filter(d => d.roomId === room._id);
-                                    const currentLockStatus = room.lockStatus || 'unlocked';
-                                    return (
-                                        <TouchableOpacity 
-                                            key={room._id} 
-                                            style={styles.roomContainer}
-                                            activeOpacity={0.85}
-                                            onPress={() => onViewRoom(room._id)}
-                                        >
-                                            <View style={styles.roomHeader}>
-                                                <View style={styles.roomHeaderLeft}>
-                                                    <View style={[
-                                                        styles.powerDot,
-                                                        { backgroundColor: room.powerStatus === 'on' ? colors.success : colors.slate }
-                                                    ]} />
-                                                    <Body style={styles.roomNameMain}>{room.name}</Body>
-                                                </View>
-                                                <View style={styles.roomHeaderRight}>
-                                                    <WifiIcon status="online" />
-                                                    <View style={styles.deviceIndicatorGroup}>
-                                                        {roomDevices.map(device => (
-                                                            <DeviceStatusIcon 
-                                                                key={device._id}
-                                                                type="gatekeeper" 
-                                                                status={device.status === 'online' ? 'online' : 'offline'} 
-                                                            />
-                                                        ))}
-                                                    </View>
-                                                </View>
-                                            </View>
-                                            
-                                            <View style={styles.roomControlsRow}>
-                                                <TouchableOpacity 
-                                                    style={styles.roomStatusInfo}
-                                                    activeOpacity={0.6}
-                                                    onPress={() => cycleLockStatus(room._id)}
-                                                >
-                                                    <LockIcon status={currentLockStatus as any} />
-                                                    <View style={styles.lockStatusRow}>
-                                                        <Caption style={[
-                                                            styles.lockLabel,
-                                                            currentLockStatus !== 'unlocked' && { color: colors.error }
-                                                        ]}>
-                                                            {currentLockStatus.replace('_', ' ').toUpperCase()}
-                                                        </Caption>
-                                                        {currentLockStatus === 'staff_only' && <Caption style={styles.lockDesc}>• Staff & Admins only</Caption>}
-                                                        {currentLockStatus === 'locked' && <Caption style={styles.lockDesc}>• Admins only</Caption>}
-                                                    </View>
-                                                </TouchableOpacity>
-                                                <Caption>Occupancy: {room.occupancy || 0}</Caption>
-                                            </View>
-                                        </TouchableOpacity>
-                                    );
-                                })
                             )}
-                            {!isLoading && (rooms?.length || 0) === 0 && (
-                                <View style={styles.emptyPinned}>
-                                    <Caption>No rooms found.</Caption>
-                                </View>
-                            )}
+
+
                         </View>
 
-                    </View>
-
-                    {/* Recent Activity Mini-Feed */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <HeadingSm>Recent Activity</HeadingSm>
-                            <TouchableOpacity onPress={onLogs}>
-                                <BodySm style={styles.sectionLink}>View History</BodySm>
-                            </TouchableOpacity>
-                        </View>
-                        <View style={styles.activityCard}>
-                            {isLoading ? (
-                                <View style={styles.inlineLoading}>
-                                    <ActivityIndicator color={colors.cobalt} />
-                                </View>
-                            ) : (
-                                (recentLogs || []).slice(0, 3).map((log, idx) => (
-                                    <View key={log._id} style={[styles.activityRow, idx === 2 && { borderBottomWidth: 0 }]}>
-                                        <View style={styles.activityDot} />
-                                        <View style={{ flex: 1 }}>
-                                            <BodySm><BodySm style={{ fontFamily: 'Inter-SemiBold' }}>{log.userName}</BodySm> • {log.roomName}</BodySm>
-                                            <Caption>{log.action.replace('_', ' ')} • {log.method.toUpperCase()} • {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Caption>
-                                        </View>
-                                        <View style={[
-                                            styles.resultBadge,
-                                            { backgroundColor: log.result === 'granted' ? '#F0F9F4' : '#FFF1F1' }
-                                        ]}>
-                                            <Caption style={{ color: log.result === 'granted' ? colors.success : colors.error, fontSize: 10 }}>
-                                                {log.result.toUpperCase()}
-                                            </Caption>
-                                        </View>
+                        {/* Alerts & Logs Combined Section */}
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                    <HeadingSm>Alerts</HeadingSm>
+                                    <View style={styles.alertBadge}>
+                                        <Caption style={styles.alertBadgeText}>{alerts.length}</Caption>
                                     </View>
-                                ))
-                            )}
-                        </View>
-
-                    </View>
-
-                    {/* User Summary */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <HeadingSm>User Statistics</HeadingSm>
-                            <TouchableOpacity onPress={onUsers}>
-                                <BodySm style={styles.sectionLink}>Manage Users</BodySm>
-                            </TouchableOpacity>
-                        </View>
-                        <View style={styles.userStatsContainer}>
-                            <View style={styles.userStatItem}>
-                                <HeadingMd>{isLoading ? '--' : userStats?.students}</HeadingMd>
-                                <Caption>Students</Caption>
+                                </View>
+                                <TouchableOpacity onPress={onLogs}>
+                                    <BodySm style={styles.sectionLink}>See All Logs</BodySm>
+                                </TouchableOpacity>
                             </View>
-                            <View style={styles.userStatDivider} />
-                            <View style={styles.userStatItem}>
-                                <HeadingMd>{isLoading ? '--' : userStats?.teachers}</HeadingMd>
-                                <Caption>Teachers</Caption>
-                            </View>
-                            <View style={styles.userStatDivider} />
-                            <View style={styles.userStatItem}>
-                                <HeadingMd>{isLoading ? '--' : userStats?.staff}</HeadingMd>
-                                <Caption>Staff</Caption>
+
+                            <View style={styles.alertsList}>
+                                {alerts.map((alert: any) => (
+                                    <TouchableOpacity
+                                        key={alert.id}
+                                        style={[
+                                            styles.alertCard,
+                                            alert.priority === 'high' && styles.alertCardHigh
+                                        ]}
+                                        activeOpacity={0.8}
+                                    >
+                                        <View style={[
+                                            styles.alertIcon,
+                                            alert.priority === 'high' && styles.alertIconHigh,
+                                        ]} />
+                                        <View style={styles.alertContent}>
+                                            <Body style={styles.alertMessage}>{alert.message}</Body>
+                                            <Caption>{alert.time}</Caption>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
                             </View>
                         </View>
 
-                    </View>
+                        {/* Pinned Rooms Section */}
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <HeadingSm>Pinned Rooms</HeadingSm>
+                                <TouchableOpacity onPress={onRooms}>
+                                    <BodySm style={styles.sectionLink}>Manage pins</BodySm>
+                                </TouchableOpacity>
+                            </View>
 
-                    {/* Analytics Section - Moved to bottom */}
-                    <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
-                            <HeadingSm>Weekly Attendance</HeadingSm>
-                            <Caption>+2.4% from last week</Caption>
+                            <Animated.View style={[styles.roomList, { opacity: dataFadeAnim }]}>
+                                {isLoading ? (
+                                    <View style={styles.inlineLoading}>
+                                        <ActivityIndicator color={colors.cobalt} />
+                                    </View>
+                                ) : (
+                                    (rooms || []).slice(0, 3).map((room) => {
+                                        const roomDevices = (devices || []).filter(d => d.roomId === room._id);
+                                        const currentLockStatus = room.lockStatus || 'unlocked';
+                                        return (
+                                            <TouchableOpacity
+                                                key={room._id}
+                                                style={styles.roomContainer}
+                                                activeOpacity={0.85}
+                                                onPress={() => onViewRoom(room._id)}
+                                            >
+                                                <View style={styles.roomHeader}>
+                                                    <View style={styles.roomHeaderLeft}>
+                                                        <View style={[
+                                                            styles.powerDot,
+                                                            { backgroundColor: room.powerStatus === 'on' ? colors.success : colors.slate }
+                                                        ]} />
+                                                        <Body style={styles.roomNameMain}>{room.name}</Body>
+                                                    </View>
+                                                    <View style={styles.roomHeaderRight}>
+                                                        <WifiIcon status="online" />
+                                                        <View style={styles.deviceIndicatorGroup}>
+                                                            {roomDevices.map(device => (
+                                                                <DeviceStatusIcon
+                                                                    key={device._id}
+                                                                    type="gatekeeper"
+                                                                    status={device.status === 'online' ? 'online' : 'offline'}
+                                                                />
+                                                            ))}
+                                                        </View>
+                                                    </View>
+                                                </View>
+
+                                                <View style={styles.roomControlsRow}>
+                                                    <TouchableOpacity
+                                                        style={styles.roomStatusInfo}
+                                                        activeOpacity={0.6}
+                                                        onPress={() => cycleLockStatus(room._id)}
+                                                    >
+                                                        <LockIcon status={currentLockStatus as any} />
+                                                        <View style={styles.lockStatusRow}>
+                                                            <Caption style={[
+                                                                styles.lockLabel,
+                                                                currentLockStatus !== 'unlocked' && { color: colors.error }
+                                                            ]}>
+                                                                {currentLockStatus.replace('_', ' ').toUpperCase()}
+                                                            </Caption>
+                                                            {currentLockStatus === 'staff_only' && <Caption style={styles.lockDesc}>• Staff & Admins only</Caption>}
+                                                            {currentLockStatus === 'locked' && <Caption style={styles.lockDesc}>• Admins only</Caption>}
+                                                        </View>
+                                                    </TouchableOpacity>
+                                                    <Caption>Occupancy: {room.occupancy || 0}</Caption>
+                                                </View>
+                                            </TouchableOpacity>
+                                        );
+                                    })
+                                )}
+                                {!isLoading && (rooms?.length || 0) === 0 && (
+                                    <View style={styles.emptyPinned}>
+                                        <Caption>No rooms found.</Caption>
+                                    </View>
+                                )}
+                            </Animated.View>
+
                         </View>
-                        <View style={styles.graphCard}>
-                            <Svg height="100" width="100%" style={{ marginBottom: spacing.sm }}>
-                                {/* Horizontal grid lines */}
-                                <Line x1="0" y1="20" x2="100%" y2="20" stroke={colors.mist} strokeWidth="1" />
-                                <Line x1="0" y1="50" x2="100%" y2="50" stroke={colors.mist} strokeWidth="1" />
-                                <Line x1="0" y1="80" x2="100%" y2="80" stroke={colors.mist} strokeWidth="1" />
-                                
-                                {/* Trend Line */}
-                                <Polyline
-                                    points="0,80 40,70 80,40 120,50 160,30 200,45 240,25 280,15 320,35"
-                                    fill="none"
-                                    stroke={colors.cobalt}
-                                    strokeWidth="3"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                                
-                                {/* Data points */}
-                                <Circle cx="320" cy="35" r="4" fill={colors.cobalt} />
-                            </Svg>
-                            <View style={styles.graphLabels}>
-                                <Caption>MON</Caption>
-                                <Caption>TUE</Caption>
-                                <Caption>WED</Caption>
-                                <Caption>THU</Caption>
-                                <Caption>FRI</Caption>
-                                <Caption>SAT</Caption>
-                                <Caption>SUN</Caption>
+
+                        {/* Recent Activity Mini-Feed */}
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <HeadingSm>Recent Activity</HeadingSm>
+                                <TouchableOpacity onPress={onLogs}>
+                                    <BodySm style={styles.sectionLink}>View History</BodySm>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={styles.activityCard}>
+                                {isLoading ? (
+                                    <View style={styles.inlineLoading}>
+                                        <ActivityIndicator color={colors.cobalt} />
+                                    </View>
+                                ) : (
+                                    (recentLogs || []).slice(0, 3).map((log, idx) => (
+                                        <View key={log._id} style={[styles.activityRow, idx === 2 && { borderBottomWidth: 0 }]}>
+                                            <View style={styles.activityDot} />
+                                            <View style={{ flex: 1 }}>
+                                                <BodySm><BodySm style={{ fontFamily: 'Inter-SemiBold' }}>{log.userName}</BodySm> • {log.roomName}</BodySm>
+                                                <Caption>{log.action.replace('_', ' ')} • {log.method.toUpperCase()} • {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Caption>
+                                            </View>
+                                            <View style={[
+                                                styles.resultBadge,
+                                                { backgroundColor: log.result === 'granted' ? '#F0F9F4' : '#FFF1F1' }
+                                            ]}>
+                                                <Caption style={{ color: log.result === 'granted' ? colors.success : colors.error, fontSize: 10 }}>
+                                                    {log.result.toUpperCase()}
+                                                </Caption>
+                                            </View>
+                                        </View>
+                                    ))
+                                )}
+                            </View>
+
+                        </View>
+
+                        {/* User Summary */}
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <HeadingSm>User Statistics</HeadingSm>
+                                <TouchableOpacity onPress={onUsers}>
+                                    <BodySm style={styles.sectionLink}>Manage Users</BodySm>
+                                </TouchableOpacity>
+                            </View>
+                            <View style={styles.userStatsContainer}>
+                                <View style={styles.userStatItem}>
+                                    <HeadingMd>{isLoading ? '--' : userStats?.students}</HeadingMd>
+                                    <Caption>Students</Caption>
+                                </View>
+                                <View style={styles.userStatDivider} />
+                                <View style={styles.userStatItem}>
+                                    <HeadingMd>{isLoading ? '--' : userStats?.teachers}</HeadingMd>
+                                    <Caption>Teachers</Caption>
+                                </View>
+                                <View style={styles.userStatDivider} />
+                                <View style={styles.userStatItem}>
+                                    <HeadingMd>{isLoading ? '--' : userStats?.staff}</HeadingMd>
+                                    <Caption>Staff</Caption>
+                                </View>
+                            </View>
+
+                        </View>
+
+                        {/* Analytics Section - Moved to bottom */}
+                        <View style={styles.section}>
+                            <View style={styles.sectionHeader}>
+                                <HeadingSm>Weekly Attendance</HeadingSm>
+                                <Caption>+2.4% from last week</Caption>
+                            </View>
+                            <View style={styles.graphCard}>
+                                <Svg height="100" width="100%" style={{ marginBottom: spacing.sm }}>
+                                    {/* Horizontal grid lines */}
+                                    <Line x1="0" y1="20" x2="100%" y2="20" stroke={colors.mist} strokeWidth="1" />
+                                    <Line x1="0" y1="50" x2="100%" y2="50" stroke={colors.mist} strokeWidth="1" />
+                                    <Line x1="0" y1="80" x2="100%" y2="80" stroke={colors.mist} strokeWidth="1" />
+
+                                    {/* Trend Line */}
+                                    <Polyline
+                                        points="0,80 40,70 80,40 120,50 160,30 200,45 240,25 280,15 320,35"
+                                        fill="none"
+                                        stroke={colors.cobalt}
+                                        strokeWidth="3"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    />
+
+                                    {/* Data points */}
+                                    <Circle cx="320" cy="35" r="4" fill={colors.cobalt} />
+                                </Svg>
+                                <View style={styles.graphLabels}>
+                                    <Caption>MON</Caption>
+                                    <Caption>TUE</Caption>
+                                    <Caption>WED</Caption>
+                                    <Caption>THU</Caption>
+                                    <Caption>FRI</Caption>
+                                    <Caption>SAT</Caption>
+                                    <Caption>SUN</Caption>
+                                </View>
                             </View>
                         </View>
                     </View>
@@ -510,7 +529,7 @@ const styles = StyleSheet.create({
     },
     content: {
         paddingHorizontal: spacing.lg,
-        paddingBottom: 72,
+        paddingBottom: spacing.xxl,
     },
     header: {
         flexDirection: 'row',
@@ -524,9 +543,9 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     avatar: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         backgroundColor: colors.charcoal,
         alignItems: 'center',
         justifyContent: 'center',

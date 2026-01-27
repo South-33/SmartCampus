@@ -71,17 +71,16 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
         <View style={styles.container}>
             <View style={[
                 styles.content,
-                { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                { paddingTop: insets.top + spacing.lg }
             ]}>
                 {/* Header Row */}
                 <View style={styles.header}>
                     <View style={styles.headerRow}>
-                        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                            <ArrowLeft size={18} color={colors.slate} strokeWidth={2} />
-                            <BodySm>Back</BodySm>
+                        <TouchableOpacity style={styles.backButton} onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                            <ArrowLeft size={20} color={colors.slate} strokeWidth={2} />
                         </TouchableOpacity>
                         
-                        <HeadingMd style={styles.headerTitle}>CS101 — Data Structures</HeadingMd>
+                        <HeadingLg style={styles.headerTitle}>CS101 — Data Structures</HeadingLg>
                         
                         {/* Spacer for centering */}
                         <View style={styles.headerSpacer} />
@@ -159,10 +158,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        width: 80, // Fixed width for balancing
+        width: 68,
+        height: 44,
     },
     header: {
-        marginBottom: spacing.xl,
+        marginBottom: spacing.lg,
     },
     headerRow: {
         flexDirection: 'row',
@@ -175,7 +175,8 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     headerSpacer: {
-        width: 80, // Same as backButton width
+        width: 68,
+        height: 44,
     },
     headerMeta: {
         textAlign: 'center',
@@ -238,7 +239,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     successIcon: {
-        width: 80,
+        width: 68,
         height: 80,
         borderRadius: 40,
         backgroundColor: colors.success,
@@ -255,6 +256,6 @@ const styles = StyleSheet.create({
         maxWidth: 260,
     },
     footer: {
-        paddingBottom: 60,
+        paddingBottom: spacing.xl,
     },
 });

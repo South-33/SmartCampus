@@ -66,7 +66,7 @@ export const ProfileScreen = ({
                     style={styles.scroll}
                     contentContainerStyle={[
                         styles.content,
-                        { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                        { paddingTop: insets.top + spacing.lg }
                     ]}
                     alwaysBounceVertical={false}
                     keyboardShouldPersistTaps="handled"
@@ -74,12 +74,11 @@ export const ProfileScreen = ({
                     {/* Header Row */}
                     <View style={styles.header}>
                         <View style={styles.headerRow}>
-                            <TouchableOpacity style={styles.backButton} onPress={onBack}>
-                                <ArrowLeft size={18} color={colors.slate} strokeWidth={2} />
-                                <BodySm>Back</BodySm>
+                            <TouchableOpacity style={styles.backButton} onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                <ArrowLeft size={20} color={colors.slate} strokeWidth={2} />
                             </TouchableOpacity>
                             
-                            <HeadingMd style={styles.headerTitle}>Profile</HeadingMd>
+                            <HeadingLg style={styles.headerTitle}>Profile</HeadingLg>
                             
                             {/* Spacer for centering */}
                             <View style={styles.headerSpacer} />
@@ -202,7 +201,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        width: 80, // Fixed width for balancing
+        width: 68,
+        height: 44,
     },
     header: {
         marginBottom: spacing.xl,
@@ -217,7 +217,8 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     headerSpacer: {
-        width: 80, // Same as backButton width
+        width: 68,
+        height: 44,
     },
     profileHeader: {
         alignItems: 'center',

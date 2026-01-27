@@ -8,6 +8,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
+    HeadingLg,
     HeadingMd,
     HeadingSm,
     Body,
@@ -25,7 +26,7 @@ interface StaffTasksScreenProps {
 }
 
 const BackIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
         <Path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
 );
@@ -68,17 +69,16 @@ export const StaffTasksScreen = ({ onBack }: StaffTasksScreenProps) => {
             <ResponsiveContainer>
                 <View style={[
                     styles.content,
-                    { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                    { paddingTop: insets.top + spacing.lg }
                 ]}>
                     {/* Header Row */}
                     <View style={styles.header}>
                         <View style={styles.headerRow}>
-                            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                            <TouchableOpacity style={styles.backButton} onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                                 <BackIcon />
-                                <BodySm>Back</BodySm>
                             </TouchableOpacity>
                             
-                            <HeadingMd style={styles.headerTitle}>Work Orders</HeadingMd>
+                            <HeadingLg style={styles.headerTitle}>Work Orders</HeadingLg>
                             
                             {/* Spacer for centering */}
                             <View style={styles.headerSpacer} />
@@ -87,17 +87,23 @@ export const StaffTasksScreen = ({ onBack }: StaffTasksScreenProps) => {
 
                     {/* Tabs */}
                     <View style={styles.tabContainer}>
-                        {(['all', 'pending', 'completed'] as const).map((f) => (
-                            <TouchableOpacity 
-                                key={f}
-                                style={[styles.tab, filter === f && styles.activeTab]}
-                                onPress={() => setFilter(f)}
-                            >
-                                <BodySm style={[styles.tabText, filter === f && styles.activeTabText]}>
-                                    {f.charAt(0).toUpperCase() + f.slice(1)}
-                                </BodySm>
-                            </TouchableOpacity>
-                        ))}
+                        <ScrollView 
+                            horizontal 
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.tabScrollContent}
+                        >
+                            {(['all', 'pending', 'completed'] as const).map((f) => (
+                                <TouchableOpacity 
+                                    key={f}
+                                    style={[styles.tab, filter === f && styles.activeTab]}
+                                    onPress={() => setFilter(f)}
+                                >
+                                    <BodySm style={[styles.tabText, filter === f && styles.activeTabText]}>
+                                        {f.charAt(0).toUpperCase() + f.slice(1)}
+                                    </BodySm>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
                     </View>
 
                     <ScrollView
@@ -161,10 +167,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        width: 80,
+        width: 68,
+        height: 44,
     },
     header: {
-        marginBottom: spacing.xl,
+        marginBottom: spacing.lg,
     },
     headerRow: {
         flexDirection: 'row',
@@ -176,12 +183,16 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     headerSpacer: {
-        width: 80, 
+        width: 68,
+        height: 44,
     },
     tabContainer: {
         flexDirection: 'row',
         marginBottom: spacing.md,
+    },
+    tabScrollContent: {
         gap: spacing.sm,
+        paddingRight: spacing.lg,
     },
     tab: {
         paddingHorizontal: spacing.md,
@@ -194,10 +205,10 @@ const styles = StyleSheet.create({
     },
     tabText: {
         color: colors.slate,
+        fontFamily: 'Inter-Medium',
     },
     activeTabText: {
         color: '#FFF',
-        fontFamily: 'Inter-SemiBold',
     },
     scroll: {
         flex: 1,

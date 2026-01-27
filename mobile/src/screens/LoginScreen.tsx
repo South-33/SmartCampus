@@ -94,7 +94,7 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={[
                     styles.content,
-                    { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                    { paddingTop: insets.top + spacing.lg }
                 ]}
             >
                 {/* Header */}

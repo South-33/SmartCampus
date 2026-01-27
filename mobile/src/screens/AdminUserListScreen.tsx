@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
+    HeadingLg,
     HeadingMd,
     HeadingSm,
     Body,
@@ -34,7 +35,7 @@ interface AdminUserListScreenProps {
 }
 
 const BackIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
         <Path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
 );
@@ -113,21 +114,21 @@ export const AdminUserListScreen = ({ onBack, onViewUser }: AdminUserListScreenP
             <ResponsiveContainer>
                 <View style={[
                     styles.content,
-                    { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                    { paddingTop: insets.top + spacing.lg }
                 ]}>
                     {/* Header Row */}
                     <View style={styles.header}>
                         <View style={styles.headerRow}>
-                            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                            <TouchableOpacity style={styles.backButton} onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                                 <BackIcon />
-                                <BodySm>Back</BodySm>
                             </TouchableOpacity>
                             
-                            <HeadingMd style={styles.headerTitle}>Users</HeadingMd>
+                            <HeadingLg style={styles.headerTitle}>Users</HeadingLg>
                             
                             <TouchableOpacity 
                                 style={styles.searchButton}
                                 onPress={() => setIsAddModalVisible(true)}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                             >
                                 <PlusIcon />
                             </TouchableOpacity>
@@ -136,17 +137,23 @@ export const AdminUserListScreen = ({ onBack, onViewUser }: AdminUserListScreenP
 
                     {/* Tabs */}
                     <View style={styles.tabContainer}>
-                        {(['all', 'student', 'teacher', 'admin', 'staff'] as const).map((tab) => (
-                            <TouchableOpacity 
-                                key={tab}
-                                style={[styles.tab, activeTab === tab && styles.activeTab]}
-                                onPress={() => setActiveTab(tab)}
-                            >
-                                <BodySm style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-                                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                                </BodySm>
-                            </TouchableOpacity>
-                        ))}
+                        <ScrollView 
+                            horizontal 
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.tabScrollContent}
+                        >
+                            {(['all', 'student', 'teacher', 'admin', 'staff'] as const).map((tab) => (
+                                <TouchableOpacity 
+                                    key={tab}
+                                    style={[styles.tab, activeTab === tab && styles.activeTab]}
+                                    onPress={() => setActiveTab(tab)}
+                                >
+                                    <BodySm style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
+                                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                    </BodySm>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
                     </View>
 
                     <ScrollView
@@ -285,10 +292,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        width: 80,
+        width: 68,
+        height: 44,
     },
     header: {
-        marginBottom: spacing.xl,
+        marginBottom: spacing.lg,
     },
     headerRow: {
         flexDirection: 'row',
@@ -300,15 +308,18 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     searchButton: {
-        width: 80,
-        height: 40,
+        width: 68,
+        height: 44,
         alignItems: 'flex-end',
         justifyContent: 'center',
     },
     tabContainer: {
         flexDirection: 'row',
         marginBottom: spacing.md,
+    },
+    tabScrollContent: {
         gap: spacing.sm,
+        paddingRight: spacing.lg, // Allow scrolling past the last item
     },
     tab: {
         paddingHorizontal: spacing.md,
@@ -321,10 +332,10 @@ const styles = StyleSheet.create({
     },
     tabText: {
         color: colors.slate,
+        fontFamily: 'Inter-Medium',
     },
     activeTabText: {
         color: '#FFF',
-        fontFamily: 'Inter-SemiBold',
     },
     scroll: {
         flex: 1,

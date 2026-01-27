@@ -54,8 +54,8 @@ export const TeacherClassesScreen = ({ onViewClass }: TeacherClassesScreenProps)
                     style={styles.scroll} 
                     contentContainerStyle={[
                         styles.scrollContent,
-                        { paddingTop: Math.max(insets.top, 20) + spacing.md }
-                    ]} 
+                        { paddingTop: insets.top + spacing.lg }
+                    ]}
                     showsVerticalScrollIndicator={false}
                     stickyHeaderIndices={[1]}
                     keyboardShouldPersistTaps="handled"
@@ -63,10 +63,14 @@ export const TeacherClassesScreen = ({ onViewClass }: TeacherClassesScreenProps)
                     {/* Header */}
                     <View style={styles.header}>
                         <View>
-                            <Caption style={styles.headerSubtitle}>Academic Year {viewYear}</Caption>
                             <HeadingLg style={styles.headerTitle}>{termInfo.name}</HeadingLg>
+                            <Caption style={styles.headerSubtitle}>Academic Year {viewYear}</Caption>
                         </View>
-                        <TouchableOpacity style={styles.calendarButton} onPress={() => setShowCalendar(true)}>
+                        <TouchableOpacity 
+                            style={styles.calendarButton} 
+                            onPress={() => setShowCalendar(true)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
                             <CalendarIcon />
                         </TouchableOpacity>
                     </View>
@@ -122,7 +126,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        paddingBottom: 120, 
+        paddingBottom: spacing.xxl, 
     },
     header: {
         flexDirection: 'row',
@@ -139,7 +143,6 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     headerTitle: {
-        fontSize: 28,
     },
     calendarButton: {
         width: 44,

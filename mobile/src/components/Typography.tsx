@@ -41,22 +41,22 @@ export const Caption = ({ style, ...props }: TypographyProps) => (
 const styles = StyleSheet.create({
     wordmark: {
         fontFamily: 'PlayfairDisplay-Medium',
-        fontSize: 40,
+        fontSize: 34,
         letterSpacing: -0.5,
-        lineHeight: 48,
+        lineHeight: 40,
         color: colors.charcoal,
     },
     headingLg: {
         fontFamily: 'PlayfairDisplay-Medium',
-        fontSize: 32,
+        fontSize: 28,
         letterSpacing: -0.3,
-        lineHeight: 40,
+        lineHeight: 34,
         color: colors.charcoal,
     },
     headingMd: {
         fontFamily: 'PlayfairDisplay-Medium',
-        fontSize: 24,
-        lineHeight: 32,
+        fontSize: 22,
+        lineHeight: 30,
         color: colors.charcoal,
     },
     headingSm: {
@@ -68,14 +68,14 @@ const styles = StyleSheet.create({
     },
     bodyLg: {
         fontFamily: 'Inter',
-        fontSize: 18,
-        lineHeight: 28,
+        fontSize: 17,
+        lineHeight: 26,
         color: colors.charcoal,
     },
     body: {
         fontFamily: 'Inter',
-        fontSize: 16,
-        lineHeight: 24,
+        fontSize: 15,
+        lineHeight: 22,
         color: colors.charcoal,
     },
     bodySm: {

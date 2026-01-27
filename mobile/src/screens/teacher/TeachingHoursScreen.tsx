@@ -22,7 +22,7 @@ interface TeachingHoursScreenProps {
 }
 
 const BackIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
         <Path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
 );
@@ -58,19 +58,18 @@ export const TeachingHoursScreen = ({ onBack }: TeachingHoursScreenProps) => {
             <ResponsiveContainer>
                 <View style={[
                     styles.content,
-                    { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                    { paddingTop: insets.top + spacing.lg }
                 ]}>
                     {/* Header Row */}
                     <View style={styles.header}>
                         <View style={styles.headerRow}>
-                            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                            <TouchableOpacity style={styles.backButton} onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                                 <BackIcon />
-                                <BodySm>Back</BodySm>
                             </TouchableOpacity>
                             
                             <View style={styles.headerTitleContainer}>
+                                <HeadingLg style={styles.headerTitleText}>Teaching Hours</HeadingLg>
                                 <Caption style={styles.subtitle}>LOG HISTORY</Caption>
-                                <HeadingMd style={styles.headerTitleText}>Teaching Hours</HeadingMd>
                             </View>
                             
                             {/* Spacer for centering */}
@@ -188,18 +187,18 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     content: {
+        flex: 1,
         paddingHorizontal: spacing.lg,
-        paddingTop: spacing.xl,
-        paddingBottom: 72,
     },
     backButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        width: 80, // Fixed width for balancing
+        width: 68,
+        height: 44,
     },
     header: {
-        marginBottom: spacing.xl,
+        marginBottom: spacing.lg,
     },
     headerRow: {
         flexDirection: 'row',
@@ -214,14 +213,15 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     headerSpacer: {
-        width: 80, // Same as backButton width
+        width: 68,
+        height: 44,
     },
     subtitle: {
         color: colors.slate,
         fontFamily: 'Inter-SemiBold',
         fontSize: 10,
         letterSpacing: 1,
-        marginBottom: 2,
+        marginTop: 2,
     },
     statsGrid: {
         flexDirection: 'row',

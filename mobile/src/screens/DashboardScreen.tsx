@@ -40,11 +40,14 @@ const todayClasses = [
 ];
 
 export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAllClasses }: DashboardScreenProps) => {
-    const { viewer } = useAppData();
-    
-    if (!viewer) return null;
+    const { viewer, cachedProfile } = useAppData();
 
-    const firstName = viewer.name?.split(' ')[0] || 'User';
+    // Use cached profile for instant render, fallback to viewer when loaded
+    const displayName = viewer?.name || cachedProfile?.name || 'User';
+    const firstName = displayName.split(' ')[0];
+    const avatarInitials = viewer?.name?.split(' ').map((n: string) => n[0]).join('')
+        || cachedProfile?.avatarInitials
+        || firstName[0];
 
     const insets = useSafeAreaInsets();
     const today = new Date();
@@ -61,7 +64,7 @@ export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAll
                     style={styles.scroll}
                     contentContainerStyle={[
                         styles.content,
-                        { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                        { paddingTop: insets.top + spacing.lg }
                     ]}
                     alwaysBounceVertical={false}
                     keyboardShouldPersistTaps="handled"
@@ -74,7 +77,7 @@ export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAll
                             <BodySm style={styles.date}>{dateStr}</BodySm>
                         </View>
                         <TouchableOpacity style={styles.avatar} onPress={onProfile} activeOpacity={0.8}>
-                            <HeadingMd style={styles.avatarText}>{firstName[0]}</HeadingMd>
+                            <HeadingMd style={styles.avatarText}>{avatarInitials}</HeadingMd>
                         </TouchableOpacity>
                     </View>
 
@@ -151,7 +154,7 @@ const styles = StyleSheet.create({
     },
     content: {
         paddingHorizontal: spacing.lg,
-        paddingBottom: 96,
+        paddingBottom: spacing.xxl,
     },
     header: {
         flexDirection: 'row',
@@ -166,9 +169,9 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     avatar: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         backgroundColor: colors.cobalt,
         alignItems: 'center',
         justifyContent: 'center',

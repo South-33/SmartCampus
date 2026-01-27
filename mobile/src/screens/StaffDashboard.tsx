@@ -64,8 +64,6 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
         if (allRooms) setLocalRooms(allRooms);
     }, [allRooms]);
     
-    if (!viewer) return null;
-
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-GB', {
         weekday: 'long',
@@ -127,6 +125,8 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
             "plain-text"
         );
     };
+
+    if (!viewer) return null;
 
     const RoomCard = ({ room, priority = false }: { room: any, priority?: boolean }) => (
         <View key={room._id} style={[styles.roomContainer, priority && styles.priorityRoom]}>
@@ -216,7 +216,7 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
                     style={styles.scroll}
                     contentContainerStyle={[
                         styles.content,
-                        { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                        { paddingTop: insets.top + spacing.lg }
                     ]}
                     alwaysBounceVertical={false}
                 >
@@ -224,7 +224,7 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
                     <View style={styles.header}>
                         <View style={styles.greeting}>
                             <HeadingSm style={{ color: colors.slate }}>Staff Operations</HeadingSm>
-                            <HeadingLg>Cleaning Hub</HeadingLg>
+                            <HeadingLg style={styles.headerTitle}>Cleaning Hub</HeadingLg>
                             <BodySm style={styles.date}>{dateStr}</BodySm>
                         </View>
                         <TouchableOpacity style={styles.avatar} onPress={onProfile} activeOpacity={0.8}>
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     },
     content: {
         paddingHorizontal: spacing.lg,
-        paddingBottom: 80,
+        paddingBottom: spacing.xxl,
     },
     header: {
         flexDirection: 'row',
@@ -342,6 +342,9 @@ const styles = StyleSheet.create({
         marginBottom: spacing.xl,
     },
     greeting: {},
+    headerTitle: {
+        marginTop: 2,
+    },
     date: {
         color: colors.slate,
         marginTop: 2,
@@ -353,7 +356,6 @@ const styles = StyleSheet.create({
         backgroundColor: colors.cobalt,
         alignItems: 'center',
         justifyContent: 'center',
-        ...shadows.subtle,
     },
     statsRow: {
         flexDirection: 'row',

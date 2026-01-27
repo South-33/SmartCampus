@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, shadows } from '../theme';
 import {
+    HeadingLg,
     HeadingMd,
     HeadingSm,
     Body,
@@ -31,7 +32,7 @@ interface AdminUserDetailScreenProps {
 }
 
 const BackIcon = () => (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.slate} strokeWidth={2}>
         <Path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
 );
@@ -71,7 +72,7 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
     if (!user) {
         return (
             <View style={styles.container}>
-                <View style={[styles.content, { paddingTop: insets.top + spacing.xl, alignItems: 'center' }]}>
+                <View style={[styles.content, { paddingTop: insets.top + spacing.lg, alignItems: 'center' }]}>
                     <Body style={{ textAlign: 'center', marginBottom: spacing.lg }}>User not found</Body>
                     <Button onPress={onBack}>Go Back</Button>
                 </View>
@@ -134,17 +135,16 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
             <ResponsiveContainer>
                 <View style={[
                     styles.content,
-                    { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                    { paddingTop: insets.top + spacing.lg }
                 ]}>
                     {/* Header Row */}
                     <View style={styles.header}>
                         <View style={styles.headerRow}>
-                            <TouchableOpacity style={styles.backButton} onPress={onBack}>
+                            <TouchableOpacity style={styles.backButton} onPress={onBack} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                                 <BackIcon />
-                                <BodySm>Back</BodySm>
                             </TouchableOpacity>
                             
-                            <HeadingMd style={styles.headerTitle}>User Profile</HeadingMd>
+                            <HeadingLg style={styles.headerTitle}>User Profile</HeadingLg>
                             
                             <View style={styles.headerSpacer} />
                         </View>
@@ -245,10 +245,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        width: 80,
+        width: 68,
+        height: 44,
     },
     header: {
-        marginBottom: spacing.xl,
+        marginBottom: spacing.lg,
     },
     headerRow: {
         flexDirection: 'row',
@@ -260,7 +261,8 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     headerSpacer: {
-        width: 80,
+        width: 68,
+        height: 44,
     },
     scroll: {
         flex: 1,
@@ -276,7 +278,7 @@ const styles = StyleSheet.create({
         ...shadows.subtle,
     },
     avatar: {
-        width: 80,
+        width: 68,
         height: 80,
         borderRadius: 40,
         backgroundColor: colors.cream,

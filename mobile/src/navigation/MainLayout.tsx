@@ -61,7 +61,7 @@ const LogsIcon = ({ active }: { active: boolean }) => (
 );
 
 export const MainLayout = () => {
-  const { userRole, isDemo, isAuthenticated, isLoading, setIsDemo, setUserRole, isAdminDataLoaded } = useAppData();
+  const { userRole, isDemo, isAuthenticated, isLoading, setIsDemo, setUserRole, isAdminDataLoaded, isOptimisticAuth } = useAppData();
   const navigation = useAppNavigation();
   const {
     currentScreen,
@@ -77,8 +77,8 @@ export const MainLayout = () => {
   } = navigation;
 
   const [alerts, setAlerts] = useState<AdminAlert[]>([]);
-  const [isAppVisible, setIsAppVisible] = useState(false);
-  
+  const [showLogin, setShowLogin] = useState(false);
+
   // Single animation value for the Auth Gate Crossfade
   const authFadeAnim = useRef(new Animated.Value(0)).current;
   const tabFadeAnim = useRef(new Animated.Value(0)).current;
@@ -86,27 +86,26 @@ export const MainLayout = () => {
   const mainScreens: Screen[] = ['dashboard', 'classes', 'teacher-classes', 'teacher-hours', 'staff-tasks', 'admin-rooms', 'admin-users', 'admin-logs'];
   const showTabBar = mainScreens.includes(currentScreen);
 
-  // Crossfade logic: Triggered ONLY when app is fully hydrated
+  // Handle auth state changes with crossfade
   useEffect(() => {
-    const isReady = isAuthenticated && isAdminDataLoaded;
-    
-    if (isReady) {
-      setIsAppVisible(true);
+    // If we were optimistically showing the app but auth failed, fade to login
+    if (!isAuthenticated && !isLoading && !isDemo && !isOptimisticAuth) {
+      setShowLogin(true);
       Animated.timing(authFadeAnim, {
         toValue: 1,
-        duration: 350,
+        duration: 300,
         useNativeDriver: Platform.OS !== 'web',
       }).start();
-    } else {
+    } else if (isAuthenticated || isDemo || isOptimisticAuth) {
+      // User is authenticated (or optimistic), fade out login
+      setShowLogin(false);
       Animated.timing(authFadeAnim, {
         toValue: 0,
-        duration: 200,
+        duration: 300,
         useNativeDriver: Platform.OS !== 'web',
-      }).start(() => {
-        setIsAppVisible(false);
-      });
+      }).start();
     }
-  }, [isAuthenticated, isAdminDataLoaded]);
+  }, [isAuthenticated, isLoading, isDemo, isOptimisticAuth]);
 
   // Tab bar fade
   useEffect(() => {
@@ -154,30 +153,30 @@ export const MainLayout = () => {
     />
   );
 
+  // Determine effective auth state (optimistic or real)
+  const effectiveIsAuthenticated = isAuthenticated || isDemo || isOptimisticAuth;
+
   return (
     <View style={styles.container}>
-      {/* LAYER 1: THE AUTH GATE (LOGIN) */}
-      {(!isAuthenticated && !isDemo) || !isAppVisible ? (
-        <Animated.View 
+      {/* LAYER 1: THE AUTH GATE (LOGIN) - shown when not authenticated */}
+      {showLogin && (
+        <Animated.View
           style={[
-            styles.authLayer, 
-            { 
-              opacity: authFadeAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [1, 0]
-              }),
-              zIndex: (isAuthenticated && isAdminDataLoaded) ? 0 : 10,
-              pointerEvents: (isAuthenticated && isAdminDataLoaded) ? 'none' : 'auto'
+            styles.authLayer,
+            {
+              opacity: authFadeAnim,
+              zIndex: 10,
+              pointerEvents: 'auto'
             }
           ]}
         >
           <LoginScreen onLogin={handleDemoLogin} />
         </Animated.View>
-      ) : null}
+      )}
 
-      {/* LAYER 2: THE APP (DASHBOARD + NAV) */}
-      {(isAuthenticated || isDemo) && (
-        <Animated.View style={[styles.appLayer, { opacity: authFadeAnim }]}>
+      {/* LAYER 2: THE APP (DASHBOARD + NAV) - shown when authenticated (or optimistic) */}
+      {effectiveIsAuthenticated && (
+        <Animated.View style={[styles.appLayer, { opacity: 1 }]}>
           {/* Base screen */}
           <View style={[styles.screenLayer, { pointerEvents: isTransitioning ? 'none' : 'auto' }]}>
             {renderScreenContent(displayedScreen)}
@@ -198,8 +197,8 @@ export const MainLayout = () => {
                 <Caption style={[styles.tabLabel, currentScreen === 'dashboard' && styles.tabLabelActive]}>Home</Caption>
               </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.tabItem} 
+              <TouchableOpacity
+                style={styles.tabItem}
                 onPress={() => {
                   if (userRole === 'staff') navigateTo('staff-tasks');
                   else if (userRole === 'admin') navigateTo('admin-rooms');

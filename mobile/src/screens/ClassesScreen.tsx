@@ -195,7 +195,7 @@ export const ClassesScreen = () => {
                     style={styles.scroll} 
                     contentContainerStyle={[
                         styles.scrollContent,
-                        { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                        { paddingTop: insets.top + spacing.lg }
                     ]} 
                     showsVerticalScrollIndicator={false}
                     stickyHeaderIndices={[1]}
@@ -203,10 +203,14 @@ export const ClassesScreen = () => {
                 >
                     <View style={styles.header}>
                         <View style={styles.headerLeft}>
-                            <Caption style={styles.headerSubtitle}>Academic Year {currentAcademicYear}</Caption>
                             <HeadingLg style={styles.headerTitle}>{termInfo.name}</HeadingLg>
+                            <Caption style={styles.headerSubtitle}>Academic Year {currentAcademicYear}</Caption>
                         </View>
-                        <TouchableOpacity style={styles.calendarButton} onPress={() => setShowCalendar(true)}>
+                        <TouchableOpacity 
+                            style={styles.calendarButton} 
+                            onPress={() => setShowCalendar(true)}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
                             <CalendarIcon />
                         </TouchableOpacity>
                     </View>
@@ -309,7 +313,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        paddingBottom: 72, 
+        paddingBottom: spacing.xxl, 
     },
     header: {
         flexDirection: 'row',
@@ -326,10 +330,9 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
         textTransform: 'uppercase',
         color: colors.slate,
-        marginBottom: 4,
+        marginTop: 4,
     },
     headerTitle: {
-        fontSize: 28,
     },
     calendarButton: {
         width: 44,

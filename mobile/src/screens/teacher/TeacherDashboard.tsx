@@ -46,12 +46,15 @@ const CheckIcon = () => (
 );
 
 export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewClass, onViewHours }: TeacherDashboardProps) => {
-    const { viewer } = useAppData();
-    
-    if (!viewer) return null;
+    const { viewer, cachedProfile } = useAppData();
 
-    const teacherName = viewer.name?.split(' ')[1] || 'Teacher';
-    const teacherAvatar = viewer?.name?.split(' ').map((n: string) => n[0]).join('') || 'T';
+    // Use cached profile for instant render, fallback to viewer when loaded
+    const displayName = viewer?.name || cachedProfile?.name || 'Teacher';
+    const nameParts = displayName.split(' ');
+    const teacherName = nameParts.length > 1 ? nameParts[1] : displayName;
+    const teacherAvatar = viewer?.name?.split(' ').map((n: string) => n[0]).join('')
+        || cachedProfile?.avatarInitials
+        || displayName[0];
 
     const insets = useSafeAreaInsets();
     const today = new Date();
@@ -68,7 +71,7 @@ export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewCl
                     style={styles.scroll}
                     contentContainerStyle={[
                         styles.content,
-                        { paddingTop: Math.max(insets.top, 20) + spacing.md }
+                        { paddingTop: insets.top + spacing.lg }
                     ]}
                     alwaysBounceVertical={false}
                     keyboardShouldPersistTaps="handled"
@@ -77,7 +80,7 @@ export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewCl
                     <View style={styles.header}>
                         <View style={styles.greeting}>
                             <HeadingSm>Good morning</HeadingSm>
-                            <HeadingLg>{teacherName}</HeadingLg>
+                            <HeadingLg style={styles.headerTitle}>{teacherName}</HeadingLg>
                             <BodySm style={styles.date}>{dateStr}</BodySm>
                         </View>
                         <TouchableOpacity style={styles.avatar} onPress={onProfile} activeOpacity={0.8}>
@@ -113,20 +116,20 @@ export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewCl
                     </View>
 
                     {/* Scan Status & Hours */}
-                    <TeachingHoursWidget 
-                        thisWeek={12.5} 
-                        target={20} 
+                    <TeachingHoursWidget
+                        thisWeek={12.5}
+                        target={20}
                         status={'teaching'}
                         onPress={onViewHours}
                     />
 
                     {/* Live Class Widget - Placeholder */}
-                    <LiveAttendanceCard 
+                    <LiveAttendanceCard
                         courseName={"Data Structures"}
                         room={"Room 305"}
                         present={28}
                         total={32}
-                        onPress={() => {}}
+                        onPress={() => { }}
                     />
 
                     {/* Alerts */}
@@ -147,7 +150,7 @@ const styles = StyleSheet.create({
     },
     content: {
         paddingHorizontal: spacing.lg,
-        paddingBottom: 96,
+        paddingBottom: spacing.xxl,
     },
     header: {
         flexDirection: 'row',
@@ -160,10 +163,13 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
         marginTop: 2,
     },
+    headerTitle: {
+        marginTop: 2,
+    },
     avatar: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         backgroundColor: colors.cobalt,
         alignItems: 'center',
         justifyContent: 'center',

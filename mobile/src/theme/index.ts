@@ -40,10 +40,10 @@ export const fonts = {
 export const spacing = {
     xs: 8,
     sm: 16,
-    md: 24,
-    lg: 40,
-    xl: 64,
-    xxl: 96,
+    md: 22,
+    lg: 34,
+    xl: 54,
+    xxl: 82,
 } as const;
 
 export const radius = {

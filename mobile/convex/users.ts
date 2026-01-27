@@ -1,7 +1,7 @@
-import { mutation, query, action } from "./_generated/server";
+import { mutation, query, action, internalMutation, internalQuery } from "./_generated/server";
 import { createAccount } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { getCurrentUser, mustBeAdmin, mustBeAuthenticated, logActivity, touchRoom } from "./lib/permissions";
 
 export const viewer = query({
@@ -68,7 +68,7 @@ export const create = action({
     const user = await ctx.runQuery(api.users.viewer);
     mustBeAdmin(user);
 
-    const existingUser = await ctx.runQuery(api.users.getUserByEmail, {
+    const existingUser = await ctx.runQuery(internal.users.getUserByEmail, {
       email: args.email,
     });
     if (existingUser) throw new Error("User already exists");
@@ -87,7 +87,7 @@ export const create = action({
       },
     });
 
-    await ctx.runMutation(api.users.internalLogActivity, {
+    await ctx.runMutation(internal.users.internalLogActivity, {
       action: "USER_CREATE",
       description: `Created user ${args.name} (${args.email}) with role ${args.role}`,
     });
@@ -235,7 +235,7 @@ export const update = mutation({
   },
 });
 
-export const getUserByEmail = query({
+export const getUserByEmail = internalQuery({
   args: { email: v.string() },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -245,7 +245,7 @@ export const getUserByEmail = query({
   },
 });
 
-export const internalLogActivity = mutation({
+export const internalLogActivity = internalMutation({
   args: { action: v.string(), description: v.string() },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);

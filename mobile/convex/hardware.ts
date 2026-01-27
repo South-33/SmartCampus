@@ -5,20 +5,48 @@ import { Doc } from "./_generated/dataModel";
 import { logActivity } from "./lib/permissions";
 
 /**
- * Validates that a request is coming from a legitimate hardware device.
- * We use a simple token check. 
+ * Helper to hash a token for secure storage/comparison
  */
-async function validateDevice(ctx: QueryCtx | MutationCtx, chipId: string, token: string): Promise<Doc<"devices">> {
+export async function hashToken(token: string) {
+  const msgUint8 = new TextEncoder().encode(token);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Validates that a request is coming from a legitimate hardware device.
+ * @param ctx Convex context
+ * @param chipId Device hardware ID
+ * @param token Plain text token from device
+ * @param requireActive If true, throws if device is not 'active'
+ */
+async function validateDevice(
+  ctx: QueryCtx | MutationCtx, 
+  chipId: string, 
+  token: string, 
+  requireActive: boolean = true
+): Promise<Doc<"devices">> {
   const device = await ctx.db
     .query("devices")
     .withIndex("by_chipId", (q) => q.eq("chipId", chipId))
     .unique();
 
-  // In a production environment, we would compare a hash of the token.
-  // For this project, we check the token directly but ensure it was issued securely.
-  if (!device || !device.tokenHash || device.tokenHash !== token) {
+  if (!device || !device.tokenHash) {
     throw new Error("Unauthorized hardware");
   }
+
+  // 1. Verify token by hashing the incoming one
+  const incomingHash = await hashToken(token);
+  if (device.tokenHash !== incomingHash) {
+    throw new Error("Unauthorized hardware");
+  }
+
+  // 2. Activation Gate
+  if (requireActive && device.status !== "active") {
+    throw new Error(`Device is ${device.status}. An admin must activate it.`);
+  }
+
   return device;
 }
 
@@ -139,17 +167,22 @@ export const heartbeat = mutation({
     firmware: v.string() 
   },
   handler: async (ctx, args) => {
-    const device = await validateDevice(ctx, args.chipId, args.token);
+    // Heartbeat is allowed for pending devices so admin can see they are alive
+    const device = await validateDevice(ctx, args.chipId, args.token, false);
     const room = device.roomId ? await ctx.db.get(device.roomId) : null;
+
+    // Only update status to online if it's already active or pending
+    const newStatus = device.status === "active" ? "online" : device.status;
 
     await ctx.db.patch(device._id, {
       lastSeen: Date.now(),
       firmwareVersion: args.firmware,
-      status: "online"
+      status: newStatus
     });
 
     return { 
       success: true,
+      activated: device.status === "active",
       lastUpdated: room?.lastUpdated || 0,
       roomName: room?.name || "Unassigned"
     };
@@ -182,10 +215,13 @@ export const register = mutation({
     const array = new Uint8Array(24);
     crypto.getRandomValues(array);
     const token = Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    
+    // Store the HASH of the token, not the plain text
+    const tokenHash = await hashToken(token);
 
     await ctx.db.insert("devices", {
       chipId: args.chipId,
-      tokenHash: token,
+      tokenHash: tokenHash,
       name: `Unassigned Device (${args.chipId.slice(-4)})`,
       status: "pending",
       lastSeen: Date.now(),

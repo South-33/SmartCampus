@@ -8,20 +8,25 @@ const http = httpRouter();
 auth.addHttpRoutes(http);
 
 /**
- * Utility to extract hardware credentials from either URL params or JSON body.
+ * Utility to extract hardware credentials.
+ * Token is now expected in the Authorization header: Bearer <token>
  */
 async function getHardwareCreds(request: Request) {
+  const authHeader = request.headers.get("Authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : null;
+
   if (request.method === "GET") {
     const url = new URL(request.url);
     return {
       chipId: url.searchParams.get("chipId"),
-      token: url.searchParams.get("token"),
+      token: token,
     };
   }
+  
   const body = await request.json();
   return {
     chipId: body.chipId,
-    token: body.token,
+    token: token,
     payload: body,
   };
 }

@@ -39,10 +39,14 @@ const StatusBadge = ({ status }: { status: string }) => {
         switch (status) {
             case 'online':
                 return { bg: '#F0F9F4', text: colors.success, label: 'ONLINE' };
+            case 'active':
+                return { bg: '#EBF5FF', text: colors.cobalt, label: 'ACTIVE' };
+            case 'pending':
+                return { bg: '#FFF9EB', text: '#B25E09', label: 'PENDING' };
             case 'offline':
                 return { bg: '#FFF1F1', text: colors.error, label: 'OFFLINE' };
             default:
-                return { bg: colors.mist, text: colors.slate, label: 'UNKNOWN' };
+                return { bg: colors.mist, text: colors.slate, label: status?.toUpperCase() || 'UNKNOWN' };
         }
     };
 

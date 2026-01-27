@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUser, mustBeAdmin, logActivity, touchRoom } from "./lib/permissions";
+import { hashToken } from "./hardware";
 
 /**
  * Lists all devices for the admin dashboard.
@@ -35,7 +36,7 @@ export const assignToRoom = mutation({
 
     await ctx.db.patch(args.deviceId, { 
       roomId: args.roomId,
-      status: "online" 
+      status: "active" 
     });
 
     // Mark the room as updated so the device pulls the whitelist immediately
@@ -63,7 +64,8 @@ export const resetToken = mutation({
     crypto.getRandomValues(array);
     const token = Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join("");
 
-    await ctx.db.patch(args.deviceId, { tokenHash: token });
+    const tokenHash = await hashToken(token);
+    await ctx.db.patch(args.deviceId, { tokenHash: tokenHash });
     
     await logActivity(ctx, admin!, "DEVICE_TOKEN_RESET", `Reset token for device ${device.chipId}`);
     

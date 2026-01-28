@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
+
 import {
     View,
     StyleSheet,
@@ -55,14 +56,13 @@ const RoomIcon = ({ type, size = 20, color = colors.slate }: { type: string, siz
     }
 };
 
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+
 export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGate }: StaffDashboardProps) => {
     const { rooms: allRooms, viewer } = useAppData();
     const insets = useSafeAreaInsets();
-    const [localRooms, setLocalRooms] = useState<any[]>([]);
-
-    useEffect(() => {
-        if (allRooms) setLocalRooms(allRooms);
-    }, [allRooms]);
+    const markCleanedMutation = useMutation(api.rooms.markCleaned);
     
     const today = new Date();
     const dateStr = today.toLocaleDateString('en-GB', {
@@ -71,7 +71,7 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
         month: 'long'
     });
 
-    const rooms = localRooms;
+    const rooms = allRooms || [];
 
     // Filtering logic for cleaner utility
     const readyToClean = useMemo(() => 
@@ -88,7 +88,7 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
 
     const cleanedToday = rooms.filter(r => !r.needsCleaning).length;
 
-    const handleMarkCleaned = (roomId: string) => {
+    const handleMarkCleaned = async (roomId: string) => {
         Alert.alert(
             "Confirm Completion",
             "Mark this room as fully cleaned?",
@@ -96,15 +96,19 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
                 { text: "Cancel", style: "cancel" },
                 { 
                     text: "Mark Cleaned", 
-                    onPress: () => {
-                        setLocalRooms(prev => prev.map(r => 
-                            r._id === roomId ? { ...r, needsCleaning: false, lastCleanedAt: 'Just now' } : r
-                        ));
+                    onPress: async () => {
+                        try {
+                            await markCleanedMutation({ roomId: roomId as any });
+                        } catch (error) {
+                            console.error(error);
+                            Alert.alert("Error", "Failed to update room status.");
+                        }
                     } 
                 }
             ]
         );
     };
+
 
     const handleReportIssue = () => {
         Alert.prompt(
@@ -302,7 +306,8 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
                                     <View key={room._id} style={[styles.roomContainer, { opacity: 0.7 }]}>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                                <RoomIcon type={room.type} color={colors.slate} />
+                                                <RoomIcon type={room.type || 'classroom'} color={colors.slate} />
+
                                                 <Body style={styles.roomName}>{room.name.toUpperCase()}</Body>
                                             </View>
                                             <View style={styles.statusBadgeError}>

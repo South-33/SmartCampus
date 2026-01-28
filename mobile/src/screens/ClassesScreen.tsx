@@ -29,45 +29,19 @@ import {
     MapPin as MapPinIcon 
 } from 'lucide-react-native';
 import { getTermInfo } from '../data/academicUtils';
+import { useAppData } from '../context/AppContext';
 
 interface ClassesScreenProps {
     onBack?: () => void;
 }
-
-// --- Placeholders (To be replaced by real queries) ---
-
-const nextClass = {
-    code: 'CS101',
-    name: 'Data Structures',
-    room: 'Room 305',
-    startTime: '09:00',
-    minutesUntil: 45,
-};
-
-const attendanceMetrics = {
-    currentStreak: 0,
-    weekAttended: 0,
-    weekTotal: 0,
-    overallPercent: 0,
-    status: 'good',
-};
-
-const enrolledCourses: any[] = [];
-const attendanceAlerts: any[] = [];
 
 // --- Components ---
 
 const CourseCard = ({ course }: { course: any }) => {
     const [expanded, setExpanded] = useState(false);
     
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'present': return colors.success;
-            case 'late': return '#F59E0B';
-            case 'absent': return colors.error;
-            default: return colors.slate;
-        }
-    };
+    const color = course.color || colors.cobalt;
+    const nextClassInfo = course.nextClass || { day: 'N/A', time: 'N/A', room: 'N/A' };
 
     return (
         <TouchableOpacity 
@@ -79,12 +53,6 @@ const CourseCard = ({ course }: { course: any }) => {
                 <View style={styles.courseIdentity}>
                     <View style={styles.codeRow}>
                         <Caption style={styles.courseCode}>{course.code}</Caption>
-                        {course.isAtRisk && (
-                            <View style={styles.atRiskBadge}>
-                                <AlertCircleIcon size={10} color="#FFF" />
-                                <Caption style={styles.atRiskBadgeText}>AT RISK</Caption>
-                            </View>
-                        )}
                     </View>
                     <HeadingMd style={styles.courseName}>{course.name}</HeadingMd>
                 </View>
@@ -95,80 +63,30 @@ const CourseCard = ({ course }: { course: any }) => {
 
             <View style={styles.courseMeta}>
                 <View style={styles.metaItem}>
-                    <UserIcon />
+                    <UserIcon size={12} color={colors.slate} />
                     <Caption style={styles.metaText}>{course.professor}</Caption>
-                </View>
-                <View style={styles.metaDivider} />
-                <View style={styles.metaItem}>
-                    <Caption style={styles.metaText}>{course.classesAttended}/{course.classesTotal} lectures</Caption>
                 </View>
             </View>
 
             <View style={styles.nextClassRow}>
                 <View style={styles.metaItem}>
                     <ClockIcon size={12} color={colors.slate} />
-                    <Caption style={styles.metaText}>Next: {course.nextClass.day} {course.nextClass.time}</Caption>
+                    <Caption style={styles.metaText}>Next: {nextClassInfo.day} {nextClassInfo.time}</Caption>
                 </View>
                 <View style={styles.metaDivider} />
                 <View style={styles.metaItem}>
                     <MapPinIcon size={12} color={colors.slate} />
-                    <Caption style={styles.metaText}>{course.nextClass.room}</Caption>
-                </View>
-            </View>
-
-            <View style={styles.attendanceSection}>
-                <View style={styles.progressContainer}>
-                    <View style={styles.progressBar}>
-                        <View style={[styles.progressFill, { width: `${course.attendancePercent}%`, backgroundColor: course.color }]} />
-                    </View>
-                    <BodySm style={[styles.attendancePercent, { color: course.color }]}>{course.attendancePercent}%</BodySm>
+                    <Caption style={styles.metaText}>{nextClassInfo.room}</Caption>
                 </View>
             </View>
 
             {expanded && (
                 <View style={styles.expandedContent}>
                     <View style={styles.expandedSection}>
-                        <HeadingSm style={styles.expandedSectionTitle}>WEEKLY SCHEDULE</HeadingSm>
-                        {course.schedule.map((s: any, i: number) => (
-                            <View key={i} style={styles.scheduleRow}>
-                                <BodySm style={styles.scheduleDay}>{s.day}</BodySm>
-                                <BodySm style={styles.scheduleTime}>{s.time}</BodySm>
-                                <BodySm style={styles.scheduleRoom}>{s.room}</BodySm>
-                            </View>
-                        ))}
-                    </View>
-
-                    <View style={styles.expandedSection}>
-                        <View style={styles.patternHeader}>
-                            <HeadingSm style={styles.expandedSectionTitle}>ATTENDANCE PATTERN</HeadingSm>
-                            {course.currentStreak > 0 && (
-                                <View style={styles.streakBadge}>
-                                    <FlameIcon size={12} />
-                                    <Caption style={styles.streakText}>{course.currentStreak} class streak</Caption>
-                                </View>
-                            )}
-                        </View>
-                        {course.isAtRisk && (
-                            <View style={styles.riskWarningBox}>
-                                <AlertCircleIcon size={14} />
-                                <BodySm style={styles.riskWarningText}>{course.riskMessage}</BodySm>
-                            </View>
-                        )}
-                    </View>
-
-                    <View style={styles.expandedSection}>
-                        <HeadingSm style={styles.expandedSectionTitle}>RECENT CHECK-INS</HeadingSm>
-                        {course.recentLog.map((log: any, i: number) => (
-                            <View key={i} style={styles.logRow}>
-                                <BodySm style={styles.logDate}>{log.date}</BodySm>
-                                <BodySm style={styles.logTime}>{log.time}</BodySm>
-                                <View style={[styles.logStatus, { backgroundColor: getStatusColor(log.status) + '15' }]}>
-                                    <BodySm style={[styles.logStatusText, { color: getStatusColor(log.status) }]}>
-                                        {log.status.toUpperCase()}
-                                    </BodySm>
-                                </View>
-                            </View>
-                        ))}
+                        <HeadingSm style={styles.expandedSectionTitle}>COURSE DETAILS</HeadingSm>
+                        <BodySm style={{ color: colors.slate }}>
+                            Course ID: {course._id}
+                        </BodySm>
                     </View>
                 </View>
             )}
@@ -178,6 +96,7 @@ const CourseCard = ({ course }: { course: any }) => {
 
 export const ClassesScreen = () => {
     const insets = useSafeAreaInsets();
+    const { studentStats, enrolledClasses, todayClasses } = useAppData();
     const today = useMemo(() => new Date(), []);
     const [selectedDate, setSelectedDate] = useState(today.getDate());
     const [showCalendar, setShowCalendar] = useState(false);
@@ -187,6 +106,17 @@ export const ClassesScreen = () => {
     
     const termInfo = useMemo(() => getTermInfo(viewMonth, viewYear), [viewMonth, viewYear]);
     const currentAcademicYear = viewYear.toString();
+
+    // Derived Data
+    const metrics = studentStats || {
+        currentStreak: 0,
+        weekAttended: 0,
+        weekTotal: 14,
+        overallPercent: 0,
+        status: 'at_risk',
+    };
+
+    const nextClass = todayClasses?.find(s => s.status === 'upcoming' || s.status === 'ongoing') || null;
 
     return (
         <View style={styles.container}>
@@ -198,7 +128,6 @@ export const ClassesScreen = () => {
                         { paddingTop: insets.top + spacing.lg }
                     ]} 
                     showsVerticalScrollIndicator={false}
-                    stickyHeaderIndices={[1]}
                     keyboardShouldPersistTaps="handled"
                 >
                     <View style={styles.header}>
@@ -211,7 +140,7 @@ export const ClassesScreen = () => {
                             onPress={() => setShowCalendar(true)}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
-                            <CalendarIcon />
+                            <CalendarIcon color={colors.cobalt} />
                         </TouchableOpacity>
                     </View>
 
@@ -221,62 +150,47 @@ export const ClassesScreen = () => {
                     />
 
                     <View style={styles.mainContent}>
-                        <View style={styles.nextClassContainer}>
-                            <View style={styles.nextClassBadge}>
-                                <ClockIcon size={12} color={colors.cobalt} />
-                                <Caption style={styles.nextClassBadgeText}>NEXT CLASS IN {nextClass.minutesUntil} MIN</Caption>
+                        {nextClass && (
+                            <View style={styles.nextClassContainer}>
+                                <View style={styles.nextClassBadge}>
+                                    <ClockIcon size={12} color={colors.cobalt} />
+                                    <Caption style={styles.nextClassBadgeText}>NEXT CLASS AT {nextClass.startTime}</Caption>
+                                </View>
+                                <View style={styles.nextClassInfo}>
+                                    <HeadingSm style={styles.nextClassName}>{nextClass.className}</HeadingSm>
+                                    <Caption style={styles.nextClassRoom}>{nextClass.roomName}</Caption>
+                                </View>
                             </View>
-                            <View style={styles.nextClassInfo}>
-                                <HeadingSm style={styles.nextClassName}>{nextClass.code} • {nextClass.name}</HeadingSm>
-                                <Caption style={styles.nextClassRoom}>{nextClass.room} @ {nextClass.startTime}</Caption>
-                            </View>
-                        </View>
+                        )}
 
                         <View style={styles.academicOverview}>
                             <View style={styles.overviewHeader}>
                                 <HeadingSm style={styles.overviewTitle}>ATTENDANCE OVERVIEW</HeadingSm>
                                 <View style={styles.statusBadgeLarge}>
-                                    <View style={[styles.statusDot, { backgroundColor: attendanceMetrics.status === 'good' ? colors.success : colors.error }]} />
-                                    <Caption style={[styles.statusTextLarge, { color: attendanceMetrics.status === 'good' ? colors.success : colors.error }]}>
-                                        {attendanceMetrics.status === 'good' ? 'In Good Standing' : 'At Risk'}
+                                    <View style={[styles.statusDot, { backgroundColor: metrics.status === 'good' ? colors.success : colors.error }]} />
+                                    <Caption style={[styles.statusTextLarge, { color: metrics.status === 'good' ? colors.success : colors.error }]}>
+                                        {metrics.status === 'good' ? 'In Good Standing' : 'At Risk'}
                                     </Caption>
                                 </View>
                             </View>
                             <View style={styles.statsGrid}>
                                 <View style={styles.statBox}>
                                     <View style={styles.statValueRow}>
-                                        <FlameIcon size={18} />
-                                        <HeadingMd style={styles.statValue}>{attendanceMetrics.currentStreak}</HeadingMd>
+                                        <FlameIcon size={18} color={metrics.currentStreak > 0 ? "#D97706" : colors.slate} />
+                                        <HeadingMd style={styles.statValue}>{metrics.currentStreak}</HeadingMd>
                                     </View>
                                     <Caption>Streak</Caption>
                                 </View>
                                 <View style={styles.statDivider} />
                                 <View style={styles.statBox}>
-                                    <HeadingMd style={styles.statValue}>{attendanceMetrics.weekAttended}/{attendanceMetrics.weekTotal}</HeadingMd>
-                                    <Caption>This Week</Caption>
+                                    <HeadingMd style={styles.statValue}>{metrics.weekAttended}/{metrics.weekTotal}</HeadingMd>
+                                    <Caption>Attendance</Caption>
                                 </View>
                                 <View style={styles.statDivider} />
                                 <View style={styles.statBox}>
-                                    <HeadingMd style={[styles.statValue, { color: colors.cobalt }]}>{attendanceMetrics.overallPercent}%</HeadingMd>
+                                    <HeadingMd style={[styles.statValue, { color: colors.cobalt }]}>{metrics.overallPercent}%</HeadingMd>
                                     <Caption>Overall</Caption>
                                 </View>
-                            </View>
-                        </View>
-
-                        <View style={styles.section}>
-                            <View style={styles.sectionHeader}>
-                                <HeadingSm style={styles.sectionTitle}>ATTENDANCE ALERTS</HeadingSm>
-                            </View>
-                            <View style={styles.alertsContainer}>
-                                {attendanceAlerts.map((alert: any) => (
-                                    <View key={alert.id} style={[styles.alertCard, { borderColor: alert.type === 'warning' ? colors.error + '30' : colors.success + '30' }]}>
-                                        {alert.type === 'warning' ? <AlertCircleIcon size={16} /> : <CheckCircleIcon size={16} />}
-                                        <View style={styles.alertContent}>
-                                            <BodySm style={styles.alertCourse}>{alert.course}</BodySm>
-                                            <Caption style={styles.alertMessage}>{alert.message}</Caption>
-                                        </View>
-                                    </View>
-                                ))}
                             </View>
                         </View>
 
@@ -285,9 +199,13 @@ export const ClassesScreen = () => {
                                 <HeadingSm style={styles.sectionTitle}>Enrolled Classes</HeadingSm>
                             </View>
                             <View style={styles.classList}>
-                                {enrolledCourses.map((course: any) => (
-                                    <CourseCard key={course.id} course={course} />
-                                ))}
+                                {enrolledClasses && enrolledClasses.length > 0 ? enrolledClasses.map((course: any) => (
+                                    <CourseCard key={course._id} course={course} />
+                                )) : (
+                                    <BodySm style={{ color: colors.slate, textAlign: 'center', marginTop: spacing.lg }}>
+                                        No courses found for your major.
+                                    </BodySm>
+                                )}
                             </View>
                         </View>
                     </View>
@@ -303,6 +221,7 @@ export const ClassesScreen = () => {
         </View>
     );
 };
+
 
 const styles = StyleSheet.create({
     container: {

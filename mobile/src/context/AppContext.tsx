@@ -36,6 +36,11 @@ interface AppContextType {
   viewer: Doc<"users"> | null | undefined;
   isAdminDataLoaded: boolean;
 
+  // Student Specific
+  studentStats: { currentStreak: number, weekAttended: number, weekTotal: number, overallPercent: number, status: string } | null | undefined;
+  todayClasses: any[] | undefined;
+  enrolledClasses: any[] | undefined;
+
   // Loading State
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -56,12 +61,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : 'skip' as any);
 
-  // Strictly check if the user is an admin
+  // Strictly check roles
   const isAdmin = viewer !== undefined && viewer !== null && viewer.role === 'admin';
+  const isStudent = viewer !== undefined && viewer !== null && viewer.role === 'student';
 
   // Global Sync for Data - Role Aware
   const rooms = useQuery(api.rooms.list, isAuthenticated ? {} : 'skip' as any);
   const recentLogs = useQuery(api.accessLogs.getRecent, isAuthenticated ? {} : 'skip' as any);
+  const todayClasses = useQuery(api.classes.getToday, isAuthenticated ? {} : 'skip' as any);
+
+  // Student Specific
+  const studentStats = useQuery(api.accessLogs.getStudentStats, isStudent ? {} : 'skip' as any);
+  const enrolledClasses = useQuery(api.classes.getEnrolled, isStudent ? {} : 'skip' as any);
 
   // Admin Only Queries - Only trigger if we are CERTAIN they are an admin
   const devices = useQuery(api.devices.list, isAdmin ? {} : 'skip' as any);
@@ -123,6 +134,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         allUsers,
         viewer,
         isAdminDataLoaded,
+        studentStats,
+        todayClasses,
+        enrolledClasses,
         isAuthenticated,
         isLoading: authLoading,
         isOptimisticAuth,

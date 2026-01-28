@@ -71,6 +71,9 @@ const DeviceIcon = ({ type, color }: { type: 'gatekeeper' | 'watchman', color: s
     </Svg>
 );
 
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+
 export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenProps) => {
 
     const insets = useSafeAreaInsets();
@@ -78,7 +81,27 @@ export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenP
     const room = (rooms || []).find((r: any) => r._id === roomId);
     const devices = (allDevices || []).filter((d: any) => d.roomId === roomId);
 
+    const updateStatus = useMutation(api.rooms.updateStatus);
+
     if (!room) return null;
+
+    const handleTogglePower = async () => {
+        const nextPower = room.powerStatus === 'on' ? 'off' : 'on';
+        try {
+            await updateStatus({ roomId: roomId as any, powerStatus: nextPower });
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    const handleSetLock = async (status: 'unlocked' | 'staff_only' | 'locked') => {
+        try {
+            await updateStatus({ roomId: roomId as any, lockStatus: status });
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
 
     return (
         <View style={styles.container}>
@@ -135,6 +158,7 @@ export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenP
                                     (room.lockStatus || 'unlocked') === status && styles.lockTabActive,
                                     (room.lockStatus || 'unlocked') === status && status !== 'unlocked' && styles.lockTabActiveError
                                 ]}
+                                onPress={() => handleSetLock(status)}
                             >
                                 <BodySm style={[
                                     styles.lockTabText, 
@@ -150,15 +174,21 @@ export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenP
                     {/* Quick Controls */}
                     <HeadingSm style={styles.sectionTitle}>REMOTE ACTIONS</HeadingSm>
                     <View style={styles.actionRow}>
-                        <TouchableOpacity style={styles.actionBtn}>
+                        <TouchableOpacity 
+                            style={styles.actionBtn} 
+                            onPress={() => handleSetLock((room.lockStatus || 'unlocked') === 'unlocked' ? 'locked' : 'unlocked')}
+                        >
                             <UnlockIcon />
-                            <BodySm style={styles.actionBtnText}>Unlock Door</BodySm>
+                            <BodySm style={styles.actionBtnText}>
+                                {(room.lockStatus || 'unlocked') === 'unlocked' ? 'Lock Room' : 'Unlock Room'}
+                            </BodySm>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionBtn}>
+                        <TouchableOpacity style={styles.actionBtn} onPress={handleTogglePower}>
                             <PowerIcon active={room.powerStatus === 'on'} />
                             <BodySm style={styles.actionBtnText}>Toggle Power</BodySm>
                         </TouchableOpacity>
                     </View>
+
 
                     {/* Connected Devices */}
                     <HeadingSm style={styles.sectionTitle}>CONNECTED HARDWARE</HeadingSm>

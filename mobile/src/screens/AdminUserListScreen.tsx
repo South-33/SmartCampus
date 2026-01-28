@@ -184,11 +184,16 @@ export const AdminUserListScreen = ({ onBack, onViewUser }: AdminUserListScreenP
 
                                         <View style={styles.userInfo}>
                                             <Body style={styles.userName}>{user.name || user.email || 'Unnamed'}</Body>
-                                            <Caption style={styles.userRole}>{(user.role || 'unknown').toUpperCase()}</Caption>
+                                            <Caption style={styles.userRole}>
+                                                {(user.role || 'unknown').toUpperCase()} 
+                                                {user.major ? ` • ${user.major}` : ''}
+                                            </Caption>
                                         </View>
                                         <View style={styles.userStatus}>
-                                            <Caption>Active</Caption>
-                                            <BodySm>Just now</BodySm>
+                                            <Caption style={{ color: (user.status === 'active' || user.status === 'enrolled') ? colors.success : colors.error }}>
+                                                {(user.status || 'active').toUpperCase()}
+                                            </Caption>
+                                            <BodySm>{user.year || 'Standard'}</BodySm>
                                         </View>
                                     </TouchableOpacity>
                                 ))}

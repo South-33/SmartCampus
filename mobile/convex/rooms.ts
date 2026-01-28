@@ -34,3 +34,65 @@ export const cycleLockStatus = mutation({
     return { success: true, status: nextStatus };
   },
 });
+
+export const markCleaned = mutation({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || (user.role !== "staff" && user.role !== "admin")) {
+      throw new Error("Unauthorized");
+    }
+
+    await ctx.db.patch(args.roomId, {
+      needsCleaning: false,
+      lastCleanedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      lastUpdated: Date.now(),
+    });
+
+    await logActivity(ctx, user, "ROOM_CLEANED", `Marked room ${args.roomId} as cleaned`);
+  },
+});
+
+export const setGlobalStatus = mutation({
+  args: { 
+    lockStatus: v.optional(v.union(v.literal("unlocked"), v.literal("locked"), v.literal("staff_only"))),
+    powerStatus: v.optional(v.union(v.literal("on"), v.literal("off")))
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user || user.role !== "admin") throw new Error("Admin only");
+
+    const rooms = await ctx.db.query("rooms").collect();
+    for (const room of rooms) {
+      await ctx.db.patch(room._id, {
+        ...(args.lockStatus && { lockStatus: args.lockStatus }),
+        ...(args.powerStatus && { powerStatus: args.powerStatus }),
+        lastUpdated: Date.now(),
+      });
+    }
+
+    await logActivity(ctx, user, "GLOBAL_OVERRIDE", `Applied global override: ${JSON.stringify(args)}`);
+  },
+});
+
+export const updateStatus = mutation({
+  args: {
+    roomId: v.id("rooms"),
+    lockStatus: v.optional(v.union(v.literal("unlocked"), v.literal("locked"), v.literal("staff_only"))),
+    powerStatus: v.optional(v.union(v.literal("on"), v.literal("off")))
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    mustBeTeacherOrAdmin(user);
+
+    const { roomId, ...updates } = args;
+    await ctx.db.patch(roomId, {
+      ...updates,
+      lastUpdated: Date.now(),
+    });
+
+    await logActivity(ctx, user!, "ROOM_UPDATE", `Updated room ${roomId}: ${JSON.stringify(updates)}`);
+  },
+});
+
+

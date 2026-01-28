@@ -38,9 +38,13 @@ const ShieldAlertIcon = () => (
     </Svg>
 );
 
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+
 export const AdminSecurityScreen = ({ onBack }: AdminSecurityScreenProps) => {
     const insets = useSafeAreaInsets();
     const [activeMode, setActiveMode] = React.useState<string | null>(null);
+    const setGlobalStatus = useMutation(api.rooms.setGlobalStatus);
 
     const handleOverride = (title: string) => {
         if (activeMode === title) {
@@ -49,7 +53,18 @@ export const AdminSecurityScreen = ({ onBack }: AdminSecurityScreenProps) => {
                 `Are you sure you want to deactivate ${title}?`,
                 [
                     { text: "Cancel", style: "cancel" },
-                    { text: "Deactivate", onPress: () => setActiveMode(null) }
+                    { 
+                        text: "Deactivate", 
+                        onPress: async () => {
+                            try {
+                                await setGlobalStatus({ lockStatus: "unlocked" });
+                                setActiveMode(null);
+                            } catch (e) {
+                                console.error(e);
+                                Alert.alert("Error", "Failed to reset security status.");
+                            }
+                        } 
+                    }
                 ]
             );
             return;
@@ -63,14 +78,24 @@ export const AdminSecurityScreen = ({ onBack }: AdminSecurityScreenProps) => {
                 { 
                     text: "Confirm", 
                     style: "destructive", 
-                    onPress: () => {
-                        setActiveMode(title);
-                        console.log(`${title} triggered`);
+                    onPress: async () => {
+                        try {
+                            if (title === "Global Lockdown") {
+                                await setGlobalStatus({ lockStatus: "locked" });
+                            } else if (title === "Fire Safety Mode") {
+                                await setGlobalStatus({ lockStatus: "unlocked", powerStatus: "on" });
+                            }
+                            setActiveMode(title);
+                        } catch (e) {
+                            console.error(e);
+                            Alert.alert("Error", "Failed to trigger override.");
+                        }
                     } 
                 }
             ]
         );
     };
+
 
     return (
         <View style={styles.container}>

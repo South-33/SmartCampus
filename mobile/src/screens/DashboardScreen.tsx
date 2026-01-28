@@ -27,20 +27,8 @@ interface DashboardScreenProps {
     onViewAllClasses: () => void;
 }
 
-// Sample class data (Placeholder until sessions are fully integrated)
-const todayClasses = [
-    {
-        id: '1',
-        name: 'CS101 — Data Structures',
-        room: 'Room 305, Engineering',
-        startTime: '09:00',
-        endTime: '10:30',
-        status: 'open',
-    },
-];
-
 export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAllClasses }: DashboardScreenProps) => {
-    const { viewer, cachedProfile } = useAppData();
+    const { viewer, cachedProfile, todayClasses } = useAppData();
 
     // Use cached profile for instant render, fallback to viewer when loaded
     const displayName = viewer?.name || cachedProfile?.name || 'User';
@@ -56,6 +44,8 @@ export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAll
         day: 'numeric',
         month: 'long'
     });
+
+    const displayClasses = todayClasses || [];
 
     return (
         <View style={styles.container}>
@@ -118,24 +108,28 @@ export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAll
                         </View>
 
                         <View style={styles.classList}>
-                            {todayClasses.map((cls) => (
-                                <View key={cls.id} style={styles.classCard}>
+                            {displayClasses.length > 0 ? displayClasses.map((cls) => (
+                                <View key={cls._id} style={styles.classCard}>
                                     <View style={styles.classTime}>
                                         <HeadingMd style={styles.timeStart}>{cls.startTime}</HeadingMd>
                                         <Caption>{cls.endTime}</Caption>
                                     </View>
                                     <View style={styles.classInfo}>
-                                        <Body style={styles.className}>{cls.name}</Body>
-                                        <Caption>{cls.room}</Caption>
-                                        <View style={[styles.status, cls.status === 'open' && styles.statusOpen]}>
-                                            <View style={[styles.statusDot, cls.status === 'open' && styles.statusDotOpen]} />
-                                            <Caption style={cls.status === 'open' ? styles.statusTextOpen : undefined}>
-                                                {cls.status === 'open' ? 'Attendance Open' : 'Upcoming'}
+                                        <Body style={styles.className}>{cls.className}</Body>
+                                        <Caption>{cls.roomName}</Caption>
+                                        <View style={[styles.status, cls.status === 'ongoing' && styles.statusOpen]}>
+                                            <View style={[styles.statusDot, cls.status === 'ongoing' && styles.statusDotOpen]} />
+                                            <Caption style={cls.status === 'ongoing' ? styles.statusTextOpen : undefined}>
+                                                {cls.status === 'ongoing' ? 'Attendance Open' : cls.status.toUpperCase()}
                                             </Caption>
                                         </View>
                                     </View>
                                 </View>
-                            ))}
+                            )) : (
+                                <View style={styles.emptyState}>
+                                    <BodySm style={{ color: colors.slate }}>No classes scheduled for today.</BodySm>
+                                </View>
+                            )}
                         </View>
                     </View>
                 </ScrollView>
@@ -143,6 +137,7 @@ export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAll
         </View>
     );
 };
+
 
 const styles = StyleSheet.create({
     container: {
@@ -221,6 +216,15 @@ const styles = StyleSheet.create({
     },
     classList: {
         gap: spacing.sm,
+    },
+    emptyState: {
+        padding: spacing.xl,
+        alignItems: 'center',
+        backgroundColor: colors.cream,
+        borderRadius: radius.md,
+        borderStyle: 'dashed',
+        borderWidth: 1,
+        borderColor: colors.mist,
     },
     classCard: {
         flexDirection: 'row',

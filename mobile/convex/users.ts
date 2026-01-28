@@ -253,3 +253,16 @@ export const internalLogActivity = internalMutation({
     await logActivity(ctx, user, args.action, args.description);
   },
 });
+
+export const internalGetStats = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    return {
+      total: users.length,
+      students: users.filter(u => u.role === "student").length,
+      teachers: users.filter(u => u.role === "teacher").length,
+      staff: users.filter(u => u.role === "staff").length,
+    };
+  },
+});

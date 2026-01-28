@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
     View,
     StyleSheet,
@@ -58,12 +58,46 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
     const { rooms: allRooms } = useAppData();
     
     // Fetch live user data
-    const realUser = useQuery(api.users.get, isAuthenticated ? { id: userId as any } : 'skip' as any);
+    const realUser = useQuery(api.users.get, (isAuthenticated && userId) ? { id: userId as any } : 'skip' as any);
     const deleteUser = useMutation(api.users.remove);
+    const updateUser = useMutation(api.users.update);
     
     const user = realUser;
 
-    const [isActive, setIsActive] = useState(true);
+    const handleToggleRoomAccess = async (roomId: string, hasAccess: boolean) => {
+        if (!user) return;
+        
+        const currentRooms = user.allowedRooms || [];
+        let newRooms: any[];
+        
+        if (hasAccess) {
+            newRooms = currentRooms.filter(id => id !== roomId);
+        } else {
+            newRooms = [...currentRooms, roomId];
+        }
+
+        try {
+            await updateUser({
+                id: userId as any,
+                allowedRooms: newRooms
+            });
+        } catch (e) {
+            console.error(e);
+            Alert.alert("Error", "Failed to update room access.");
+        }
+    };
+
+    const handleToggleActive = async (val: boolean) => {
+        try {
+            await updateUser({
+                id: userId as any,
+                status: val ? "active" : "inactive"
+            });
+        } catch (e) {
+            console.error(e);
+            Alert.alert("Error", "Failed to update user status.");
+        }
+    };
 
     if (isAuthenticated && realUser === undefined) {
         return <LoadingView />;
@@ -163,8 +197,8 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
                             <View style={styles.statusToggle}>
                                 <BodySm>Account Active</BodySm>
                                 <Switch 
-                                    value={isActive} 
-                                    onValueChange={setIsActive}
+                                    value={user.status === "active" || user.status === "enrolled"} 
+                                    onValueChange={handleToggleActive}
                                     trackColor={{ false: colors.mist, true: colors.cobalt }}
                                 />
                             </View>
@@ -211,10 +245,11 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
                                     ]}>
                                         <View style={styles.roomInfo}>
                                             <Body>{room.name}</Body>
-                                            <Caption>{room._id.toUpperCase()}</Caption>
+                                            <Caption>{room.type?.toUpperCase() || 'GENERAL'}</Caption>
                                         </View>
                                         <Switch 
                                             value={hasAccess}
+                                            onValueChange={() => handleToggleRoomAccess(room._id, hasAccess)}
                                             trackColor={{ false: colors.mist, true: colors.cobalt }}
                                         />
                                     </View>

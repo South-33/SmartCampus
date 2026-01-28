@@ -30,12 +30,16 @@ export default defineSchema({
     cardUID: v.optional(v.string()),
     deviceId: v.optional(v.string()),
     allowedRooms: v.optional(v.array(v.id("rooms"))),
+    // Academic Info
+    major: v.optional(v.string()),
+    year: v.optional(v.string()),
   })
     .index("by_email", ["email"])
     .index("by_cardUID", ["cardUID"])
     .index("by_role", ["role"]),
   rooms: defineTable({
     name: v.string(),
+    type: v.optional(v.union(v.literal("academic"), v.literal("hub"), v.literal("restricted"), v.literal("bathroom"))),
     nodeId: v.optional(v.string()),
     gps: v.optional(v.object({ lat: v.number(), lng: v.number() })),
     lockStatus: v.optional(v.union(v.literal("unlocked"), v.literal("locked"), v.literal("staff_only"))),

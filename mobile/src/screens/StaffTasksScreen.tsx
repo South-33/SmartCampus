@@ -116,7 +116,12 @@ export const StaffTasksScreen = ({ onBack }: StaffTasksScreenProps) => {
                                 <View key={task._id} style={styles.taskItem}>
                                     <View style={styles.taskContent}>
                                         <View style={styles.taskMain}>
-                                            <Body style={styles.roomName}>{task.roomName}</Body>
+                                            <View>
+                                                <Body style={styles.roomName}>{task.roomName}</Body>
+                                                {task.homeroomName && (
+                                                    <Caption style={{ color: colors.cobalt }}>{task.homeroomName}</Caption>
+                                                )}
+                                            </View>
                                             <View style={[styles.typeBadge, { backgroundColor: colors.cream }]}>
                                                 <Caption style={{ color: colors.cobalt }}>{task.type.toUpperCase()}</Caption>
                                             </View>

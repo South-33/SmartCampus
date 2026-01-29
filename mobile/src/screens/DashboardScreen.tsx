@@ -28,7 +28,7 @@ interface DashboardScreenProps {
 }
 
 export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAllClasses }: DashboardScreenProps) => {
-    const { viewer, cachedProfile, todayClasses } = useAppData();
+    const { viewer, cachedProfile, todaySessions } = useAppData();
 
     // Use cached profile for instant render, fallback to viewer when loaded
     const displayName = viewer?.name || cachedProfile?.name || 'User';
@@ -45,7 +45,7 @@ export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAll
         month: 'long'
     });
 
-    const displayClasses = todayClasses || [];
+    const displaySessions = todaySessions || [];
 
     return (
         <View style={styles.container}>
@@ -108,19 +108,19 @@ export const DashboardScreen = ({ onOpenGate, onAttendance, onProfile, onViewAll
                         </View>
 
                         <View style={styles.classList}>
-                            {displayClasses.length > 0 ? displayClasses.map((cls) => (
-                                <View key={cls._id} style={styles.classCard}>
+                            {displaySessions.length > 0 ? displaySessions.map((sess) => (
+                                <View key={sess._id} style={styles.classCard}>
                                     <View style={styles.classTime}>
-                                        <HeadingMd style={styles.timeStart}>{cls.startTime}</HeadingMd>
-                                        <Caption>{cls.endTime}</Caption>
+                                        <HeadingMd style={styles.timeStart}>{sess.startTime}</HeadingMd>
+                                        <Caption>{sess.endTime}</Caption>
                                     </View>
                                     <View style={styles.classInfo}>
-                                        <Body style={styles.className}>{cls.className}</Body>
-                                        <Caption>{cls.roomName}</Caption>
-                                        <View style={[styles.status, cls.status === 'ongoing' && styles.statusOpen]}>
-                                            <View style={[styles.statusDot, cls.status === 'ongoing' && styles.statusDotOpen]} />
-                                            <Caption style={cls.status === 'ongoing' ? styles.statusTextOpen : undefined}>
-                                                {cls.status === 'ongoing' ? 'Attendance Open' : cls.status.toUpperCase()}
+                                        <Body style={styles.className}>{sess.subjectName}</Body>
+                                        <Caption>{sess.homeroomName}</Caption>
+                                        <View style={[styles.status, (sess.status === 'open' || sess.status === 'ongoing') && styles.statusOpen]}>
+                                            <View style={[styles.statusDot, (sess.status === 'open' || sess.status === 'ongoing') && styles.statusDotOpen]} />
+                                            <Caption style={(sess.status === 'open' || sess.status === 'ongoing') ? styles.statusTextOpen : undefined}>
+                                                {(sess.status === 'open' || sess.status === 'ongoing') ? 'Attendance Open' : sess.status.toUpperCase()}
                                             </Caption>
                                         </View>
                                     </View>

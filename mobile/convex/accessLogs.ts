@@ -52,39 +52,32 @@ export const getStudentStats = query({
 
     if (!user || user.role !== "student") return null;
 
-    const logs = await ctx.db
-      .query("accessLogs")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .filter((q) => q.eq(q.field("action"), "ATTENDANCE"))
+    const attendanceRecords = await ctx.db
+      .query("attendance")
+      .withIndex("by_student", (q) => q.eq("studentId", user!._id))
       .collect();
 
     // 1. Calculate Overall Percentage
-    const expectedClasses = 14; 
-    const attended = logs.length;
+    const expectedClasses = attendanceRecords.length || 1; 
+    const attended = attendanceRecords.filter(r => r.status === "present" || r.status === "late").length;
     const overallPercent = Math.min(100, Math.round((attended / expectedClasses) * 100));
 
     // 2. Calculate Current Streak
-    const attendedDays = new Set(logs.map(l => new Date(l.timestamp).toISOString().split('T')[0]));
-    const checkDate = new Date();
+    // We look at the status of the records
+    const sortedRecords = [...attendanceRecords].sort((a, b) => b._creationTime - a._creationTime);
     let streak = 0;
-    
-    for (let i = 0; i < 30; i++) {
-      const d = new Date(checkDate);
-      d.setDate(d.getDate() - i);
-      const dStr = d.toISOString().split('T')[0];
-      
-      if (attendedDays.has(dStr)) {
+    for (const record of sortedRecords) {
+      if (record.status === "present" || record.status === "late") {
         streak++;
-      } else if (i === 0) {
-        continue;
-      } else {
+      } else if (record.status === "absent") {
         break;
       }
+      // excused doesn't break nor add to streak in this simple logic
     }
 
     return {
       currentStreak: streak,
-      weekAttended: logs.filter(l => l.timestamp > Date.now() - 7 * 86400000).length,
+      weekAttended: attended,
       weekTotal: expectedClasses,
       overallPercent,
       status: overallPercent > 75 ? 'good' : 'at_risk',

@@ -5,6 +5,8 @@ import { UserRole } from '../screens/LoginScreen';
 import { Doc } from '../../convex/_generated/dataModel';
 import { authCache } from '../lib/authCache';
 
+export type RoomWithHomeroom = Doc<"rooms"> & { homeroomName?: string };
+
 interface CachedProfile {
   name: string;
   email: string;
@@ -20,7 +22,7 @@ interface AppContextType {
   setIsDemo: (isDemo: boolean) => void;
 
   // Data State
-  rooms: Doc<"rooms">[] | undefined;
+  rooms: RoomWithHomeroom[] | undefined;
   devices: Doc<"devices">[] | undefined;
   recentLogs: {
     _id: string;
@@ -38,8 +40,9 @@ interface AppContextType {
 
   // Student Specific
   studentStats: { currentStreak: number, weekAttended: number, weekTotal: number, overallPercent: number, status: string } | null | undefined;
-  todayClasses: any[] | undefined;
-  enrolledClasses: any[] | undefined;
+  todaySessions: any[] | undefined;
+  homeroomSchedule: any[] | undefined;
+  activeSemester: any | null | undefined;
 
   // Loading State
   isAuthenticated: boolean;
@@ -68,11 +71,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // Global Sync for Data - Role Aware
   const rooms = useQuery(api.rooms.list, isAuthenticated ? {} : 'skip' as any);
   const recentLogs = useQuery(api.accessLogs.getRecent, isAuthenticated ? {} : 'skip' as any);
-  const todayClasses = useQuery(api.classes.getToday, isAuthenticated ? {} : 'skip' as any);
+  
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todaySessions = useQuery(api.sessions.getSessionsByDate, isAuthenticated ? { date: todayStr } : 'skip' as any);
+  const activeSemester = useQuery(api.calendar.getActiveSemester, isAuthenticated ? {} : 'skip' as any);
 
   // Student Specific
   const studentStats = useQuery(api.accessLogs.getStudentStats, isStudent ? {} : 'skip' as any);
-  const enrolledClasses = useQuery(api.classes.getEnrolled, isStudent ? {} : 'skip' as any);
+  const homeroomSchedule = useQuery(
+    api.schedule.getHomeroomSchedule, 
+    isStudent && viewer?.currentHomeroomId ? { homeroomId: viewer.currentHomeroomId } : 'skip' as any
+  );
 
   // Admin Only Queries - Only trigger if we are CERTAIN they are an admin
   const devices = useQuery(api.devices.list, isAdmin ? {} : 'skip' as any);
@@ -135,8 +144,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         viewer,
         isAdminDataLoaded,
         studentStats,
-        todayClasses,
-        enrolledClasses,
+        todaySessions,
+        homeroomSchedule,
+        activeSemester,
         isAuthenticated,
         isLoading: authLoading,
         isOptimisticAuth,

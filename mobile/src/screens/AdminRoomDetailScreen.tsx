@@ -71,13 +71,17 @@ const DeviceIcon = ({ type, color }: { type: 'gatekeeper' | 'watchman', color: s
     </Svg>
 );
 
-import { useMutation } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
 export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenProps) => {
-
     const insets = useSafeAreaInsets();
-    const { rooms, devices: allDevices } = useAppData();
+    const { rooms, devices: allDevices, activeSemester } = useAppData();
+    
+    // Fetch homerooms to find which one is assigned to this physical room
+    const homerooms = useQuery(api.homerooms.list, activeSemester ? { semesterId: activeSemester._id } : 'skip' as any);
+    const roomHomeroom = (homerooms || []).find(hr => hr.roomId === roomId);
+
     const room = (rooms || []).find((r: any) => r._id === roomId);
     const devices = (allDevices || []).filter((d: any) => d.roomId === roomId);
 
@@ -129,7 +133,16 @@ export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenP
                     <View style={styles.roomCard}>
                         <HeadingSm>PHYSICAL SPACE</HeadingSm>
                         <HeadingMd style={styles.roomName}>{room.name}</HeadingMd>
+                        
+                        {roomHomeroom && (
+                            <View style={styles.homeroomBadge}>
+                                <Caption style={{ color: colors.cobalt }}>CURRENT ASSIGNMENT: </Caption>
+                                <BodySm style={{ fontFamily: 'Inter-Bold', color: colors.cobalt }}>{roomHomeroom.name}</BodySm>
+                            </View>
+                        )}
+
                         <View style={styles.roomMeta}>
+
                             <View style={styles.metaItem}>
                                 <Caption>Occupancy</Caption>
                                 <Body>{room.occupancy} People</Body>
@@ -295,7 +308,17 @@ const styles = StyleSheet.create({
     roomName: {
         marginVertical: 4,
     },
+    homeroomBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.cream,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 4,
+        borderRadius: radius.sm,
+        marginTop: 4,
+    },
     roomMeta: {
+
         flexDirection: 'row',
         marginTop: spacing.md,
         gap: spacing.lg,

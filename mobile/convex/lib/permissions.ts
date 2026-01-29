@@ -50,29 +50,47 @@ export const mustBeAuthenticated = (user: User | null) => {
 /**
  * Specific Access Checks
  */
-export const canAccessRoom = (user: User, roomId: Id<"rooms">) => {
+export async function canAccessRoom(ctx: QueryCtx | MutationCtx, user: User, roomId: Id<"rooms">) {
   // Admins and Teachers/Staff have universal access
   if (user.role === "admin" || user.role === "teacher" || user.role === "staff") {
     return true;
   }
   
-  // Students only have access to rooms in their allowedRooms list
+  // Students only have access to rooms associated with their homeroom
   if (user.role === "student") {
-    return user.allowedRooms?.includes(roomId) ?? false;
+    // 1. Get student's current homeroom assignment
+    const enrollment = await ctx.db
+      .query("homeroomStudents")
+      .withIndex("by_student", (q) => q.eq("studentId", user._id))
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .first();
+
+    if (!enrollment) return false;
+
+    // 2. Get the homeroom document to find the physical roomId
+    const homeroom = await ctx.db.get(enrollment.homeroomId);
+    return homeroom?.roomId === roomId;
   }
   
   return false;
-};
+}
 
 /**
  * Filtered Access Helpers
  */
-export const filterRoomsForUser = (user: User, rooms: Doc<"rooms">[]) => {
+export async function filterRoomsForUser(ctx: QueryCtx | MutationCtx, user: User, rooms: Doc<"rooms">[]) {
   if (user.role === "admin" || user.role === "teacher" || user.role === "staff") {
     return rooms;
   }
-  return rooms.filter(room => user.allowedRooms?.includes(room._id));
-};
+  
+  const accessibleRooms: Doc<"rooms">[] = [];
+  for (const room of rooms) {
+    if (await canAccessRoom(ctx, user, room._id)) {
+      accessibleRooms.push(room);
+    }
+  }
+  return accessibleRooms;
+}
 
 /**
  * Audit Logging Helper

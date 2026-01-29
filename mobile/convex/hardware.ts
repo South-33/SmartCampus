@@ -15,11 +15,28 @@ export async function hashToken(token: string) {
 }
 
 /**
+ * Haversine formula to calculate distance between two GPS points in meters.
+ */
+function haversineDistance(
+  lat1: number, lng1: number,
+  lat2: number, lng2: number
+): number {
+  const R = 6371000; // Earth's radius in meters
+  const toRad = (deg: number) => deg * Math.PI / 180;
+  
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; 
+}
+
+/**
  * Validates that a request is coming from a legitimate hardware device.
- * @param ctx Convex context
- * @param chipId Device hardware ID
- * @param token Plain text token from device
- * @param requireActive If true, throws if device is not 'active'
  */
 async function validateDevice(
   ctx: QueryCtx | MutationCtx, 
@@ -36,14 +53,12 @@ async function validateDevice(
     throw new Error("Unauthorized hardware");
   }
 
-  // 1. Verify token by hashing the incoming one
   const incomingHash = await hashToken(token);
   if (device.tokenHash !== incomingHash) {
     throw new Error("Unauthorized hardware");
   }
 
-  // 2. Activation Gate
-  if (requireActive && device.status !== "active") {
+  if (requireActive && device.status !== "active" && device.status !== "online") {
     throw new Error(`Device is ${device.status}. An admin must activate it.`);
   }
 
@@ -51,7 +66,7 @@ async function validateDevice(
 }
 
 /**
- * Returns the whitelist for a specific device.
+ * Returns the whitelist for a specific device based on homeroom enrollment.
  */
 export const getWhitelist = query({
   args: { chipId: v.string(), token: v.string() },
@@ -61,10 +76,57 @@ export const getWhitelist = query({
 
     const room = await ctx.db.get(device.roomId);
 
-    // 1. Fetch Staff (Admins, Teachers, Staff) - small list
+    // 1. Get Active Semester
+    const semester = await ctx.db
+      .query("semesters")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .unique();
+    
+    if (!semester) return { entries: [] };
+
+    // 2. Find Homeroom associated with this room for the active semester
+    const homeroom = await ctx.db
+      .query("homerooms")
+      .withIndex("by_room", (q) => q.eq("roomId", device.roomId!))
+      .filter((q) => q.eq(q.field("semesterId"), semester._id))
+      .first();
+
+    if (!homeroom) {
+      // If no homeroom, only allow staff/admin access
+      const staff = await ctx.db
+        .query("users")
+        .filter((q) => q.or(
+          q.eq(q.field("role"), "admin"),
+          q.eq(q.field("role"), "teacher"),
+          q.eq(q.field("role"), "staff")
+        ))
+        .collect();
+        
+      return {
+        roomId: device.roomId,
+        roomName: room?.name,
+        entries: staff
+          .filter(u => !!u.cardUID)
+          .map(u => ({ uid: u.cardUID, sid: u._id, role: u.role }))
+      };
+    }
+
+    // 3. Get Enrolled Students
+    const enrollments = await ctx.db
+      .query("homeroomStudents")
+      .withIndex("by_homeroom", (q) => q.eq("homeroomId", homeroom._id))
+      .filter((q) => q.eq(q.field("status"), "active"))
+      .collect();
+
+    const students = [];
+    for (const enroll of enrollments) {
+      const student = await ctx.db.get(enroll.studentId);
+      if (student?.cardUID) students.push(student);
+    }
+
+    // 4. Get All Staff
     const staff = await ctx.db
       .query("users")
-      .withIndex("by_role")
       .filter((q) => q.or(
         q.eq(q.field("role"), "admin"),
         q.eq(q.field("role"), "teacher"),
@@ -72,20 +134,11 @@ export const getWhitelist = query({
       ))
       .collect();
 
-    // 2. Fetch Students specifically enrolled in this room
-    const students = await ctx.db
-      .query("users")
-      .withIndex("by_role", (q) => q.eq("role", "student"))
-      .collect();
-    
-    const authorizedStudents = students.filter(u => u.allowedRooms?.includes(device.roomId!));
-
-    const allAuthorized = [...staff, ...authorizedStudents];
+    const allAuthorized = [...staff, ...students];
 
     return {
       roomId: device.roomId,
       roomName: room?.name,
-      lastUpdated: room?.lastUpdated || 0,
       entries: allAuthorized
         .filter(u => !!u.cardUID)
         .map(u => ({
@@ -99,7 +152,6 @@ export const getWhitelist = query({
 
 /**
  * Accepts a batch of access logs from the ESP32.
- * Includes Anti-Cheat verification fields from the README.
  */
 export const syncLogs = mutation({
   args: {
@@ -113,10 +165,8 @@ export const syncLogs = mutation({
       timestamp: v.number(),
       timestampType: v.union(v.literal("server"), v.literal("local")),
       scanOrder: v.optional(v.number()),
-      
-      // Anti-Cheat payload from README
       deviceTime: v.optional(v.number()),
-      timeSource: v.optional(v.string()), // "ntp" or "local"
+      timeSource: v.optional(v.string()),
       hasInternet: v.optional(v.boolean()),
       deviceId: v.optional(v.string()),
       gps: v.optional(v.object({ lat: v.number(), lng: v.number() })),
@@ -130,20 +180,24 @@ export const syncLogs = mutation({
 
     for (const log of args.logs) {
       const user = await ctx.db.get(log.userId);
+      if (!user) continue;
       
       // Basic Anti-Cheat: Verify Device Binding
-      if (log.deviceId && user?.deviceId && log.deviceId !== user.deviceId) {
+      if (log.deviceId && user.deviceId && log.deviceId !== user.deviceId) {
         await logActivity(ctx, user, "SUSPECT_DEVICE", `Account used on unauthorized device: ${log.deviceId}`);
       }
 
-      // Basic Anti-Cheat: GPS Geofencing (100m threshold approx)
+      // Basic Anti-Cheat: GPS Geofencing
       if (log.gps && room?.gps) {
-        const dist = Math.sqrt(
-          Math.pow(log.gps.lat - room.gps.lat, 2) + 
-          Math.pow(log.gps.lng - room.gps.lng, 2)
+        const distanceMeters = haversineDistance(
+          log.gps.lat, log.gps.lng,
+          room.gps.lat, room.gps.lng
         );
-        if (dist > 0.001) { // Very rough ~100m check
-          await logActivity(ctx, user!, "SUSPECT_GPS", `Student scanned far from room ${room.name}`);
+        
+        // Flag if student is > 100 meters from room
+        if (distanceMeters > 100) {
+          await logActivity(ctx, user, "SUSPECT_GPS", 
+            `Student scanned ${Math.round(distanceMeters)}m from room ${room.name}`);
         }
       }
 
@@ -151,27 +205,73 @@ export const syncLogs = mutation({
         ...log,
         roomId: device.roomId,
       });
+
+      // If it's an attendance action, match it to a dailySession
+      if (log.action === "ATTENDANCE") {
+        // 1. Find the schedule slot for this room at this time
+        const date = new Date(log.timestamp).toISOString().split("T")[0];
+        const dayOfWeek = new Date(log.timestamp).getDay();
+        const timeStr = new Date(log.timestamp).toTimeString().split(" ")[0].substring(0, 5); // "HH:MM"
+
+        const homeroom = await ctx.db
+          .query("homerooms")
+          .withIndex("by_room", (q) => q.eq("roomId", device.roomId!))
+          .first();
+
+        if (homeroom) {
+          const slot = await ctx.db
+            .query("scheduleSlots")
+            .withIndex("by_homeroom", (q) => q.eq("homeroomId", homeroom._id))
+            .filter((q) => q.and(
+              q.eq(q.field("dayOfWeek"), dayOfWeek),
+              q.lte(q.field("startTime"), timeStr),
+              q.gte(q.field("endTime"), timeStr)
+            ))
+            .first();
+
+          if (slot) {
+            const session = await ctx.db
+              .query("dailySessions")
+              .withIndex("by_slot", (q) => q.eq("scheduleSlotId", slot._id))
+              .filter((q) => q.eq(q.field("date"), date))
+              .unique();
+
+            if (session) {
+              // Found a matching session, record the attendance
+              const existingAttendance = await ctx.db
+                .query("attendance")
+                .withIndex("by_session", (q) => q.eq("dailySessionId", session._id))
+                .filter((q) => q.eq(q.field("studentId"), log.userId))
+                .unique();
+
+              if (existingAttendance) {
+                await ctx.db.patch(existingAttendance._id, {
+                  status: log.timestamp > session.windowEnd ? "late" : "present", // Simple logic
+                  scanTime: log.timestamp,
+                  method: log.method,
+                  markedManually: false,
+                  deviceTime: log.deviceTime,
+                  timeSource: log.timeSource,
+                  hasInternet: log.hasInternet,
+                  deviceId: log.deviceId,
+                  gps: log.gps,
+                  scanOrder: log.scanOrder,
+                });
+              }
+            }
+          }
+        }
+      }
     }
     
     return { success: true, count: args.logs.length };
   }
 });
 
-/**
- * Simple heartbeat to keep device status updated and check for whitelist changes.
- */
 export const heartbeat = mutation({
-  args: { 
-    chipId: v.string(), 
-    token: v.string(), 
-    firmware: v.string() 
-  },
+  args: { chipId: v.string(), token: v.string(), firmware: v.string() },
   handler: async (ctx, args) => {
-    // Heartbeat is allowed for pending devices so admin can see they are alive
     const device = await validateDevice(ctx, args.chipId, args.token, false);
-    const room = device.roomId ? await ctx.db.get(device.roomId) : null;
-
-    // Only update status to online if it's already active or pending
     const newStatus = device.status === "active" ? "online" : device.status;
 
     await ctx.db.patch(device._id, {
@@ -180,19 +280,10 @@ export const heartbeat = mutation({
       status: newStatus
     });
 
-    return { 
-      success: true,
-      activated: device.status === "active",
-      lastUpdated: room?.lastUpdated || 0,
-      roomName: room?.name || "Unassigned"
-    };
+    return { success: true };
   }
 });
 
-/**
- * Register a new device with a secure token.
- * SECURITY: Token is only returned ONCE on initial registration.
- */
 export const register = mutation({
   args: { chipId: v.string() },
   handler: async (ctx, args) => {
@@ -202,21 +293,12 @@ export const register = mutation({
       .unique();
 
     if (existing) {
-      // Security: Do NOT return the token if the device already exists.
-      // If the hardware loses its token, an admin must reset it in the dashboard.
-      return { 
-        status: "already_registered", 
-        chipId: args.chipId,
-        token: null 
-      };
+      return { status: "already_registered", chipId: args.chipId, token: null };
     }
 
-    // Generate a secure random token using crypto
     const array = new Uint8Array(24);
     crypto.getRandomValues(array);
     const token = Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join("");
-    
-    // Store the HASH of the token, not the plain text
     const tokenHash = await hashToken(token);
 
     await ctx.db.insert("devices", {
@@ -227,10 +309,6 @@ export const register = mutation({
       lastSeen: Date.now(),
     });
 
-    return { 
-      status: "registered", 
-      chipId: args.chipId, 
-      token: token 
-    };
+    return { status: "registered", chipId: args.chipId, token: token };
   }
 });

@@ -20,9 +20,10 @@ import {
     ResponsiveContainer,
 } from '../components';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { useAppData } from '../context/AppContext';
+import { useAppData, RoomWithHomeroom } from '../context/AppContext';
 import { 
     DoorOpen, 
+
     ClipboardList, 
     AlertTriangle, 
     User, 
@@ -132,7 +133,7 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
 
     if (!viewer) return null;
 
-    const RoomCard = ({ room, priority = false }: { room: any, priority?: boolean }) => (
+    const RoomCard = ({ room, priority = false }: { room: RoomWithHomeroom, priority?: boolean }) => (
         <View key={room._id} style={[styles.roomContainer, priority && styles.priorityRoom]}>
             <View style={styles.roomHeader}>
                 <View style={styles.roomHeaderLeft}>
@@ -141,7 +142,12 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
                         { backgroundColor: (room.occupancy || 0) > 0 ? colors.error : colors.success }
                     ]} />
                     <Body style={styles.roomName}>{room.name.toUpperCase()}</Body>
+                    {room.homeroomName && (
+                        <Caption style={styles.homeroomLabel}>({room.homeroomName})</Caption>
+                    )}
                 </View>
+
+
                 
                 <View style={styles.roomHeaderRight}>
                     {room.needsCleaning && (
@@ -308,9 +314,16 @@ export const StaffDashboard = ({ onProfile, onViewTasks, onReportIssue, onOpenGa
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                                 <RoomIcon type={room.type || 'classroom'} color={colors.slate} />
 
-                                                <Body style={styles.roomName}>{room.name.toUpperCase()}</Body>
+                                                <View>
+                                                    <Body style={styles.roomName}>{room.name.toUpperCase()}</Body>
+                                                    {room.homeroomName && (
+                                                        <Caption style={{ fontSize: 10 }}>{room.homeroomName}</Caption>
+                                                    )}
+                                                </View>
                                             </View>
+
                                             <View style={styles.statusBadgeError}>
+
                                                 <Users size={12} color={colors.error} />
                                                 <Caption style={{ color: colors.error, marginLeft: 4, fontFamily: 'Inter-SemiBold', fontSize: 10 }}>
                                                     {(room.occupancy || 0)} PPL
@@ -500,7 +513,13 @@ const styles = StyleSheet.create({
         color: colors.charcoal,
         fontSize: 14,
     },
+    homeroomLabel: {
+        fontSize: 12,
+        color: colors.cobalt,
+        fontFamily: 'Inter-Medium',
+    },
     roomControlsRow: {
+
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',

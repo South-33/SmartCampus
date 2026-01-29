@@ -12,8 +12,8 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
 import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
-import { useQuery } from 'convex/react';
-import { api } from '../../convex/_generated/api';
+import { useAppData } from '../context/AppContext';
+import { useAttendance } from '../hooks/useAttendance';
 import { colors, spacing } from '../theme';
 import {
     HeadingLg,
@@ -23,7 +23,9 @@ import {
     Caption,
     Button,
 } from '../components';
-import { ArrowLeft, ScanFace, Clock, Check, ShieldAlert } from 'lucide-react-native';
+import { ArrowLeft, ScanFace, Clock, Check, ShieldAlert, WifiOff } from 'lucide-react-native';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 interface AttendanceScreenProps {
     onBack: () => void;
@@ -32,86 +34,71 @@ interface AttendanceScreenProps {
 export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
     const insets = useSafeAreaInsets();
     const [timer, setTimer] = useState(60);
-    const [status, setStatus] = useState<'waiting' | 'authenticating' | 'success' | 'error'>('waiting');
+    const [status, setStatus] = useState<'waiting' | 'authenticating' | 'success' | 'offline_success' | 'error'>('waiting');
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
 
-    const user = useQuery(api.users.viewer);
+    const { viewer, activeSemester } = useAppData();
+    const { submitAttendance, processQueue } = useAttendance(viewer?._id, viewer?.deviceId);
+    
+    // We need to find the physical roomId for the student's current homeroom
+    const homeroom = useQuery(api.homerooms.list, activeSemester ? { semesterId: activeSemester._id } : 'skip' as any);
+    const myHomeroom = homeroom?.find(hr => hr._id === viewer?.currentHomeroomId);
 
     // Initialize Services
     useEffect(() => {
         NfcManager.start().catch(err => console.warn('NFC Start Error:', err));
-        
-        // Request Location permissions early
-        Location.requestForegroundPermissionsAsync();
+        processQueue(); // Sync pending items on mount
 
         return () => {
             NfcManager.cancelTechnologyRequest().catch(() => {});
         };
-    }, []);
+    }, [processQueue]);
 
     const handleAttendance = async () => {
-        if (!user) return;
+        if (!viewer || !myHomeroom) {
+            Alert.alert('Error', 'No homeroom assigned or semester not active.');
+            return;
+        }
 
+        setStatus('authenticating');
+        
         try {
-            setStatus('authenticating');
-
-            // 1. Biometric Auth
-            const hasHardware = await LocalAuthentication.hasHardwareAsync();
-            const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-
-            if (!hasHardware || !isEnrolled) {
-                Alert.alert('Security Error', 'Biometric authentication is required for attendance.');
-                setStatus('error');
-                setErrorMsg('Biometrics not available');
-                return;
-            }
-
-            const auth = await LocalAuthentication.authenticateAsync({
-                promptMessage: 'Verify identity for attendance',
-                fallbackLabel: 'Enter Passcode',
-            });
-
-            if (!auth.success) {
-                setStatus('waiting');
-                return;
-            }
-
-            // 2. Get Location (Geofencing)
-            let location = null;
-            try {
-                const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
-                if (locStatus === 'granted') {
-                    location = await Location.getCurrentPositionAsync({ 
-                        accuracy: Location.Accuracy.Balanced 
-                    });
+            // 1. Trigger the hybrid attendance flow (Biometric + GPS + Online/Offline submission)
+            const result = await submitAttendance(myHomeroom.roomId);
+            
+            if (result.success) {
+                // 2. Also trigger NFC Broadcast for the Gatekeeper (Hardware path)
+                // This is redundant but ensures the physical door opens even if backend sync lags
+                await NfcManager.cancelTechnologyRequest().catch(() => {});
+                await NfcManager.requestTechnology(NfcTech.Ndef);
+                
+                const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                const lat = location?.coords.latitude || 0;
+                const lng = location?.coords.longitude || 0;
+                const deviceId = viewer.deviceId || 'unknown';
+                
+                const payload = `ATTENDANCE|${viewer._id}|${Date.now()}|${lat}|${lng}|${deviceId}|${result.mode === 'online'}|ntp`;
+                const bytes = Ndef.encodeMessage([Ndef.textRecord(payload)]);
+                
+                if (bytes) {
+                    await NfcManager.ndefHandler.writeNdefMessage(bytes);
                 }
-            } catch (err) {
-                console.warn('Location Error:', err);
-            }
 
-            // 3. NFC Broadcast
-            await NfcManager.cancelTechnologyRequest().catch(() => {});
-            await NfcManager.requestTechnology(NfcTech.Ndef);
-            
-            // Payload: ATTENDANCE|userId|timestamp|lat|lng
-            const lat = location?.coords.latitude || 0;
-            const lng = location?.coords.longitude || 0;
-            const payload = `ATTENDANCE|${user._id}|${Date.now()}|${lat}|${lng}`;
-            const bytes = Ndef.encodeMessage([Ndef.textRecord(payload)]);
-            
-            if (bytes) {
-                await NfcManager.ndefHandler.writeNdefMessage(bytes);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                setStatus('success');
+                setStatus(result.mode === 'online' ? 'success' : 'offline_success');
+            } else {
+                if (result.reason === 'biometric_failed') {
+                    setStatus('waiting');
+                } else {
+                    setStatus('error');
+                    setErrorMsg('Verification failed');
+                }
             }
 
         } catch (ex) {
             console.warn('Attendance Error:', ex);
             setStatus('error');
-            setErrorMsg('Connection failed');
-        } finally {
-            // Keep session open until success or manual close
+            setErrorMsg('System error occurred');
         }
     };
 
@@ -214,6 +201,18 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
                         </View>
                     )}
 
+                    {status === 'offline_success' && (
+                        <View style={styles.successState}>
+                            <View style={[styles.successIcon, { backgroundColor: '#F59E0B' }]}>
+                                <WifiOff size={32} color="#FFF" strokeWidth={2} />
+                            </View>
+                            <HeadingMd style={[styles.successTitle, { color: '#F59E0B' }]}>Stored Locally</HeadingMd>
+                            <BodySm style={styles.successDesc}>
+                                You're offline. Attendance saved and will sync automatically when you have internet.
+                            </BodySm>
+                        </View>
+                    )}
+
                     {status === 'error' && (
                         <View style={styles.errorState}>
                             <View style={styles.errorIcon}>
@@ -237,7 +236,7 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
                     {status === 'waiting' && (
                         <Button onPress={handleAttendance}>Start Verification</Button>
                     )}
-                    {status === 'success' && (
+                    {(status === 'success' || status === 'offline_success') && (
                         <Button onPress={onBack}>Done</Button>
                     )}
                     {(status === 'authenticating' || status === 'error') && (

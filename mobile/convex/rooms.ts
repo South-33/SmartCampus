@@ -9,7 +9,31 @@ export const list = query({
     if (!user) return [];
 
     const allRooms = await ctx.db.query("rooms").collect();
-    return filterRoomsForUser(user, allRooms);
+    const filteredRooms = await filterRoomsForUser(ctx, user, allRooms);
+
+    // Join with homeroom info for the active semester
+    const activeSemester = await ctx.db
+      .query("semesters")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .unique();
+
+    if (!activeSemester) return filteredRooms;
+
+    const results = [];
+    for (const room of filteredRooms) {
+      const homeroom = await ctx.db
+        .query("homerooms")
+        .withIndex("by_room", (q) => q.eq("roomId", room._id))
+        .filter((q) => q.eq(q.field("semesterId"), activeSemester._id))
+        .first();
+      
+      results.push({
+        ...room,
+        homeroomName: homeroom?.name,
+      });
+    }
+
+    return results;
   },
 });
 

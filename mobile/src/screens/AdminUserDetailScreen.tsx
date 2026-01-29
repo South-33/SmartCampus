@@ -56,36 +56,30 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
     const insets = useSafeAreaInsets();
     const { isAuthenticated } = useConvexAuth();
     const { rooms: allRooms } = useAppData();
+    const { activeSemester } = useAppData();
     
     // Fetch live user data
     const realUser = useQuery(api.users.get, (isAuthenticated && userId) ? { id: userId as any } : 'skip' as any);
+    const homerooms = useQuery(api.homerooms.list, activeSemester ? { semesterId: activeSemester._id } : 'skip' as any);
+    
     const deleteUser = useMutation(api.users.remove);
     const updateUser = useMutation(api.users.update);
+    const enrollStudent = useMutation(api.homerooms.enrollStudent);
     
     const user = realUser;
 
-    const handleToggleRoomAccess = async (roomId: string, hasAccess: boolean) => {
-        if (!user) return;
-        
-        const currentRooms = user.allowedRooms || [];
-        let newRooms: any[];
-        
-        if (hasAccess) {
-            newRooms = currentRooms.filter(id => id !== roomId);
-        } else {
-            newRooms = [...currentRooms, roomId];
-        }
-
+    const handleAssignHomeroom = async (homeroomId: string) => {
         try {
-            await updateUser({
-                id: userId as any,
-                allowedRooms: newRooms
+            await enrollStudent({
+                homeroomId: homeroomId as any,
+                studentId: userId as any
             });
         } catch (e) {
             console.error(e);
-            Alert.alert("Error", "Failed to update room access.");
+            Alert.alert("Error", "Failed to assign homeroom.");
         }
     };
+
 
     const handleToggleActive = async (val: boolean) => {
         try {
@@ -233,29 +227,39 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
                             </View>
                         </View>
 
-                        <HeadingSm style={styles.sectionTitle}>ROOM ACCESS</HeadingSm>
-                        <View style={styles.card}>
-                            {(allRooms || []).map((room, idx) => {
-                                const allowedRooms = user.allowedRooms || [];
-                                const hasAccess = allowedRooms.includes(room._id);
-                                return (
-                                    <View key={room._id} style={[
-                                        styles.roomRow, 
-                                        idx === (allRooms?.length || 0) - 1 && { borderBottomWidth: 0 }
-                                    ]}>
-                                        <View style={styles.roomInfo}>
-                                            <Body>{room.name}</Body>
-                                            <Caption>{room.type?.toUpperCase() || 'GENERAL'}</Caption>
+                        {user.role === "student" && (
+                            <>
+                                <HeadingSm style={styles.sectionTitle}>HOMEROOM ASSIGNMENT</HeadingSm>
+                                <View style={styles.card}>
+                                    {(homerooms || []).map((hr, idx) => {
+                                        const isAssigned = user.currentHomeroomId === hr._id;
+                                        return (
+                                            <TouchableOpacity 
+                                                key={hr._id} 
+                                                style={[
+                                                    styles.roomRow, 
+                                                    idx === (homerooms?.length || 0) - 1 && { borderBottomWidth: 0 }
+                                                ]}
+                                                onPress={() => !isAssigned && handleAssignHomeroom(hr._id)}
+                                            >
+                                                <View style={styles.roomInfo}>
+                                                    <Body>{hr.name}</Body>
+                                                    <Caption>{hr.roomName}</Caption>
+                                                </View>
+                                                <View style={[styles.radio, isAssigned && styles.radioSelected]}>
+                                                    {isAssigned && <View style={styles.radioInner} />}
+                                                </View>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                    {(homerooms || []).length === 0 && (
+                                        <View style={{ padding: spacing.md }}>
+                                            <Caption>No homerooms defined for this semester.</Caption>
                                         </View>
-                                        <Switch 
-                                            value={hasAccess}
-                                            onValueChange={() => handleToggleRoomAccess(room._id, hasAccess)}
-                                            trackColor={{ false: colors.mist, true: colors.cobalt }}
-                                        />
-                                    </View>
-                                );
-                            })}
-                        </View>
+                                    )}
+                                </View>
+                            </>
+                        )}
 
                         <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
                             <BodySm style={styles.deleteText}>REMOVE USER FROM SYSTEM</BodySm>
@@ -399,5 +403,23 @@ const styles = StyleSheet.create({
         color: colors.error,
         fontFamily: 'Inter-SemiBold',
         letterSpacing: 0.5,
+    },
+    radio: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        borderWidth: 2,
+        borderColor: colors.mist,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    radioSelected: {
+        borderColor: colors.cobalt,
+    },
+    radioInner: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: colors.cobalt,
     },
 });

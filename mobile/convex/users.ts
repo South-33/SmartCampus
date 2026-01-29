@@ -139,11 +139,10 @@ export const linkCard = mutation({
     await ctx.db.patch(user!._id, { cardUID: args.cardUID });
     await logActivity(ctx, user!, "CARD_LINK", `Linked card ${args.cardUID}`);
 
-    // If student, touch their rooms so hardware re-syncs
-    if (user!.role === "student" && user!.allowedRooms) {
-      for (const roomId of user!.allowedRooms) {
-        await touchRoom(ctx, roomId);
-      }
+    // If student, touch their homeroom so hardware re-syncs
+    if (user!.role === "student" && user!.currentHomeroomId) {
+      const homeroom = await ctx.db.get(user!.currentHomeroomId);
+      if (homeroom) await touchRoom(ctx, homeroom.roomId);
     }
   },
 });
@@ -207,7 +206,7 @@ export const update = mutation({
       v.literal("inactive"),
       v.literal("temporary")
     )),
-    allowedRooms: v.optional(v.array(v.id("rooms"))),
+    currentHomeroomId: v.optional(v.id("homerooms")),
   },
   handler: async (ctx, args) => {
     const admin = await getCurrentUser(ctx);
@@ -219,16 +218,16 @@ export const update = mutation({
     const { id, ...updates } = args;
     await ctx.db.patch(id, updates);
 
-    // If allowedRooms changed, touch the rooms
-    if (args.allowedRooms || args.role || args.status) {
-      // Touch old rooms
-      if (user.allowedRooms) {
-        for (const roomId of user.allowedRooms) await touchRoom(ctx, roomId);
-      }
-      // Touch new rooms
-      if (args.allowedRooms) {
-        for (const roomId of args.allowedRooms) await touchRoom(ctx, roomId);
-      }
+    // If homeroom changed, touch the rooms
+    if (args.currentHomeroomId) {
+      const homeroom = await ctx.db.get(args.currentHomeroomId);
+      if (homeroom) await touchRoom(ctx, homeroom.roomId);
+    }
+    
+    // If old homeroom existed, touch it too
+    if (user.currentHomeroomId && args.currentHomeroomId && user.currentHomeroomId !== args.currentHomeroomId) {
+       const oldHomeroom = await ctx.db.get(user.currentHomeroomId);
+       if (oldHomeroom) await touchRoom(ctx, oldHomeroom.roomId);
     }
 
     await logActivity(ctx, admin!, "USER_UPDATE", `Updated user ${user.name}`);

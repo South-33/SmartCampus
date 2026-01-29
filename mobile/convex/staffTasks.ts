@@ -13,12 +13,30 @@ export const list = query({
 
     const tasks = await ctx.db.query("staffTasks").collect();
     
-    // Join with room info
+    // Get Active Semester
+    const activeSemester = await ctx.db
+      .query("semesters")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .unique();
+
+    // Join with room and homeroom info
     return await Promise.all(tasks.map(async (task) => {
       const room = await ctx.db.get(task.roomId);
+      let homeroomName = undefined;
+      
+      if (activeSemester && room) {
+        const homeroom = await ctx.db
+          .query("homerooms")
+          .withIndex("by_room", (q) => q.eq("roomId", room._id))
+          .filter((q) => q.eq(q.field("semesterId"), activeSemester._id))
+          .first();
+        homeroomName = homeroom?.name;
+      }
+
       return {
         ...task,
         roomName: room?.name || "Unknown Room",
+        homeroomName,
       };
     }));
   },

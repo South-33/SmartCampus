@@ -96,7 +96,7 @@ const CourseCard = ({ course }: { course: any }) => {
 
 export const ClassesScreen = () => {
     const insets = useSafeAreaInsets();
-    const { studentStats, enrolledClasses, todayClasses } = useAppData();
+    const { studentStats, homeroomSchedule, todaySessions } = useAppData();
     const today = useMemo(() => new Date(), []);
     const [selectedDate, setSelectedDate] = useState(today.getDate());
     const [showCalendar, setShowCalendar] = useState(false);
@@ -111,12 +111,12 @@ export const ClassesScreen = () => {
     const metrics = studentStats || {
         currentStreak: 0,
         weekAttended: 0,
-        weekTotal: 14,
+        weekTotal: 1,
         overallPercent: 0,
         status: 'at_risk',
     };
 
-    const nextClass = todayClasses?.find(s => s.status === 'upcoming' || s.status === 'ongoing') || null;
+    const nextClass = todaySessions?.find(s => s.status === 'upcoming' || s.status === 'open') || null;
 
     return (
         <View style={styles.container}>
@@ -157,8 +157,8 @@ export const ClassesScreen = () => {
                                     <Caption style={styles.nextClassBadgeText}>NEXT CLASS AT {nextClass.startTime}</Caption>
                                 </View>
                                 <View style={styles.nextClassInfo}>
-                                    <HeadingSm style={styles.nextClassName}>{nextClass.className}</HeadingSm>
-                                    <Caption style={styles.nextClassRoom}>{nextClass.roomName}</Caption>
+                                    <HeadingSm style={styles.nextClassName}>{nextClass.subjectName}</HeadingSm>
+                                    <Caption style={styles.nextClassRoom}>{nextClass.homeroomName}</Caption>
                                 </View>
                             </View>
                         )}
@@ -199,8 +199,13 @@ export const ClassesScreen = () => {
                                 <HeadingSm style={styles.sectionTitle}>Enrolled Classes</HeadingSm>
                             </View>
                             <View style={styles.classList}>
-                                {enrolledClasses && enrolledClasses.length > 0 ? enrolledClasses.map((course: any) => (
-                                    <CourseCard key={course._id} course={course} />
+                                {homeroomSchedule && homeroomSchedule.length > 0 ? homeroomSchedule.map((course: any) => (
+                                    <CourseCard key={course._id} course={{
+                                        ...course,
+                                        name: course.subjectName,
+                                        professor: course.teacherName,
+                                        nextClass: { day: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'][course.dayOfWeek - 1], time: course.startTime, room: course.homeroomName }
+                                    }} />
                                 )) : (
                                     <BodySm style={{ color: colors.slate, textAlign: 'center', marginTop: spacing.lg }}>
                                         No courses found for your major.

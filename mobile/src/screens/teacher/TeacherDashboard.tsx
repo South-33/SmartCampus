@@ -6,6 +6,8 @@ import {
     TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery } from 'convex/react';
+import { api } from '../../../convex/_generated/api';
 import { colors, spacing, radius, shadows } from '../../theme';
 import {
     HeadingLg,
@@ -47,6 +49,7 @@ const CheckIcon = () => (
 
 export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewClass, onViewHours }: TeacherDashboardProps) => {
     const { viewer, cachedProfile } = useAppData();
+    const currentSession = useQuery(api.sessions.getCurrentTeacherSession, viewer ? { teacherId: viewer._id } : 'skip' as any);
 
     // Use cached profile for instant render, fallback to viewer when loaded
     const displayName = viewer?.name || cachedProfile?.name || 'Teacher';
@@ -123,14 +126,20 @@ export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewCl
                         onPress={onViewHours}
                     />
 
-                    {/* Live Class Widget - Placeholder */}
-                    <LiveAttendanceCard
-                        courseName={"Data Structures"}
-                        room={"Room 305"}
-                        present={28}
-                        total={32}
-                        onPress={() => { }}
-                    />
+                    {/* Live Class Widget */}
+                    {currentSession ? (
+                        <LiveAttendanceCard
+                            courseName={currentSession.subjectName || "Unknown Subject"}
+                            room={currentSession.roomName || "Unknown Room"}
+                            present={currentSession.presentCount}
+                            total={currentSession.totalCount}
+                            onPress={() => onViewClass(currentSession._id)}
+                        />
+                    ) : (
+                        <View style={styles.emptyState}>
+                            <BodySm style={{ color: colors.slate }}>No active teaching session found.</BodySm>
+                        </View>
+                    )}
 
                     {/* Alerts */}
                     <AttendanceAlertBanner alerts={[]} />
@@ -203,5 +212,15 @@ const styles = StyleSheet.create({
     actionTitle: {
         fontSize: 18,
         marginBottom: 2,
+    },
+    emptyState: {
+        padding: spacing.xl,
+        alignItems: 'center',
+        backgroundColor: colors.cream,
+        borderRadius: radius.md,
+        borderStyle: 'dashed',
+        borderWidth: 1,
+        borderColor: colors.mist,
+        marginBottom: spacing.xl,
     },
 });

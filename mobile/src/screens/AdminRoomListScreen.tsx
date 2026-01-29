@@ -19,7 +19,7 @@ import {
     ResponsiveContainer,
 } from '../components';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
-import { useMutation, useConvexAuth } from 'convex/react';
+import { useMutation, useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAppData } from '../context/AppContext';
 
@@ -97,13 +97,17 @@ const DeviceStatusIcon = ({ type, status }: { type: 'gatekeeper' | 'watchman', s
 };
 
 export const AdminRoomListScreen = ({ onBack, onViewRoom }: AdminRoomListScreenProps) => {
-    const { rooms: allRooms, devices: allDevices, isAdminDataLoaded } = useAppData();
+    const { rooms: allRooms, devices: allDevices, activeSemester, isAdminDataLoaded } = useAppData();
     const globalLoading = !isAdminDataLoaded;
 
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
     const isTablet = width > 600;
     const { isAuthenticated } = useConvexAuth();
+    
+    // Fetch homerooms for the active semester to link to physical rooms
+    const homerooms = useQuery(api.homerooms.list, activeSemester ? { semesterId: activeSemester._id } : 'skip' as any);
+    
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'offline' | 'locked'>('all');
 
@@ -219,6 +223,7 @@ export const AdminRoomListScreen = ({ onBack, onViewRoom }: AdminRoomListScreenP
                                     const currentLockStatus = room.lockStatus || roomStatuses[roomId] || 'unlocked';
                                     const isPinned = pinnedRooms[roomId];
                                     const roomDevices = (allDevices || []).filter(d => d.roomId === roomId) || [];
+                                    const roomHomeroom = (homerooms || []).find(hr => hr.roomId === roomId);
 
                                     return (
                                         <TouchableOpacity 
@@ -236,7 +241,12 @@ export const AdminRoomListScreen = ({ onBack, onViewRoom }: AdminRoomListScreenP
                                                         styles.powerDot,
                                                         { backgroundColor: room.powerStatus === 'on' ? colors.success : colors.slate }
                                                     ]} />
-                                                    <HeadingSm style={styles.roomName} numberOfLines={1}>{room.name}</HeadingSm>
+                                                    <View style={{ flex: 1 }}>
+                                                        <HeadingSm style={styles.roomName} numberOfLines={1}>{room.name}</HeadingSm>
+                                                        {roomHomeroom && (
+                                                            <Caption style={{ color: colors.cobalt }}>{roomHomeroom.name}</Caption>
+                                                        )}
+                                                    </View>
                                                 </View>
                                                 <View style={styles.roomHeaderRight}>
                                                     <TouchableOpacity 

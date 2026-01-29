@@ -22,8 +22,9 @@ import {
     MarkPresentModal,
 } from '../../components/teacher';
 import Svg, { Path } from 'react-native-svg';
-import { useQuery } from 'convex/react';
+import { useQuery, useMutation } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
+import { Id } from '../../../convex/_generated/dataModel';
 
 interface ClassDetailScreenProps {
     classId: string;
@@ -38,18 +39,22 @@ const BackIcon = () => (
 
 export const ClassDetailScreen = ({ classId, onBack }: ClassDetailScreenProps) => {
     const insets = useSafeAreaInsets();
+    const markOverride = useMutation(api.attendance.teacherOverride);
     
     // Fetch live data from Convex
-    const classData = useQuery(api.classes.getDetails, { classId: classId as any });
+    const sessionData = useQuery(api.sessions.getDetails, { sessionId: classId as any });
+    const attendanceRecords = useQuery(api.attendance.getSessionAttendance, { dailySessionId: classId as any });
     
     const [selectedStudent, setSelectedStudent] = useState<{name: string, id: string} | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
+    
+    // ... rest of imports
 
-    if (classData === undefined) {
+    if (sessionData === undefined || attendanceRecords === undefined) {
         return <LoadingView />;
     }
 
-    if (!classData) {
+    if (!sessionData) {
         return (
             <View style={styles.container}>
                 <ResponsiveContainer>
@@ -66,7 +71,7 @@ export const ClassDetailScreen = ({ classId, onBack }: ClassDetailScreenProps) =
                                 >
                                     <BackIcon />
                                 </TouchableOpacity>
-                                <HeadingLg style={styles.headerTitleText}>Class Not Found</HeadingLg>
+                                <HeadingLg style={styles.headerTitleText}>Session Not Found</HeadingLg>
                                 <View style={styles.headerSpacer} />
                             </View>
                         </View>
@@ -77,21 +82,36 @@ export const ClassDetailScreen = ({ classId, onBack }: ClassDetailScreenProps) =
     }
 
     const classInfo = {
-        code: classData.code,
-        room: "Room 305", // Default for now
-        name: classData.name,
-        attendance: { present: 0, late: 0, absent: 0, total: 0 }
+        code: sessionData.subjectCode || "N/A",
+        room: sessionData.roomName || "Unknown Room",
+        name: sessionData.subjectName || "Unknown Subject",
+        attendance: {
+            present: attendanceRecords.filter(r => r.status === 'present').length,
+            late: attendanceRecords.filter(r => r.status === 'late').length,
+            absent: attendanceRecords.filter(r => r.status === 'absent').length,
+            total: attendanceRecords.length
+        }
     };
     
-    const roster: any[] = []; // Roster logic will follow in next phase
+    const roster = attendanceRecords;
 
     const handleMarkPresent = (student: {name: string, id: string}) => {
         setSelectedStudent(student);
         setModalVisible(true);
     };
 
-    const handleModalSubmit = (reason: string, note: string) => {
-        console.log(`Marking ${selectedStudent?.name} present. Reason: ${reason}, Note: ${note}`);
+    const handleModalSubmit = async (reason: string, note: string) => {
+        if (selectedStudent) {
+            try {
+                await markOverride({
+                    attendanceId: selectedStudent.id as Id<"attendance">,
+                    status: reason === 'Late' ? 'late' : 'present',
+                    note: note || reason,
+                });
+            } catch (err) {
+                console.error("Failed to mark attendance:", err);
+            }
+        }
         setModalVisible(false);
     };
 
@@ -156,14 +176,14 @@ export const ClassDetailScreen = ({ classId, onBack }: ClassDetailScreenProps) =
                         </View>
 
                         <View style={styles.rosterList}>
-                            {roster.map((student) => (
+                            {roster.map((record) => (
                                 <StudentAttendanceRow
-                                    key={student.id}
-                                    name={student.name}
-                                    studentId={student.studentId}
-                                    status={student.status as any}
-                                    checkInTime={student.checkInTime}
-                                    onMarkPresent={() => handleMarkPresent({ name: student.name, id: student.id })}
+                                    key={record._id}
+                                    name={record.studentName || "Unknown"}
+                                    studentId={record.studentId}
+                                    status={record.status as any}
+                                    checkInTime={record.scanTime ? new Date(record.scanTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined}
+                                    onMarkPresent={() => handleMarkPresent({ name: record.studentName || "Unknown", id: record._id })}
                                 />
                             ))}
                             {roster.length === 0 && (

@@ -9,14 +9,21 @@
  */
 
 import type * as accessLogs from "../accessLogs.js";
+import type * as adminAlerts from "../adminAlerts.js";
+import type * as attendance from "../attendance.js";
 import type * as auth from "../auth.js";
-import type * as classes from "../classes.js";
+import type * as calendar from "../calendar.js";
+import type * as crons from "../crons.js";
 import type * as devices from "../devices.js";
 import type * as hardware from "../hardware.js";
+import type * as homerooms from "../homerooms.js";
 import type * as http from "../http.js";
 import type * as lib_permissions from "../lib/permissions.js";
+import type * as lib_timezone from "../lib/timezone.js";
 import type * as rooms from "../rooms.js";
+import type * as schedule from "../schedule.js";
 import type * as seed from "../seed.js";
+import type * as sessions from "../sessions.js";
 import type * as staffTasks from "../staffTasks.js";
 import type * as users from "../users.js";
 
@@ -28,14 +35,21 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   accessLogs: typeof accessLogs;
+  adminAlerts: typeof adminAlerts;
+  attendance: typeof attendance;
   auth: typeof auth;
-  classes: typeof classes;
+  calendar: typeof calendar;
+  crons: typeof crons;
   devices: typeof devices;
   hardware: typeof hardware;
+  homerooms: typeof homerooms;
   http: typeof http;
   "lib/permissions": typeof lib_permissions;
+  "lib/timezone": typeof lib_timezone;
   rooms: typeof rooms;
+  schedule: typeof schedule;
   seed: typeof seed;
+  sessions: typeof sessions;
   staffTasks: typeof staffTasks;
   users: typeof users;
 }>;

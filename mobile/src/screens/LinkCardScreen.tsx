@@ -7,6 +7,10 @@ import {
     Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import NfcManager, { NfcTech } from 'react-native-nfc-manager';
+import * as Haptics from 'expo-haptics';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { colors, spacing, radius } from '../theme';
 import {
     HeadingLg,
@@ -55,8 +59,19 @@ const PhoneIcon = () => (
 export const LinkCardScreen = ({ onBack, onSuccess }: LinkCardScreenProps) => {
     const insets = useSafeAreaInsets();
     const [status, setStatus] = useState<'ready' | 'scanning' | 'success'>('ready');
+    const [lastUID, setLastUID] = useState<string | null>(null);
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
     const scanLineAnim = React.useRef(new Animated.Value(0)).current;
+
+    const linkCard = useMutation(api.users.linkCard);
+
+    // Initialize NFC
+    useEffect(() => {
+        NfcManager.start();
+        return () => {
+            NfcManager.cancelTechnologyRequest().catch(() => {});
+        };
+    }, []);
 
     // Pulse animation for ready state
     useEffect(() => {
@@ -100,19 +115,29 @@ export const LinkCardScreen = ({ onBack, onSuccess }: LinkCardScreenProps) => {
         };
     }, [status, pulseAnim, scanLineAnim]);
 
-    // Demo: auto-success after scanning starts
-    useEffect(() => {
-        if (status !== 'scanning') return;
-
-        const timeout = setTimeout(() => {
-            setStatus('success');
-        }, 3000);
-
-        return () => clearTimeout(timeout);
-    }, [status]);
-
-    const handleStartScan = () => {
-        setStatus('scanning');
+    const handleStartScan = async () => {
+        try {
+            setStatus('scanning');
+            // Clean up any existing session
+            await NfcManager.cancelTechnologyRequest().catch(() => {});
+            
+            await NfcManager.requestTechnology(NfcTech.Ndef);
+            const tag = await NfcManager.getTag();
+            
+            if (tag?.id) {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                await linkCard({ cardUID: tag.id });
+                setLastUID(tag.id);
+                setStatus('success');
+            } else {
+                setStatus('ready');
+            }
+        } catch (ex: any) {
+            console.warn('NFC Error:', ex);
+            setStatus('ready');
+        } finally {
+            NfcManager.cancelTechnologyRequest().catch(() => {});
+        }
     };
 
     const handleDone = () => {
@@ -124,6 +149,8 @@ export const LinkCardScreen = ({ onBack, onSuccess }: LinkCardScreenProps) => {
         inputRange: [0, 1],
         outputRange: [-40, 40],
     });
+
+    const displayUID = lastUID ? `•••• •••• ${lastUID.slice(-4).toUpperCase()}` : '•••• •••• ----';
 
     return (
         <View style={styles.container}>
@@ -229,7 +256,7 @@ export const LinkCardScreen = ({ onBack, onSuccess }: LinkCardScreenProps) => {
 
                                 <View style={styles.cardInfo}>
                                     <Caption style={styles.cardInfoLabel}>Card ID</Caption>
-                                    <Body style={styles.cardInfoValue}>•••• •••• 7D00</Body>
+                                    <Body style={styles.cardInfoValue}>{displayUID}</Body>
                                 </View>
                             </View>
                         )}

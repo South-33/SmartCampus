@@ -5,9 +5,16 @@ import {
     TouchableOpacity,
     Animated,
     Platform,
+    Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, radius } from '../theme';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as Location from 'expo-location';
+import * as Haptics from 'expo-haptics';
+import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import { colors, spacing } from '../theme';
 import {
     HeadingLg,
     HeadingMd,
@@ -16,7 +23,7 @@ import {
     Caption,
     Button,
 } from '../components';
-import { ArrowLeft, ScanFace, Clock, Check } from 'lucide-react-native';
+import { ArrowLeft, ScanFace, Clock, Check, ShieldAlert } from 'lucide-react-native';
 
 interface AttendanceScreenProps {
     onBack: () => void;
@@ -25,11 +32,93 @@ interface AttendanceScreenProps {
 export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
     const insets = useSafeAreaInsets();
     const [timer, setTimer] = useState(60);
-    const [status, setStatus] = useState<'waiting' | 'success' | 'error'>('waiting');
+    const [status, setStatus] = useState<'waiting' | 'authenticating' | 'success' | 'error'>('waiting');
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
+
+    const user = useQuery(api.users.viewer);
+
+    // Initialize Services
+    useEffect(() => {
+        NfcManager.start().catch(err => console.warn('NFC Start Error:', err));
+        
+        // Request Location permissions early
+        Location.requestForegroundPermissionsAsync();
+
+        return () => {
+            NfcManager.cancelTechnologyRequest().catch(() => {});
+        };
+    }, []);
+
+    const handleAttendance = async () => {
+        if (!user) return;
+
+        try {
+            setStatus('authenticating');
+
+            // 1. Biometric Auth
+            const hasHardware = await LocalAuthentication.hasHardwareAsync();
+            const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+            if (!hasHardware || !isEnrolled) {
+                Alert.alert('Security Error', 'Biometric authentication is required for attendance.');
+                setStatus('error');
+                setErrorMsg('Biometrics not available');
+                return;
+            }
+
+            const auth = await LocalAuthentication.authenticateAsync({
+                promptMessage: 'Verify identity for attendance',
+                fallbackLabel: 'Enter Passcode',
+            });
+
+            if (!auth.success) {
+                setStatus('waiting');
+                return;
+            }
+
+            // 2. Get Location (Geofencing)
+            let location = null;
+            try {
+                const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
+                if (locStatus === 'granted') {
+                    location = await Location.getCurrentPositionAsync({ 
+                        accuracy: Location.Accuracy.Balanced 
+                    });
+                }
+            } catch (err) {
+                console.warn('Location Error:', err);
+            }
+
+            // 3. NFC Broadcast
+            await NfcManager.cancelTechnologyRequest().catch(() => {});
+            await NfcManager.requestTechnology(NfcTech.Ndef);
+            
+            // Payload: ATTENDANCE|userId|timestamp|lat|lng
+            const lat = location?.coords.latitude || 0;
+            const lng = location?.coords.longitude || 0;
+            const payload = `ATTENDANCE|${user._id}|${Date.now()}|${lat}|${lng}`;
+            const bytes = Ndef.encodeMessage([Ndef.textRecord(payload)]);
+            
+            if (bytes) {
+                await NfcManager.ndefHandler.writeNdefMessage(bytes);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                setStatus('success');
+            }
+
+        } catch (ex) {
+            console.warn('Attendance Error:', ex);
+            setStatus('error');
+            setErrorMsg('Connection failed');
+        } finally {
+            // Keep session open until success or manual close
+        }
+    };
 
     // Pulse animation
     useEffect(() => {
+        if (status === 'success' || status === 'error') return;
+        
         const pulse = Animated.loop(
             Animated.sequence([
                 Animated.timing(pulseAnim, {
@@ -46,7 +135,7 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
         );
         pulse.start();
         return () => pulse.stop();
-    }, [pulseAnim]);
+    }, [pulseAnim, status]);
 
     // Timer countdown
     useEffect(() => {
@@ -58,14 +147,6 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
 
         return () => clearInterval(interval);
     }, [status, timer]);
-
-    // Demo: auto-success after 5 seconds
-    useEffect(() => {
-        const timeout = setTimeout(() => {
-            setStatus('success');
-        }, 5000);
-        return () => clearTimeout(timeout);
-    }, []);
 
     return (
         <View style={styles.container}>
@@ -80,32 +161,35 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
                             <ArrowLeft size={20} color={colors.slate} strokeWidth={2} />
                         </TouchableOpacity>
                         
-                        <HeadingLg style={styles.headerTitle}>CS101 — Data Structures</HeadingLg>
+                        <HeadingLg style={styles.headerTitle}>Class Attendance</HeadingLg>
                         
                         {/* Spacer for centering */}
                         <View style={styles.headerSpacer} />
                     </View>
                     
                     <BodySm style={styles.headerMeta}>
-                        Room 305 · 09:00 – 10:30
+                        Verify identity and tap reader
                     </BodySm>
                 </View>
 
-                {/* Biometric Prompt */}
+                {/* Biometric Area */}
                 <View style={styles.biometricArea}>
-                    {status === 'waiting' && (
+                    {(status === 'waiting' || status === 'authenticating') && (
                         <>
                             <Animated.View
                                 style={[
                                     styles.biometricIcon,
+                                    status === 'authenticating' && styles.authenticatingIcon,
                                     { transform: [{ scale: pulseAnim }] }
                                 ]}
                             >
                                 <ScanFace size={48} color="#FFF" strokeWidth={1.5} />
                             </Animated.View>
-                            <HeadingMd style={styles.promptTitle}>Verify with Face ID</HeadingMd>
+                            <HeadingMd style={styles.promptTitle}>
+                                {status === 'authenticating' ? 'Verifying...' : 'Ready to Start'}
+                            </HeadingMd>
                             <BodySm style={styles.promptDesc}>
-                                Authenticate to mark your attendance, then tap your phone to the reader.
+                                Tap the button below to authenticate with Face ID and mark your attendance.
                             </BodySm>
 
                             {/* Timer */}
@@ -125,17 +209,38 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
                             </View>
                             <HeadingMd style={styles.successTitle}>Attendance Recorded</HeadingMd>
                             <BodySm style={styles.successDesc}>
-                                You're checked in for CS101. The door should open now.
+                                You're checked in. The door should open now.
                             </BodySm>
+                        </View>
+                    )}
+
+                    {status === 'error' && (
+                        <View style={styles.errorState}>
+                            <View style={styles.errorIcon}>
+                                <ShieldAlert size={32} color={colors.error} strokeWidth={2} />
+                            </View>
+                            <HeadingMd style={styles.errorTitle}>Failed</HeadingMd>
+                            <BodySm style={styles.errorDesc}>{errorMsg || 'Could not verify identity.'}</BodySm>
+                            <Button 
+                                variant="secondary" 
+                                style={{ marginTop: spacing.lg }}
+                                onPress={() => setStatus('waiting')}
+                            >
+                                Try Again
+                            </Button>
                         </View>
                     )}
                 </View>
 
                 {/* Action */}
                 <View style={styles.footer}>
-                    {status === 'success' ? (
+                    {status === 'waiting' && (
+                        <Button onPress={handleAttendance}>Start Verification</Button>
+                    )}
+                    {status === 'success' && (
                         <Button onPress={onBack}>Done</Button>
-                    ) : (
+                    )}
+                    {(status === 'authenticating' || status === 'error') && (
                         <Button variant="secondary" onPress={onBack}>Cancel</Button>
                     )}
                 </View>
@@ -152,7 +257,6 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         paddingHorizontal: spacing.lg,
-        paddingTop: 0,
     },
     backButton: {
         flexDirection: 'row',
@@ -209,6 +313,9 @@ const styles = StyleSheet.create({
             },
         }),
     },
+    authenticatingIcon: {
+        backgroundColor: colors.slate,
+    },
     promptTitle: {
         marginBottom: 8,
         textAlign: 'center',
@@ -239,7 +346,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     successIcon: {
-        width: 68,
+        width: 80,
         height: 80,
         borderRadius: 40,
         backgroundColor: colors.success,
@@ -254,6 +361,29 @@ const styles = StyleSheet.create({
     successDesc: {
         textAlign: 'center',
         maxWidth: 260,
+    },
+    errorState: {
+        alignItems: 'center',
+    },
+    errorIcon: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: colors.cream,
+        borderWidth: 2,
+        borderColor: colors.error,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: spacing.md,
+    },
+    errorTitle: {
+        color: colors.error,
+        marginBottom: 8,
+    },
+    errorDesc: {
+        textAlign: 'center',
+        maxWidth: 260,
+        color: colors.slate,
     },
     footer: {
         paddingBottom: spacing.xl,

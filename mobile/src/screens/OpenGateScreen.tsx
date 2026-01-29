@@ -7,6 +7,10 @@ import {
     Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
+import * as Haptics from 'expo-haptics';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { colors, spacing } from '../theme';
 import {
     HeadingLg,
@@ -28,6 +32,50 @@ export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
     const [status, setStatus] = useState<'waiting' | 'success' | 'timeout'>('waiting');
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
     const waveAnim = React.useRef(new Animated.Value(0)).current;
+
+    const user = useQuery(api.users.viewer);
+
+    // Initialize NFC
+    useEffect(() => {
+        NfcManager.start().catch(err => console.warn('NFC Start Error:', err));
+        return () => {
+            NfcManager.cancelTechnologyRequest().catch(() => {});
+        };
+    }, []);
+
+    // NFC Writer Session
+    useEffect(() => {
+        if (status !== 'waiting' || !user) return;
+
+        let isMounted = true;
+
+        const startNfc = async () => {
+            try {
+                await NfcManager.cancelTechnologyRequest().catch(() => {});
+                await NfcManager.requestTechnology(NfcTech.Ndef);
+                
+                // Construct payload: userId|timestamp
+                const payload = `${user._id}|${Date.now()}`;
+                const bytes = Ndef.encodeMessage([Ndef.textRecord(payload)]);
+                
+                if (bytes) {
+                    await NfcManager.ndefHandler.writeNdefMessage(bytes);
+                    if (isMounted) {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                        setStatus('success');
+                    }
+                }
+            } catch (ex) {
+                console.warn('NFC Error:', ex);
+            }
+        };
+
+        startNfc();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [status, user]);
 
     // Pulse animation
     useEffect(() => {
@@ -86,16 +134,6 @@ export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
 
         return () => clearInterval(interval);
     }, [status, timer]);
-
-    // Demo: auto-success after 4 seconds
-    useEffect(() => {
-        const timeout = setTimeout(() => {
-            if (status === 'waiting') {
-                setStatus('success');
-            }
-        }, 4000);
-        return () => clearTimeout(timeout);
-    }, [status]);
 
     const handleRetry = () => {
         setTimer(60);

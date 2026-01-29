@@ -13,7 +13,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NFCReaderUsageDescription": "We use NFC to link your student card and unlock doors.",
+        "NSFaceIDUsageDescription": "We use Face ID to securely verify your identity for attendance.",
+        "NSLocationWhenInUseUsageDescription": "We use your location to verify you are at the correct classroom."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,13 +26,21 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.NFC",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "react-native-nfc-manager",
+      "expo-location"
     ]
   }
 }

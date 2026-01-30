@@ -74,12 +74,14 @@ const DeviceIcon = ({ type, color }: { type: 'gatekeeper' | 'watchman', color: s
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 
+import { Id } from '../../convex/_generated/dataModel';
+
 export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenProps) => {
     const insets = useSafeAreaInsets();
     const { rooms, devices: allDevices, activeSemester } = useAppData();
     
     // Fetch homerooms to find which one is assigned to this physical room
-    const homerooms = useQuery(api.homerooms.list, activeSemester ? { semesterId: activeSemester._id } : 'skip' as any);
+    const homerooms = useQuery(api.homerooms.list, activeSemester ? { semesterId: activeSemester._id } : "skip");
     const roomHomeroom = (homerooms || []).find(hr => hr.roomId === roomId);
 
     const room = (rooms || []).find((r: any) => r._id === roomId);
@@ -92,7 +94,7 @@ export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenP
     const handleTogglePower = async () => {
         const nextPower = room.powerStatus === 'on' ? 'off' : 'on';
         try {
-            await updateStatus({ roomId: roomId as any, powerStatus: nextPower });
+            await updateStatus({ roomId: roomId as Id<"rooms">, powerStatus: nextPower });
         } catch (e) {
             console.error(e);
         }
@@ -100,7 +102,7 @@ export const AdminRoomDetailScreen = ({ roomId, onBack }: AdminRoomDetailScreenP
 
     const handleSetLock = async (status: 'unlocked' | 'staff_only' | 'locked') => {
         try {
-            await updateStatus({ roomId: roomId as any, lockStatus: status });
+            await updateStatus({ roomId: roomId as Id<"rooms">, lockStatus: status });
         } catch (e) {
             console.error(e);
         }

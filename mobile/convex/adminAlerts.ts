@@ -9,6 +9,14 @@ import { getCurrentUser, mustBeAdmin } from "./lib/permissions";
 export const getAlertsForUser = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return [];
+
+    // Security: Only allow users to see their own alerts, or admins to see any
+    if (user.role !== "admin" && user._id !== args.userId) {
+      return [];
+    }
+
     return await ctx.db
       .query("adminAlerts")
       .withIndex("by_user_status", (q) => 

@@ -3,37 +3,7 @@ import { v } from "convex/values";
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 import { logActivity } from "./lib/permissions";
-
-/**
- * Helper to hash a token for secure storage/comparison
- */
-export async function hashToken(token: string) {
-  const msgUint8 = new TextEncoder().encode(token);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-/**
- * Haversine formula to calculate distance between two GPS points in meters.
- */
-function haversineDistance(
-  lat1: number, lng1: number,
-  lat2: number, lng2: number
-): number {
-  const R = 6371000; // Earth's radius in meters
-  const toRad = (deg: number) => deg * Math.PI / 180;
-  
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-            Math.sin(dLng/2) * Math.sin(dLng/2);
-  
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c; 
-}
+import { hashToken, generateSecureToken, haversineDistance } from "./lib/utils";
 
 /**
  * Validates that a request is coming from a legitimate hardware device.
@@ -184,6 +154,7 @@ export const syncLogs = mutation({
       
       // Basic Anti-Cheat: Verify Device Binding
       if (log.deviceId && user.deviceId && log.deviceId !== user.deviceId) {
+        // Only log activity, don't throw to avoid blocking other logs in batch
         await logActivity(ctx, user, "SUSPECT_DEVICE", `Account used on unauthorized device: ${log.deviceId}`);
       }
 
@@ -284,9 +255,39 @@ export const heartbeat = mutation({
   }
 });
 
+async function checkRateLimit(ctx: MutationCtx, key: string, limit: number, windowMs: number): Promise<boolean> {
+  const now = Date.now();
+  const existing = await ctx.db
+    .query("rateLimits")
+    .withIndex("by_key", (q) => q.eq("key", key))
+    .first();
+
+  if (!existing || now - existing.windowStart > windowMs) {
+    if (existing) {
+      await ctx.db.patch(existing._id, { attempts: 1, windowStart: now });
+    } else {
+      await ctx.db.insert("rateLimits", { key, attempts: 1, windowStart: now });
+    }
+    return true;
+  }
+
+  if (existing.attempts >= limit) {
+    return false;
+  }
+
+  await ctx.db.patch(existing._id, { attempts: existing.attempts + 1 });
+  return true;
+}
+
 export const register = mutation({
   args: { chipId: v.string() },
   handler: async (ctx, args) => {
+    // Rate limit: 5 registration attempts per chipId per hour
+    const isAllowed = await checkRateLimit(ctx, `register:${args.chipId}`, 5, 60 * 60 * 1000);
+    if (!isAllowed) {
+      throw new Error("Rate limit exceeded. Please try again later.");
+    }
+
     const existing = await ctx.db
       .query("devices")
       .withIndex("by_chipId", (q) => q.eq("chipId", args.chipId))
@@ -296,9 +297,7 @@ export const register = mutation({
       return { status: "already_registered", chipId: args.chipId, token: null };
     }
 
-    const array = new Uint8Array(24);
-    crypto.getRandomValues(array);
-    const token = Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const token = generateSecureToken(24);
     const tokenHash = await hashToken(token);
 
     await ctx.db.insert("devices", {

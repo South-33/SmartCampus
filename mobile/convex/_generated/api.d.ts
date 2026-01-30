@@ -20,6 +20,7 @@ import type * as homerooms from "../homerooms.js";
 import type * as http from "../http.js";
 import type * as lib_permissions from "../lib/permissions.js";
 import type * as lib_timezone from "../lib/timezone.js";
+import type * as lib_utils from "../lib/utils.js";
 import type * as rooms from "../rooms.js";
 import type * as schedule from "../schedule.js";
 import type * as seed from "../seed.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/permissions": typeof lib_permissions;
   "lib/timezone": typeof lib_timezone;
+  "lib/utils": typeof lib_utils;
   rooms: typeof rooms;
   schedule: typeof schedule;
   seed: typeof seed;

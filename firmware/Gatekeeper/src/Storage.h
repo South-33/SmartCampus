@@ -21,7 +21,7 @@ public:
         return true;
     }
 
-    static void appendLog(const char* userId, const char* method) {
+    static void appendLog(const char* userId, const char* method, uint32_t timestamp) {
         File file = LittleFS.open("/logs.bin", FILE_APPEND);
         if (!file) {
             Serial.println("Failed to open log file for appending");
@@ -29,7 +29,7 @@ public:
         }
 
         AccessLog log;
-        log.timestamp = millis(); // Simple relative time for now, or NTP if available
+        log.timestamp = timestamp;
         strncpy(log.userId, userId, 30);
         strncpy(log.method, method, 10);
 

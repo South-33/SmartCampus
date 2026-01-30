@@ -1,7 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getCurrentUser, mustBeAdmin, logActivity, touchRoom } from "./lib/permissions";
-import { hashToken } from "./hardware";
+import { hashToken, generateSecureToken } from "./lib/utils";
 
 /**
  * Lists all devices for the admin dashboard.
@@ -60,9 +60,7 @@ export const resetToken = mutation({
     if (!device) throw new Error("Device not found");
 
     // Generate a secure random token
-    const array = new Uint8Array(24);
-    crypto.getRandomValues(array);
-    const token = Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const token = generateSecureToken(24);
 
     const tokenHash = await hashToken(token);
     await ctx.db.patch(args.deviceId, { tokenHash: tokenHash });

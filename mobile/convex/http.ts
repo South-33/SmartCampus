@@ -39,7 +39,7 @@ http.route({
   method: "GET",
   handler: httpAction(async (ctx, request) => {
     const { chipId, token } = await getHardwareCreds(request);
-    if (!chipId || !token) return new Response("Missing credentials", { status: 400 });
+    if (!chipId || !token) return new Response("Unauthorized", { status: 401 });
 
     try {
       const data = await ctx.runQuery(api.hardware.getWhitelist, { chipId, token });
@@ -48,49 +48,64 @@ http.route({
         headers: { "Content-Type": "application/json" },
       });
     } catch (e: any) {
-      return new Response(e.message, { status: 401 });
+      console.error("Whitelist sync error:", e.message);
+      return new Response("Unauthorized", { status: 401 });
     }
   }),
 });
 
 /**
  * POST /api/logs
- * Body: { chipId, token, logs: [...] }
+ * Body: { chipId, logs: [...] }
  */
 http.route({
   path: "/api/logs",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     try {
-      const { payload } = await getHardwareCreds(request);
-      const result = await ctx.runMutation(api.hardware.syncLogs, payload);
+      const { chipId, token, payload } = await getHardwareCreds(request);
+      if (!chipId || !token) return new Response("Unauthorized", { status: 401 });
+      
+      const result = await ctx.runMutation(api.hardware.syncLogs, { 
+        chipId, 
+        token, 
+        logs: payload.logs 
+      });
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
     } catch (e: any) {
-      return new Response(e.message, { status: 401 });
+      console.error("Log sync error:", e.message);
+      return new Response("Unauthorized", { status: 401 });
     }
   }),
 });
 
 /**
  * POST /api/heartbeat
- * Body: { chipId, token, firmware }
+ * Body: { chipId, firmware }
  */
 http.route({
   path: "/api/heartbeat",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
     try {
-      const { payload } = await getHardwareCreds(request);
-      const result = await ctx.runMutation(api.hardware.heartbeat, payload);
+      const { chipId, token, payload } = await getHardwareCreds(request);
+      if (!chipId || !token) return new Response("Unauthorized", { status: 401 });
+
+      const result = await ctx.runMutation(api.hardware.heartbeat, {
+        chipId,
+        token,
+        firmware: payload.firmware
+      });
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
     } catch (e: any) {
-      return new Response(e.message, { status: 401 });
+      console.error("Heartbeat error:", e.message);
+      return new Response("Unauthorized", { status: 401 });
     }
   }),
 });

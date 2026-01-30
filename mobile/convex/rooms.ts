@@ -19,21 +19,19 @@ export const list = query({
 
     if (!activeSemester) return filteredRooms;
 
-    const results = [];
-    for (const room of filteredRooms) {
-      const homeroom = await ctx.db
-        .query("homerooms")
-        .withIndex("by_room", (q) => q.eq("roomId", room._id))
-        .filter((q) => q.eq(q.field("semesterId"), activeSemester._id))
-        .first();
-      
-      results.push({
-        ...room,
-        homeroomName: homeroom?.name,
-      });
-    }
+    // 1. Fetch all homerooms for the active semester at once
+    const activeHomerooms = await ctx.db
+      .query("homerooms")
+      .withIndex("by_semester", (q) => q.eq("semesterId", activeSemester._id))
+      .collect();
 
-    return results;
+    const homeroomMap = new Map(activeHomerooms.map(h => [h.roomId, h]));
+
+    // 2. Assemble results
+    return filteredRooms.map(room => ({
+      ...room,
+      homeroomName: homeroomMap.get(room._id)?.name,
+    }));
   },
 });
 

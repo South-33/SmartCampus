@@ -8,6 +8,7 @@ import { Caption } from '../components';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { AdminAlert } from '../screens/AdminDashboard';
 import { LoginScreen } from '../screens';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 // Simple Tab Bar Icons
 const HomeIcon = ({ active }: { active: boolean }) => (
@@ -141,16 +142,18 @@ export const MainLayout = () => {
   };
 
   const renderScreenContent = (screenToRender: Screen) => (
-    <ScreenNavigator
-      screen={screenToRender}
-      navigateTo={navigateTo}
-      goBack={goBack}
-      selectedClassId={selectedClassId}
-      selectedRoomId={selectedRoomId}
-      selectedUserId={selectedUserId}
-      handleReportIssue={handleReportIssue}
-      alerts={alerts}
-    />
+    <ErrorBoundary>
+      <ScreenNavigator
+        screen={screenToRender}
+        navigateTo={navigateTo}
+        goBack={goBack}
+        selectedClassId={selectedClassId}
+        selectedRoomId={selectedRoomId}
+        selectedUserId={selectedUserId}
+        handleReportIssue={handleReportIssue}
+        alerts={alerts}
+      />
+    </ErrorBoundary>
   );
 
   // Determine effective auth state (optimistic or real)

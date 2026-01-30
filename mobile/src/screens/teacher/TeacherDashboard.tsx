@@ -49,7 +49,17 @@ const CheckIcon = () => (
 
 export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewClass, onViewHours }: TeacherDashboardProps) => {
     const { viewer, cachedProfile } = useAppData();
-    const currentSession = useQuery(api.sessions.getCurrentTeacherSession, viewer ? { teacherId: viewer._id } : 'skip' as any);
+    const currentSession = useQuery(api.sessions.getCurrentTeacherSession, viewer ? { teacherId: viewer._id } : "skip");
+    const rawAlerts = useQuery(api.adminAlerts.getAlertsForUser, viewer ? { userId: viewer._id } : "skip");
+    const stats = useQuery(api.sessions.getTeacherStats, viewer ? { teacherId: viewer._id } : "skip");
+
+    const alerts = (rawAlerts || []).map(a => ({
+        id: a._id,
+        type: (a.type === 'SUSPECT_GPS' ? 'suspicious' : 'at_risk') as any,
+        message: a.message,
+        priority: (a.severity === 'high' ? 'high' : 'medium') as any,
+        course: currentSession?.subjectName
+    }));
 
     // Use cached profile for instant render, fallback to viewer when loaded
     const displayName = viewer?.name || cachedProfile?.name || 'Teacher';
@@ -120,9 +130,9 @@ export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewCl
 
                     {/* Scan Status & Hours */}
                     <TeachingHoursWidget
-                        thisWeek={12.5}
-                        target={20}
-                        status={'teaching'}
+                        thisWeek={stats?.thisWeek || 0}
+                        target={stats?.target || 20}
+                        status={stats?.status || 'idle'}
                         onPress={onViewHours}
                     />
 
@@ -142,7 +152,7 @@ export const TeacherDashboard = ({ onOpenGate, onAttendance, onProfile, onViewCl
                     )}
 
                     {/* Alerts */}
-                    <AttendanceAlertBanner alerts={[]} />
+                    <AttendanceAlertBanner alerts={alerts || []} />
                 </ScrollView>
             </ResponsiveContainer>
         </View>

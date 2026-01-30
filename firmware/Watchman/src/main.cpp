@@ -2,6 +2,7 @@
 #include <LD2410.h>
 #include <esp_now.h>
 #include <WiFi.h>
+#include <esp_task_wdt.h>
 #include "config.h"
 
 // --- Global Objects ---
@@ -30,12 +31,14 @@ typedef struct struct_message {
 } struct_message;
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+    if (len != sizeof(struct_message)) return;
+    
     struct_message myData;
     memcpy(&myData, incomingData, sizeof(myData));
     
-    if (String(myData.command) == "WAKE" || String(myData.command) == "HEARTBEAT") {
+    if (strcmp(myData.command, "WAKE") == 0 || strcmp(myData.command, "HEARTBEAT") == 0) {
         lastHeartbeatTime = millis();
-        if (String(myData.command) == "WAKE") {
+        if (strcmp(myData.command, "WAKE") == 0) {
             lastMovementTime = millis();
             setRoomPower(true);
         }
@@ -58,9 +61,14 @@ void setup() {
     esp_now_register_recv_cb(OnDataRecv);
     
     Serial.print("Watchman MAC: "); Serial.println(WiFi.macAddress());
+
+    // Watchdog
+    esp_task_wdt_init(30, true);
+    esp_task_wdt_add(NULL);
 }
 
 void loop() {
+    esp_task_wdt_reset();
     radar.read();
     bool isMoving = radar.presenceDetected();
 

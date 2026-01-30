@@ -9,16 +9,18 @@ import { Id } from '../../convex/_generated/dataModel';
 
 const QUEUE_KEY = '@attendance_queue';
 
+interface AntiCheat {
+  deviceTime: number;
+  timeSource: string;
+  hasInternet: boolean;
+  deviceId: string;
+  gps: { lat: number, lng: number } | undefined;
+}
+
 interface QueuedAttendance {
   roomId: string;
   timestamp: number;
-  antiCheat: {
-    deviceTime: number;
-    timeSource: string;
-    hasInternet: boolean;
-    deviceId: string;
-    gps: { lat: number, lng: number } | null;
-  };
+  antiCheat: AntiCheat;
 }
 
 export const useAttendance = (userId: string | undefined, deviceId: string | undefined) => {
@@ -53,7 +55,7 @@ export const useAttendance = (userId: string | undefined, deviceId: string | und
           roomId: item.roomId as Id<"rooms">,
           timestamp: item.timestamp,
           method: "phone",
-          antiCheat: item.antiCheat as any,
+          antiCheat: item.antiCheat,
         });
       } catch (err) {
         console.warn("Failed to sync queued item, keeping in queue:", err);
@@ -76,7 +78,7 @@ export const useAttendance = (userId: string | undefined, deviceId: string | und
       if (!auth.success) return { success: false, reason: 'biometric_failed' };
 
       // 2. Location check
-      let gps = null;
+      let gps: { lat: number, lng: number } | undefined = undefined;
       const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
       if (locStatus === 'granted') {
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -84,7 +86,7 @@ export const useAttendance = (userId: string | undefined, deviceId: string | und
       }
 
       const timestamp = Date.now();
-      const antiCheat = {
+      const antiCheat: AntiCheat = {
         deviceTime: timestamp,
         timeSource: 'ntp',
         hasInternet: true,
@@ -98,7 +100,7 @@ export const useAttendance = (userId: string | undefined, deviceId: string | und
           roomId: roomId as Id<"rooms">,
           timestamp,
           method: "phone",
-          antiCheat: antiCheat as any,
+          antiCheat: antiCheat,
         });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         return { success: true, mode: 'online' };

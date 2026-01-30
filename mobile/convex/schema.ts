@@ -254,4 +254,10 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_type", ["type"])
     .index("by_user_status", ["userId", "status"]),
+
+  rateLimits: defineTable({
+    key: v.string(),        // e.g., "register:chipId:ABC123"
+    attempts: v.number(),
+    windowStart: v.number(),
+  }).index("by_key", ["key"]),
 });

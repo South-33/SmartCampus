@@ -52,7 +52,7 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
         const credentials = {
             admin: { email: 'admin@kingsford.edu', password: 'password123' },
             teacher: { email: 'sarah.williams@kingsford.edu', password: 'password123' },
-            student: { email: 'john.doe@kingsford.edu', password: 'password123' },
+            student: { email: 'liam.smith@kingsford.edu', password: 'password123' },
             staff: { email: 'mike.cleaner@kingsford.edu', password: 'password123' },
         };
         const { email, password } = credentials[role];

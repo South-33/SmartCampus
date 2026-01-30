@@ -23,6 +23,8 @@ import { useMutation, useConvexAuth, useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAppData } from '../context/AppContext';
 
+import { Id } from '../../convex/_generated/dataModel';
+
 interface AdminRoomListScreenProps {
     onBack: () => void;
     onViewRoom: (roomId: string) => void;
@@ -106,7 +108,7 @@ export const AdminRoomListScreen = ({ onBack, onViewRoom }: AdminRoomListScreenP
     const { isAuthenticated } = useConvexAuth();
     
     // Fetch homerooms for the active semester to link to physical rooms
-    const homerooms = useQuery(api.homerooms.list, activeSemester ? { semesterId: activeSemester._id } : 'skip' as any);
+    const homerooms = useQuery(api.homerooms.list, activeSemester ? { semesterId: activeSemester._id } : "skip");
     
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'offline' | 'locked'>('all');
@@ -133,7 +135,7 @@ export const AdminRoomListScreen = ({ onBack, onViewRoom }: AdminRoomListScreenP
     const cycleLockStatus = async (roomId: string) => {
         if (isAuthenticated) {
             try {
-                await cycleLockStatusMutation({ roomId: roomId as any });
+                await cycleLockStatusMutation({ roomId: roomId as Id<"rooms"> });
             } catch (error) {
                 console.error(error);
             }

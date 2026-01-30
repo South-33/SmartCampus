@@ -42,7 +42,7 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
     const { submitAttendance, processQueue } = useAttendance(viewer?._id, viewer?.deviceId);
     
     // We need to find the physical roomId for the student's current homeroom
-    const homeroom = useQuery(api.homerooms.list, activeSemester ? { semesterId: activeSemester._id } : 'skip' as any);
+    const homeroom = useQuery(api.homerooms.list, activeSemester ? { semesterId: activeSemester._id } : "skip");
     const myHomeroom = homeroom?.find(hr => hr._id === viewer?.currentHomeroomId);
 
     // Initialize Services

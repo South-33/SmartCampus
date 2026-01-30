@@ -26,6 +26,8 @@ import { useQuery, useMutation, useConvexAuth } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { useAppData } from '../context/AppContext';
 
+import { Id } from '../../convex/_generated/dataModel';
+
 interface AdminUserDetailScreenProps {
     userId: string;
     onBack: () => void;
@@ -59,8 +61,8 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
     const { activeSemester } = useAppData();
     
     // Fetch live user data
-    const realUser = useQuery(api.users.get, (isAuthenticated && userId) ? { id: userId as any } : 'skip' as any);
-    const homerooms = useQuery(api.homerooms.list, activeSemester ? { semesterId: activeSemester._id } : 'skip' as any);
+    const realUser = useQuery(api.users.get, (isAuthenticated && userId) ? { id: userId as Id<"users"> } : "skip");
+    const homerooms = useQuery(api.homerooms.list, activeSemester ? { semesterId: activeSemester._id } : "skip");
     
     const deleteUser = useMutation(api.users.remove);
     const updateUser = useMutation(api.users.update);
@@ -71,8 +73,8 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
     const handleAssignHomeroom = async (homeroomId: string) => {
         try {
             await enrollStudent({
-                homeroomId: homeroomId as any,
-                studentId: userId as any
+                homeroomId: homeroomId as Id<"homerooms">,
+                studentId: userId as Id<"users">
             });
         } catch (e) {
             console.error(e);
@@ -84,7 +86,7 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
     const handleToggleActive = async (val: boolean) => {
         try {
             await updateUser({
-                id: userId as any,
+                id: userId as Id<"users">,
                 status: val ? "active" : "inactive"
             });
         } catch (e) {
@@ -143,7 +145,7 @@ export const AdminUserDetailScreen = ({ userId, onBack }: AdminUserDetailScreenP
 
     const performDelete = async () => {
         try {
-            await deleteUser({ id: userId as any });
+            await deleteUser({ id: userId as Id<"users"> });
             onBack();
         } catch (error: any) {
             const errorMsg = error.message || "Failed to delete user";

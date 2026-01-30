@@ -154,16 +154,10 @@ import { api } from '../../convex/_generated/api';
 import { useAppData } from '../context/AppContext';
 import { useFadeIn } from '../hooks/useFadeIn';
 
-export interface AdminAlert {
-    id: string;
-    type: 'device' | 'suspicious' | 'sharing' | 'gps';
-    priority: 'high' | 'medium' | 'low';
-    message: string;
-    time: string;
-    data?: any;
-}
+import { Id } from '../../convex/_generated/dataModel';
 
 export const AdminDashboard = ({
+
     onProfile,
     onSecurity,
     onUsers,
@@ -196,7 +190,7 @@ export const AdminDashboard = ({
 
     const cycleLockStatus = async (roomId: string) => {
         try {
-            await cycleLockStatusMutation({ roomId: roomId as any });
+            await cycleLockStatusMutation({ roomId: roomId as Id<"rooms"> });
         } catch (error) {
             console.error(error);
         }

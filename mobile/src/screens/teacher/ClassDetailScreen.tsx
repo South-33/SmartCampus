@@ -42,8 +42,8 @@ export const ClassDetailScreen = ({ classId, onBack }: ClassDetailScreenProps) =
     const markOverride = useMutation(api.attendance.teacherOverride);
     
     // Fetch live data from Convex
-    const sessionData = useQuery(api.sessions.getDetails, { sessionId: classId as any });
-    const attendanceRecords = useQuery(api.attendance.getSessionAttendance, { dailySessionId: classId as any });
+    const sessionData = useQuery(api.sessions.getDetails, { sessionId: classId as Id<"dailySessions"> });
+    const attendanceRecords = useQuery(api.attendance.getSessionAttendance, { dailySessionId: classId as Id<"dailySessions"> });
     
     const [selectedStudent, setSelectedStudent] = useState<{name: string, id: string} | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
@@ -181,8 +181,8 @@ export const ClassDetailScreen = ({ classId, onBack }: ClassDetailScreenProps) =
                                     key={record._id}
                                     name={record.studentName || "Unknown"}
                                     studentId={record.studentId}
-                                    status={record.status as any}
-                                    checkInTime={record.scanTime ? new Date(record.scanTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined}
+                                    status={record.status as 'present' | 'late' | 'absent'}
+                                    checkInTime={record.scanTime ? new Date(record.scanTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null}
                                     onMarkPresent={() => handleMarkPresent({ name: record.studentName || "Unknown", id: record._id })}
                                 />
                             ))}

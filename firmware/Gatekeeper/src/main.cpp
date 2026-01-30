@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <Wire.h>
 #include <PN532_I2C.h>
 #include <PN532.h>
@@ -7,8 +8,10 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <esp_now.h>
+#include <esp_task_wdt.h>
 #include "config.h"
 #include "Storage.h"
+#include "NTPSync.h"
 
 // --- Global Objects ---
 PN532_I2C pn532_i2c(Wire);
@@ -49,7 +52,7 @@ void openDoor(String studentId, String method) {
     wakeWatchman();
     digitalWrite(STATUS_LED, HIGH);
     digitalWrite(RELAY_PIN, HIGH);
-    Storage::appendLog(studentId.c_str(), method.c_str());
+    Storage::appendLog(studentId.c_str(), method.c_str(), NTPSync::getEpochTime());
     delay(UNLOCK_DURATION);
     digitalWrite(RELAY_PIN, LOW);
     digitalWrite(STATUS_LED, LOW);
@@ -66,26 +69,33 @@ void registerDevice() {
     if (WiFi.status() != WL_CONNECTED) return;
     
     Serial.println("Registering device with Convex...");
+    WiFiClientSecure client;
+    client.setInsecure(); // TODO: Add root CA for production
     HTTPClient http;
-    http.begin(String(CONVEX_URL) + "/api/register");
+    http.begin(client, String(CONVEX_URL) + "/api/register");
     http.addHeader("Content-Type", "application/json");
     
     JsonDocument req;
-    req["chipId"] = WiFi.macAddress(); // Use MAC as unique ID
+    req["chipId"] = WiFi.macAddress();
     String body;
     serializeJson(req, body);
     
     int httpCode = http.POST(body);
     if (httpCode == HTTP_CODE_OK) {
+        String response = http.getString();
         JsonDocument res;
-        deserializeJson(res, http.getString());
-        if (res["status"] == "registered") {
+        DeserializationError error = deserializeJson(res, response);
+        if (error) {
+            Serial.println("JSON parse fail in registerDevice");
+        } else if (res["status"] == "registered") {
             hardwareToken = res["token"].as<String>();
             prefs.begin("auth", false);
             prefs.putString("token", hardwareToken);
             prefs.end();
             Serial.println("Device registered and token saved.");
         }
+    } else {
+        Serial.printf("Registration failed: %d\n", httpCode);
     }
     http.end();
 }
@@ -100,7 +110,6 @@ void syncLogs() {
 
     JsonDocument doc;
     doc["chipId"] = WiFi.macAddress();
-    doc["token"] = hardwareToken;
     JsonArray logsArr = doc["logs"].to<JsonArray>();
 
     while (file.available()) {
@@ -116,47 +125,76 @@ void syncLogs() {
     }
     file.close();
 
+    WiFiClientSecure client;
+    client.setInsecure();
     HTTPClient http;
-    http.begin(String(CONVEX_URL) + "/api/logs");
+    http.begin(client, String(CONVEX_URL) + "/api/logs");
     http.addHeader("Content-Type", "application/json");
+    http.addHeader("Authorization", "Bearer " + hardwareToken);
+    
     String body;
     serializeJson(doc, body);
-    if (http.POST(body) == HTTP_CODE_OK) {
-        Storage::clearLogs();
-        Serial.println("Logs synced.");
+    int httpCode = http.POST(body);
+    if (httpCode == HTTP_CODE_OK) {
+        String response = http.getString();
+        JsonDocument res;
+        DeserializationError error = deserializeJson(res, response);
+        if (!error && res["success"] == true) {
+            Storage::clearLogs();
+            Serial.println("Logs synced successfully.");
+        } else {
+            Serial.println("Server returned success:false. Keeping logs.");
+        }
+    } else {
+        Serial.printf("Log sync failed: %d\n", httpCode);
     }
     http.end();
 }
 
 void syncWhitelist() {
     if (hardwareToken == "" || WiFi.status() != WL_CONNECTED) return;
+    WiFiClientSecure client;
+    client.setInsecure();
     HTTPClient http;
-    String url = String(CONVEX_URL) + "/api/whitelist?chipId=" + WiFi.macAddress() + "&token=" + hardwareToken;
-    http.begin(url);
-    if (http.GET() == HTTP_CODE_OK) {
+    String url = String(CONVEX_URL) + "/api/whitelist?chipId=" + WiFi.macAddress();
+    http.begin(client, url);
+    http.addHeader("Authorization", "Bearer " + hardwareToken);
+    
+    int httpCode = http.GET();
+    if (httpCode == HTTP_CODE_OK) {
+        String response = http.getString();
         JsonDocument res;
-        deserializeJson(res, http.getString());
-        JsonArray entries = res["entries"];
-        if (!entries.isNull()) {
-            prefs.begin("whitelist", false);
-            for (JsonObject entry : entries) {
-                prefs.putString(entry["uid"], entry["sid"].as<const char*>());
+        DeserializationError error = deserializeJson(res, response);
+        if (error) {
+            Serial.println("JSON parse fail in syncWhitelist");
+        } else {
+            JsonArray entries = res["entries"];
+            if (!entries.isNull()) {
+                prefs.begin("whitelist", false);
+                for (JsonObject entry : entries) {
+                    prefs.putString(entry["uid"], entry["sid"].as<const char*>());
+                }
+                prefs.end();
+                Serial.println("Whitelist synced.");
             }
-            prefs.end();
-            Serial.println("Whitelist synced.");
         }
+    } else {
+        Serial.printf("Whitelist sync failed: %d\n", httpCode);
     }
     http.end();
 }
 
 void sendHeartbeat() {
     if (hardwareToken == "" || WiFi.status() != WL_CONNECTED) return;
+    WiFiClientSecure client;
+    client.setInsecure();
     HTTPClient http;
-    http.begin(String(CONVEX_URL) + "/api/heartbeat");
+    http.begin(client, String(CONVEX_URL) + "/api/heartbeat");
     http.addHeader("Content-Type", "application/json");
+    http.addHeader("Authorization", "Bearer " + hardwareToken);
+    
     JsonDocument doc;
     doc["chipId"] = WiFi.macAddress();
-    doc["token"] = hardwareToken;
     doc["firmware"] = "1.0.0-polished";
     String body;
     serializeJson(doc, body);
@@ -165,14 +203,25 @@ void sendHeartbeat() {
 }
 
 void NetworkTask(void *pvParameters) {
+    esp_task_wdt_add(NULL);
     WiFi.begin(WIFI_SSID, WIFI_PASS);
+    
     for (;;) {
+        esp_task_wdt_reset();
+        
         if (WiFi.status() == WL_CONNECTED) {
             if (!isWifiConnected) {
                 isWifiConnected = true;
+                Serial.println("WiFi Connected. IP: " + WiFi.localIP().toString());
+                NTPSync::begin();
+                NTPSync::update();
+                
                 if (hardwareToken == "") registerDevice();
                 syncWhitelist();
             }
+            
+            NTPSync::update(); // Periodic time sync
+
             if (millis() - lastWhitelistSync > WHITELIST_INTERVAL) { syncWhitelist(); lastWhitelistSync = millis(); }
             if (millis() - lastLogSync > LOG_INTERVAL) { syncLogs(); lastLogSync = millis(); }
             if (millis() - lastHeartbeat > HEARTBEAT_INTERVAL) { 
@@ -180,7 +229,15 @@ void NetworkTask(void *pvParameters) {
                 sendWatchmanHeartbeat(); // Sync Node B
                 lastHeartbeat = millis(); 
             }
-        } else { isWifiConnected = false; }
+        } else {
+            if (isWifiConnected) {
+                isWifiConnected = false;
+                Serial.println("WiFi Disconnected. Reconnecting...");
+            }
+            // Reconnection attempt is handled by WiFi.begin() and internal retry, 
+            // but we can force it if needed.
+            // WiFi.begin(WIFI_SSID, WIFI_PASS); 
+        }
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
@@ -200,7 +257,21 @@ void setup() {
 
     // Init NFC
     nfc.begin();
-    if (!nfc.getFirmwareVersion()) { Serial.println("PN532 Fail"); while(1); }
+    int nfcRetries = 5;
+    while (nfcRetries > 0 && !nfc.getFirmwareVersion()) {
+        Serial.printf("PN532 init failed, retrying... (%d attempts left)\n", nfcRetries);
+        nfcRetries--;
+        delay(1000);
+        nfc.begin();
+    }
+
+    if (nfcRetries <= 0) {
+        Serial.println("PN532 Fail after retries. Restarting...");
+        delay(2000);
+        ESP.restart();
+    }
+    
+    Serial.println("PN532 initialized successfully");
     nfc.SAMConfig();
 
     // Init ESP-NOW
@@ -213,9 +284,14 @@ void setup() {
     }
 
     xTaskCreatePinnedToCore(NetworkTask, "NetTask", 10240, NULL, 1, &NetworkTaskHandle, 0);
+
+    // Watchdog
+    esp_task_wdt_init(30, true);
+    esp_task_wdt_add(NULL);
 }
 
 void loop() {
+    esp_task_wdt_reset();
     uint8_t uid[] = { 0, 0, 0, 0, 0, 0, 0 };
     uint8_t uidLength;
 

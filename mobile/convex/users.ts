@@ -11,6 +11,13 @@ export const viewer = query({
   },
 });
 
+export const internalViewer = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    return await getCurrentUser(ctx);
+  },
+});
+
 export const get = query({
   args: { id: v.id("users") },
   handler: async (ctx, args) => {

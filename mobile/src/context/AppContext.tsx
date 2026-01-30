@@ -62,31 +62,31 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [isOptimisticAuth, setIsOptimisticAuth] = useState(false);
   const [cachedProfile, setCachedProfile] = useState<CachedProfile | null>(null);
 
-  const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : 'skip' as any);
+  const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : "skip");
 
   // Strictly check roles
   const isAdmin = viewer !== undefined && viewer !== null && viewer.role === 'admin';
   const isStudent = viewer !== undefined && viewer !== null && viewer.role === 'student';
 
   // Global Sync for Data - Role Aware
-  const rooms = useQuery(api.rooms.list, isAuthenticated ? {} : 'skip' as any);
-  const recentLogs = useQuery(api.accessLogs.getRecent, isAuthenticated ? {} : 'skip' as any);
+  const rooms = useQuery(api.rooms.list, isAuthenticated ? {} : "skip");
+  const recentLogs = useQuery(api.accessLogs.getRecent, isAuthenticated ? {} : "skip");
   
   const todayStr = new Date().toISOString().split('T')[0];
-  const todaySessions = useQuery(api.sessions.getSessionsByDate, isAuthenticated ? { date: todayStr } : 'skip' as any);
-  const activeSemester = useQuery(api.calendar.getActiveSemester, isAuthenticated ? {} : 'skip' as any);
+  const todaySessions = useQuery(api.sessions.getSessionsByDate, isAuthenticated ? { date: todayStr } : "skip");
+  const activeSemester = useQuery(api.calendar.getActiveSemester, isAuthenticated ? {} : "skip");
 
   // Student Specific
-  const studentStats = useQuery(api.accessLogs.getStudentStats, isStudent ? {} : 'skip' as any);
+  const studentStats = useQuery(api.accessLogs.getStudentStats, isStudent ? {} : "skip");
   const homeroomSchedule = useQuery(
     api.schedule.getHomeroomSchedule, 
-    isStudent && viewer?.currentHomeroomId ? { homeroomId: viewer.currentHomeroomId } : 'skip' as any
+    isStudent && viewer?.currentHomeroomId ? { homeroomId: viewer.currentHomeroomId } : "skip"
   );
 
   // Admin Only Queries - Only trigger if we are CERTAIN they are an admin
-  const devices = useQuery(api.devices.list, isAdmin ? {} : 'skip' as any);
-  const userStats = useQuery(api.users.getStats, isAdmin ? {} : 'skip' as any);
-  const allUsers = useQuery(api.users.list, isAdmin ? {} : 'skip' as any);
+  const devices = useQuery(api.devices.list, isAdmin ? {} : "skip");
+  const userStats = useQuery(api.users.getStats, isAdmin ? {} : "skip");
+  const allUsers = useQuery(api.users.list, isAdmin ? {} : "skip");
 
   // Determine if necessary data for the current role is loaded
   const isAdminDataLoaded = isAuthenticated && viewer !== undefined ? (

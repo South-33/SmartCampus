@@ -2,8 +2,9 @@ import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import { MutationCtx } from "./_generated/server";
-import { Id } from "./_generated/dataModel";
+import { Id, Doc } from "./_generated/dataModel";
 import { getCambodiaDateString, getCambodiaDayOfWeek, parseTimeForDate } from "./lib/timezone";
+import { calculateAttendanceWindow } from "./lib/utils";
 
 // ===== INTERNAL MUTATIONS =====
 
@@ -102,9 +103,7 @@ export const dailyGenerator = internalMutation({
       const startTime = parseTimeForDate(todayStr, slot.startTime);
       const endTime = parseTimeForDate(todayStr, slot.endTime);
       
-      const durationMs = endTime - startTime;
-      const windowStart = startTime - (15 * 60 * 1000); // 15min before
-      const windowEnd = startTime + (durationMs / 2); // mid-class
+      const { windowStart, windowEnd } = calculateAttendanceWindow(startTime, endTime - startTime);
       
       // Create session
       const sessionId = await ctx.db.insert("dailySessions", {
@@ -248,13 +247,25 @@ export const analyzeSuspiciousActivity = internalMutation({
     
     for (const [deviceId, users] of byDevice) {
       if (users.size >= 2) {
-        await ctx.db.insert("adminAlerts", {
-          type: "SUSPECT_DEVICE",
-          severity: "high",
-          message: `Hardware Device ${deviceId} was used by ${users.size} different accounts in 12 hours`,
-          timestamp: now,
-          status: "active",
-        });
+        // Check for existing active alert for this device
+        const existing = await ctx.db
+          .query("adminAlerts")
+          .withIndex("by_status", q => q.eq("status", "active"))
+          .filter(q => q.and(
+            q.eq(q.field("deviceId"), deviceId as any),
+            q.eq(q.field("type"), "SUSPECT_DEVICE")
+          ))
+          .first();
+
+        if (!existing) {
+          await ctx.db.insert("adminAlerts", {
+            type: "SUSPECT_DEVICE",
+            severity: "high",
+            message: `Hardware Device ${deviceId} was used by ${users.size} different accounts in 12 hours`,
+            timestamp: now,
+            status: "active",
+          });
+        }
       }
     }
   },

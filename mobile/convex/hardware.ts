@@ -3,10 +3,11 @@ import { v } from "convex/values";
 import { QueryCtx, MutationCtx } from "./_generated/server";
 import { Doc } from "./_generated/dataModel";
 import { logActivity } from "./lib/permissions";
-import { hashToken, generateSecureToken, haversineDistance } from "./lib/utils";
+import { hashToken, generateSecureToken, haversineDistance, secureCompare } from "./lib/utils";
 
 /**
  * Validates that a request is coming from a legitimate hardware device.
+ * Uses constant-time comparison to prevent timing attacks.
  */
 async function validateDevice(
   ctx: QueryCtx | MutationCtx, 
@@ -24,12 +25,15 @@ async function validateDevice(
   }
 
   const incomingHash = await hashToken(token);
-  if (device.tokenHash !== incomingHash) {
+  
+  // Use constant-time comparison to prevent timing attacks
+  if (!secureCompare(device.tokenHash, incomingHash)) {
     throw new Error("Unauthorized hardware");
   }
 
   if (requireActive && device.status !== "active" && device.status !== "online") {
-    throw new Error(`Device is ${device.status}. An admin must activate it.`);
+    // Generic error to not leak device status
+    throw new Error("Device not authorized");
   }
 
   return device;

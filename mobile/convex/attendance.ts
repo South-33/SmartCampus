@@ -106,6 +106,8 @@ export const recordAttendance = mutation({
 
 /**
  * Teacher override for attendance.
+ * Teachers can only modify attendance for their own sessions.
+ * Admins can modify any session.
  */
 export const teacherOverride = mutation({
   args: {
@@ -117,6 +119,29 @@ export const teacherOverride = mutation({
     const user = await getCurrentUser(ctx);
     mustBeTeacherOrAdmin(user);
 
+    // Get the attendance record
+    const attendance = await ctx.db.get(args.attendanceId);
+    if (!attendance) {
+      throw new Error("Attendance record not found");
+    }
+
+    // Get the session to verify ownership
+    const session = await ctx.db.get(attendance.dailySessionId);
+    if (!session) {
+      throw new Error("Session not found");
+    }
+
+    // Get the schedule slot to find the teacher
+    const slot = await ctx.db.get(session.scheduleSlotId);
+    if (!slot) {
+      throw new Error("Schedule slot not found");
+    }
+
+    // Teachers can only modify their own sessions, admins can modify any
+    if (user!.role === "teacher" && slot.teacherId !== user!._id) {
+      throw new Error("You can only modify attendance for your own classes");
+    }
+
     await ctx.db.patch(args.attendanceId, {
       status: args.status,
       note: args.note,
@@ -124,16 +149,36 @@ export const teacherOverride = mutation({
       markedBy: user!._id,
     });
 
+    await logActivity(ctx, user!, "ATTENDANCE_OVERRIDE", 
+      `Changed attendance for student to ${args.status}`);
+
     return { success: true };
   },
 });
 
 /**
  * Gets attendance roster for a session.
+ * Requires teacher/admin role or own session access.
  */
 export const getSessionAttendance = query({
   args: { dailySessionId: v.id("dailySessions") },
   handler: async (ctx, args) => {
+    // Auth check - require authenticated user with appropriate role
+    const user = await getCurrentUser(ctx);
+    if (!user) {
+      throw new Error("Authentication required");
+    }
+    
+    // Students can only view their own attendance
+    if (user.role === "student") {
+      throw new Error("Students cannot view session attendance roster");
+    }
+    
+    // Teachers, staff, and admins can view
+    if (user.role !== "admin" && user.role !== "teacher" && user.role !== "staff") {
+      throw new Error("Unauthorized");
+    }
+
     const records = await ctx.db
       .query("attendance")
       .withIndex("by_session", (q) => q.eq("dailySessionId", args.dailySessionId))
@@ -154,10 +199,27 @@ export const getSessionAttendance = query({
 
 /**
  * Gets attendance history for a student.
+ * Requires authentication - students can only view their own history.
  */
 export const getStudentHistory = query({
   args: { studentId: v.id("users") },
   handler: async (ctx, args) => {
+    // Auth check
+    const user = await getCurrentUser(ctx);
+    if (!user) {
+      throw new Error("Authentication required");
+    }
+    
+    // Students can only view their own history
+    if (user.role === "student" && user._id !== args.studentId) {
+      throw new Error("You can only view your own attendance history");
+    }
+    
+    // Non-students can view any student's history
+    if (user.role !== "admin" && user.role !== "teacher" && user.role !== "staff" && user.role !== "student") {
+      throw new Error("Unauthorized");
+    }
+
     const records = await ctx.db
       .query("attendance")
       .withIndex("by_student", (q) => q.eq("studentId", args.studentId))

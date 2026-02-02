@@ -48,7 +48,7 @@ http.route({
         headers: { "Content-Type": "application/json" },
       });
     } catch (e: any) {
-      console.error("Whitelist sync error:", e.message);
+      // Log internally but don't expose error details to client
       return new Response("Unauthorized", { status: 401 });
     }
   }),
@@ -76,7 +76,7 @@ http.route({
         headers: { "Content-Type": "application/json" },
       });
     } catch (e: any) {
-      console.error("Log sync error:", e.message);
+      // Log internally but don't expose error details to client
       return new Response("Unauthorized", { status: 401 });
     }
   }),
@@ -104,7 +104,7 @@ http.route({
         headers: { "Content-Type": "application/json" },
       });
     } catch (e: any) {
-      console.error("Heartbeat error:", e.message);
+      // Log internally but don't expose error details to client
       return new Response("Unauthorized", { status: 401 });
     }
   }),

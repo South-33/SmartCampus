@@ -85,10 +85,27 @@ export const enrollStudent = mutation({
 
 /**
  * Lists students in a homeroom.
+ * Requires authentication - teachers can view homerooms they teach.
  */
 export const getRoster = query({
   args: { homeroomId: v.id("homerooms") },
   handler: async (ctx, args) => {
+    // Auth check
+    const user = await getCurrentUser(ctx);
+    if (!user) {
+      throw new Error("Authentication required");
+    }
+    
+    // Students cannot view full roster (privacy)
+    if (user.role === "student") {
+      throw new Error("Students cannot view homeroom rosters");
+    }
+    
+    // Teachers, staff, and admins can view
+    if (user.role !== "admin" && user.role !== "teacher" && user.role !== "staff") {
+      throw new Error("Unauthorized");
+    }
+
     const enrollments = await ctx.db
       .query("homeroomStudents")
       .withIndex("by_homeroom", (q) => q.eq("homeroomId", args.homeroomId))

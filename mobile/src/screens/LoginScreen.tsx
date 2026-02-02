@@ -48,7 +48,13 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
     const [loading, setLoading] = useState(false);
     const { signIn, signOut } = useAuthActions();
 
+    // Demo credentials only available in development builds
     const handleQuickAccess = (role: UserRole) => {
+        if (!__DEV__) {
+            Alert.alert('Not Available', 'Quick access is only available in development builds.');
+            return;
+        }
+        
         const credentials = {
             admin: { email: 'admin@kingsford.edu', password: 'password123' },
             teacher: { email: 'sarah.williams@kingsford.edu', password: 'password123' },
@@ -141,6 +147,8 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
 
                     <BodySm style={styles.forgotLink}>Forgot password?</BodySm>
                     
+                    {/* Demo buttons only visible in development */}
+                    {__DEV__ && (
                     <View style={styles.demoContainer}>
                         <Caption style={styles.demoLabel}>Quick Access (Demo)</Caption>
                         <View style={styles.demoButtons}>
@@ -174,6 +182,7 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
                             </TouchableOpacity>
                          </View>
                     </View>
+                    )}
                 </View>
             </KeyboardAvoidingView>
         </View>

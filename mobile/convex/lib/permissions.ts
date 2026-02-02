@@ -30,8 +30,7 @@ export const mustBeAdmin = (user: User | null) => {
     throw new Error("You must be logged in to perform this action.");
   }
   if (user.role !== "admin") {
-    console.log("mustBeAdmin: User", user.email, "has role", user.role, "but expected admin");
-    throw new Error(`Only administrators can perform this action. (Current role: ${user.role})`);
+    throw new Error("Only administrators can perform this action.");
   }
 };
 

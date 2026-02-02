@@ -1,9 +1,10 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { getCurrentUser, mustBeAuthenticated } from "./lib/permissions";
+import { getCurrentUser } from "./lib/permissions";
 
 /**
- * Lists all staff tasks.
+ * Lists staff tasks.
+ * Auth: Staff see only their assigned tasks. Admins see all tasks.
  */
 export const list = query({
   args: {},
@@ -11,7 +12,22 @@ export const list = query({
     const user = await getCurrentUser(ctx);
     if (!user) return [];
 
-    const tasks = await ctx.db.query("staffTasks").collect();
+    // Only staff and admins can view tasks
+    if (user.role !== "staff" && user.role !== "admin") {
+      return [];
+    }
+
+    let tasks;
+    if (user.role === "staff") {
+      // Staff only see their own assigned tasks
+      tasks = await ctx.db
+        .query("staffTasks")
+        .filter((q) => q.eq(q.field("assignedTo"), user._id))
+        .collect();
+    } else {
+      // Admins see all tasks
+      tasks = await ctx.db.query("staffTasks").collect();
+    }
     
     // Get Active Semester
     const activeSemester = await ctx.db
@@ -44,6 +60,7 @@ export const list = query({
 
 /**
  * Updates a task status.
+ * Auth: Staff can only update their own assigned tasks. Admins can update any.
  */
 export const updateStatus = mutation({
   args: { 
@@ -53,6 +70,19 @@ export const updateStatus = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Unauthorized");
+
+    // Only staff and admins can update tasks
+    if (user.role !== "staff" && user.role !== "admin") {
+      throw new Error("Only staff or admins can update tasks");
+    }
+
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found");
+
+    // Staff can only update their own tasks
+    if (user.role === "staff" && task.assignedTo !== user._id) {
+      throw new Error("You can only update your own assigned tasks");
+    }
 
     await ctx.db.patch(args.taskId, { status: args.status });
   },

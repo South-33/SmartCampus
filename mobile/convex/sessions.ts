@@ -134,15 +134,32 @@ export const getSessionsByDate = query({
 
 /**
  * Gets details for a specific session.
+ * Auth: Must be authenticated. Students can only see sessions for their homeroom.
  */
 export const getDetails = query({
   args: { sessionId: v.id("dailySessions") },
   handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
+
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
 
     const slot = await ctx.db.get(session.scheduleSlotId);
     if (!slot) return null;
+
+    // Students can only view sessions for their enrolled homeroom
+    if (user.role === "student") {
+      const enrollment = await ctx.db
+        .query("homeroomStudents")
+        .withIndex("by_student", (q) => q.eq("studentId", user._id))
+        .filter((q) => q.eq(q.field("status"), "active"))
+        .first();
+      
+      if (!enrollment || enrollment.homeroomId !== slot.homeroomId) {
+        return null;
+      }
+    }
 
     const subject = await ctx.db.get(slot.subjectId);
     const homeroom = await ctx.db.get(slot.homeroomId);
@@ -190,7 +207,6 @@ export const getCurrentTeacherSession = query({
     const date = new Date(now).toISOString().split("T")[0];
     const dayOfWeek = new Date(now).getDay();
     const timeStr = new Date(now).toTimeString().split(" ")[0].substring(0, 5);
-    console.log("Server Debug - Date:", date, "Time:", timeStr, "Day:", dayOfWeek);
 
     // 1. Find the current slot
     const slot = await ctx.db

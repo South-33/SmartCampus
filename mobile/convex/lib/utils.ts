@@ -12,6 +12,28 @@ export async function hashToken(token: string) {
 }
 
 /**
+ * Constant-time string comparison to prevent timing attacks.
+ * Returns true if strings are equal.
+ */
+export function secureCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    // Still do the comparison to avoid timing leak on length
+    let result = 0;
+    const maxLen = Math.max(a.length, b.length);
+    for (let i = 0; i < maxLen; i++) {
+      result |= (a.charCodeAt(i % a.length) || 0) ^ (b.charCodeAt(i % b.length) || 0);
+    }
+    return false; // But always return false if lengths differ
+  }
+  
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
+/**
  * Haversine formula to calculate distance between two GPS points in meters.
  */
 export function haversineDistance(

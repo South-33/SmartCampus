@@ -35,7 +35,8 @@ export const list = query({
     if (!user) return [];
     mustBeAdmin(user);
     
-    return await ctx.db.query("users").collect();
+    // Limited to 200 for performance during testing
+    return await ctx.db.query("users").take(200);
   },
 });
 

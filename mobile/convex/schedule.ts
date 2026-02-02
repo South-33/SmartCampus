@@ -70,10 +70,27 @@ export const addSlot = mutation({
 
 /**
  * Gets the weekly schedule for a homeroom.
+ * Auth: Must be authenticated. Students can only view their own homeroom's schedule.
  */
 export const getHomeroomSchedule = query({
   args: { homeroomId: v.id("homerooms") },
   handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return [];
+
+    // Students can only view their own homeroom's schedule
+    if (user.role === "student") {
+      const enrollment = await ctx.db
+        .query("homeroomStudents")
+        .withIndex("by_student", (q) => q.eq("studentId", user._id))
+        .filter((q) => q.eq(q.field("status"), "active"))
+        .first();
+      
+      if (!enrollment || enrollment.homeroomId !== args.homeroomId) {
+        return [];
+      }
+    }
+
     const slots = await ctx.db
       .query("scheduleSlots")
       .withIndex("by_homeroom", (q) => q.eq("homeroomId", args.homeroomId))
@@ -95,10 +112,24 @@ export const getHomeroomSchedule = query({
 
 /**
  * Gets the schedule for a teacher.
+ * Auth: Must be authenticated. Teachers can only view their own schedule.
+ *       Admins can view any teacher's schedule.
  */
 export const getTeacherSchedule = query({
   args: { teacherId: v.id("users") },
   handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return [];
+
+    // Teachers can only view their own schedule (admins can view any)
+    if (user.role === "teacher" && user._id !== args.teacherId) {
+      return [];
+    }
+    // Students and staff cannot view teacher schedules directly
+    if (user.role === "student" || user.role === "staff") {
+      return [];
+    }
+
     const slots = await ctx.db
       .query("scheduleSlots")
       .withIndex("by_teacher", (q) => q.eq("teacherId", args.teacherId))

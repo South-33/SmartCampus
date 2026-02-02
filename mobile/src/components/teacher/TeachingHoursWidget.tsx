@@ -35,7 +35,7 @@ export const TeachingHoursWidget = ({ thisWeek, target, status, onPress }: Teach
             <View style={styles.content}>
                 <View style={styles.stats}>
                     <View style={styles.valueRow}>
-                        <HeadingMd style={styles.value}>{thisWeek}</HeadingMd>
+                        <HeadingMd style={styles.value}>{thisWeek.toFixed(1)}</HeadingMd>
                         <BodySm style={styles.target}>/ {target}h</BodySm>
                     </View>
                     <Caption>Weekly Progress</Caption>

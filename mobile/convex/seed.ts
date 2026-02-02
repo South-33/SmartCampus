@@ -225,8 +225,8 @@ export const seedOperationalData = internalMutation({
       await ctx.db.patch(studentId, { currentHomeroomId: hrId });
     }
 
-    // 3. Create Schedule (Friday focus)
-    const dayOfWeek = 5; // Friday
+    // 3. Create Schedule (Dynamic - matches today)
+    const dayOfWeek = new Date().getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
     
     // Create robust schedule for Sarah Williams (Sarah) and David Miller
     // Slot 1: Demo Session (Morning/Ongoing) - Sarah Williams
@@ -304,7 +304,71 @@ export const seedOperationalData = internalMutation({
       }
     }
 
-    // 6. Pre-register Hardware Devices
+    // 6. Generate Historical Sessions (Past 5 Weekdays) for Teacher History
+    const slots = await ctx.db.query("scheduleSlots").collect();
+    for (let daysAgo = 1; daysAgo <= 5; daysAgo++) {
+      const pastDate = new Date();
+      pastDate.setDate(pastDate.getDate() - daysAgo);
+      
+      // Skip weekends
+      const pastDayOfWeek = pastDate.getDay();
+      if (pastDayOfWeek === 0 || pastDayOfWeek === 6) continue;
+      
+      const pastDateStr = pastDate.toISOString().split('T')[0];
+      
+      // Create schoolDay for this past date
+      const pastSchoolDayId = await ctx.db.insert("schoolDays", {
+        semesterId,
+        date: pastDateStr,
+        dayType: "regular",
+      });
+      
+      // Create closed sessions for each slot
+      for (const slot of slots) {
+        const pastSessionId = await ctx.db.insert("dailySessions", {
+          scheduleSlotId: slot._id,
+          schoolDayId: pastSchoolDayId,
+          date: pastDateStr,
+          status: "closed",
+          windowStart: pastDate.getTime() + (8 * 3600000),  // 8 AM
+          windowEnd: pastDate.getTime() + (10 * 3600000),   // 10 AM
+        });
+        
+        // Get enrollments for this slot's homeroom
+        const enrollments = await ctx.db.query("homeroomStudents")
+          .withIndex("by_homeroom", q => q.eq("homeroomId", slot.homeroomId))
+          .collect();
+        
+        // Create realistic attendance (70% present, 15% late, 15% absent)
+        for (let i = 0; i < enrollments.length; i++) {
+          const enroll = enrollments[i];
+          const rand = Math.random();
+          let status: "present" | "late" | "absent";
+          let scanTime: number | undefined;
+          
+          if (rand < 0.70) {
+            status = "present";
+            scanTime = pastDate.getTime() + (8 * 3600000) + (Math.random() * 600000); // Within 10 min of start
+          } else if (rand < 0.85) {
+            status = "late";
+            scanTime = pastDate.getTime() + (8 * 3600000) + (900000 + Math.random() * 1800000); // 15-45 min late
+          } else {
+            status = "absent";
+            scanTime = undefined;
+          }
+          
+          await ctx.db.insert("attendance", {
+            dailySessionId: pastSessionId,
+            studentId: enroll.studentId,
+            status,
+            scanTime,
+            markedManually: status === "absent",
+          });
+        }
+      }
+    }
+
+    // 7. Pre-register Hardware Devices
     await ctx.db.insert("devices", {
       chipId: "DEVICE_NODE_A",
       name: "Gatekeeper (Door)",
@@ -322,7 +386,7 @@ export const seedOperationalData = internalMutation({
       lastSeen: Date.now(),
     });
 
-    // 7. Add Mock Alerts for Sarah Williams (Teacher Demo)
+    // 8. Add Mock Alerts for Sarah Williams (Teacher Demo)
     await ctx.db.insert("adminAlerts", {
       type: "SUSPECT_GPS",
       severity: "high",

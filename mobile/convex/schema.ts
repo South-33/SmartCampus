@@ -37,6 +37,9 @@ export default defineSchema({
     // Cache current homeroom for performance
     currentHomeroomId: v.optional(v.id("homerooms")),
     
+    // Biometric enrollment ID (from TX510/FingerVein module)
+    biometricId: v.optional(v.number()),
+    
     // Academic Info
     major: v.optional(v.string()),
     year: v.optional(v.string()),

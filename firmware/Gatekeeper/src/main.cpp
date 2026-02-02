@@ -276,8 +276,8 @@ void openDoor(const String& userId, const String& method) {
     digitalWrite(RELAY_PIN, LOW);
 }
 
-bool runBiometricCheck(uint16_t biometricId) {
-    DEBUG_PRINTLN("[BIOMETRIC] Starting Face + Finger Vein check...");
+bool runBiometricCheck(uint16_t expectedBiometricId) {
+    DEBUG_PRINTF("[BIOMETRIC] Starting check, expecting ID: %d\n", expectedBiometricId);
     unsigned long start = millis();
     
     if (TEST_MODE) {
@@ -294,17 +294,23 @@ bool runBiometricCheck(uint16_t biometricId) {
         // Try Face Recognition
         int faceId = FaceAuth::verifyOnce();
         if (faceId >= 0) {
-            DEBUG_PRINTF("[BIOMETRIC] Face match: %d\n", faceId);
-            digitalWrite(STATUS_LED, LOW);
-            return true;
+            if (faceId == expectedBiometricId) {
+                DEBUG_PRINTF("[BIOMETRIC] Face match: %d\n", faceId);
+                digitalWrite(STATUS_LED, LOW);
+                return true;
+            }
+            DEBUG_PRINTF("[BIOMETRIC] Face mismatch: got %d, expected %d\n", faceId, expectedBiometricId);
         }
 
         // Try Finger Vein
         int veinId = FingerVeinAuth::verify();
         if (veinId >= 0) {
-            DEBUG_PRINTF("[BIOMETRIC] Vein match: %d\n", veinId);
-            digitalWrite(STATUS_LED, LOW);
-            return true;
+            if (veinId == expectedBiometricId) {
+                DEBUG_PRINTF("[BIOMETRIC] Vein match: %d\n", veinId);
+                digitalWrite(STATUS_LED, LOW);
+                return true;
+            }
+            DEBUG_PRINTF("[BIOMETRIC] Vein mismatch: got %d, expected %d\n", veinId, expectedBiometricId);
         }
 
         yield();
@@ -443,8 +449,9 @@ void syncWhitelist() {
         if (!error) {
             JsonArray entries = res["entries"];
             if (!entries.isNull()) {
+                // Store card UID -> studentId mapping
                 prefs.begin("whitelist", false);
-                prefs.clear();  // Clear old whitelist
+                prefs.clear();
                 for (JsonObject entry : entries) {
                     const char* uid = entry["uid"];
                     const char* sid = entry["sid"];
@@ -453,6 +460,19 @@ void syncWhitelist() {
                     }
                 }
                 prefs.end();
+                
+                // Store studentId -> biometricId mapping (separate namespace)
+                prefs.begin("biometrics", false);
+                prefs.clear();
+                for (JsonObject entry : entries) {
+                    const char* sid = entry["sid"];
+                    uint16_t bioId = entry["bioId"] | 0;
+                    if (sid && bioId > 0) {
+                        prefs.putUShort(sid, bioId);
+                    }
+                }
+                prefs.end();
+                
                 DEBUG_PRINTF("[SYNC] Whitelist updated: %d entries\n", entries.size());
             }
         }
@@ -898,11 +918,20 @@ void loop() {
         if (isInWhitelist) {
             // Check if biometric verification required (students)
             if (sid.startsWith("STU")) {
-                if (runBiometricCheck(1)) {
+                // Look up expected biometric ID for this student
+                prefs.begin("biometrics", true);
+                uint16_t expectedBioId = prefs.getUShort(sid.c_str(), 0);
+                prefs.end();
+                
+                if (expectedBioId == 0) {
+                    DEBUG_PRINTLN("[ACCESS] Student has no enrolled biometric");
+                    ledDenied();
+                    Serial.println("[ACCESS] Denied - No biometric enrolled");
+                } else if (runBiometricCheck(expectedBioId)) {
                     openDoor(sid, "NFC+BIO");
                 } else {
                     ledDenied();
-                    Serial.println("[ACCESS] Denied - Biometric failed");
+                    Serial.println("[ACCESS] Denied - Biometric mismatch");
                 }
             } else {
                 // Staff/Admin - NFC only

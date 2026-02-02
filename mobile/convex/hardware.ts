@@ -81,7 +81,7 @@ export const getWhitelist = query({
         roomName: room?.name,
         entries: staff
           .filter(u => !!u.cardUID)
-          .map(u => ({ uid: u.cardUID, sid: u._id, role: u.role }))
+          .map(u => ({ uid: u.cardUID, sid: u._id, role: u.role, bioId: u.biometricId || 0 }))
       };
     }
 
@@ -118,7 +118,8 @@ export const getWhitelist = query({
         .map(u => ({
           uid: u.cardUID,
           sid: u._id,
-          role: u.role
+          role: u.role,
+          bioId: u.biometricId || 0
         }))
     };
   }

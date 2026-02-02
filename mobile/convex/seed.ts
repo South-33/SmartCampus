@@ -1,4 +1,4 @@
-import { internalAction, internalMutation } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { createAccount } from "@convex-dev/auth/server";
 import { internal } from "./_generated/api";
@@ -48,17 +48,28 @@ export const seed = internalAction({
   handler: async (ctx) => {
     console.log("🚀 Initializing High-Fidelity Campus Simulation (50+ Accounts)...");
 
+    // Safety Check: Prevent accidental production data wipe
+    // If systemConfig exists and debugMode is false, refuse to run
+    const existingConfig = await ctx.runQuery(internal.seed.checkSafeToSeed, {});
+    if (!existingConfig.safe) {
+      throw new Error("SAFETY STOP: Cannot run seed when debugMode is false. This looks like production!");
+    }
+
     // 1. Full Wipe
     await ctx.runMutation(internal.seed.clearAllData, {});
     console.log("🧹 Database wiped clean.");
 
-    // 2. Seed Infrastructure
+    // 2. Seed System Configuration (must be first after wipe)
+    await ctx.runMutation(internal.seed.seedSystemConfig, {});
+    console.log("⚙️ System configuration initialized.");
+
+    // 3. Seed Infrastructure
     const semesterId = await ctx.runMutation(internal.seed.seedSemester, {});
     const roomIds = await ctx.runMutation(internal.seed.seedRooms, {});
     const subjectIds = await ctx.runMutation(internal.seed.seedSubjects, {});
     console.log("🏢 Infrastructure & Subjects established.");
 
-    // 3. Seed Personnel
+    // 4. Seed Personnel
     const personnel = [
       { email: 'admin@kingsford.edu', name: 'Dean Henderson', role: 'admin' },
       { email: 'sarah.williams@kingsford.edu', name: 'Prof. Sarah Williams', role: 'teacher' },
@@ -124,12 +135,42 @@ export const clearAllData = internalMutation({
       "users", "authAccounts", "authSessions", "authIdentifiers", 
       "rooms", "semesters", "schoolDays", "homerooms", "homeroomStudents",
       "subjects", "scheduleSlots", "dailySessions", "attendance",
-      "staffTasks", "accessLogs", "auditLogs", "devices"
+      "staffTasks", "accessLogs", "auditLogs", "devices", "adminAlerts",
+      "rateLimits", "systemConfig"
     ];
     for (const table of tables) {
       const docs = await ctx.db.query(table as any).collect();
       for (const doc of docs) await ctx.db.delete(doc._id);
     }
+  }
+});
+
+/**
+ * Safety check query - returns whether it's safe to run the seed.
+ * If systemConfig exists and debugMode is false, seeding is blocked.
+ */
+export const checkSafeToSeed = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const config = await ctx.db.query("systemConfig").first();
+    // Safe if: no config exists OR debugMode is true
+    if (!config) return { safe: true };
+    return { safe: config.debugMode === true };
+  }
+});
+
+/**
+ * Seeds the systemConfig table with default values.
+ */
+export const seedSystemConfig = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    await ctx.db.insert("systemConfig", {
+      espNowPmk: "SchoolNFC_PMK01",        // 16 chars for ESP-NOW PMK
+      espNowSharedSecret: "SchoolNFC2024!@#", // Shared secret for HMAC
+      debugMode: true,                     // true for dev, set false in prod
+      updatedAt: Date.now(),
+    });
   }
 });
 

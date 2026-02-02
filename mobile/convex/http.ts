@@ -120,13 +120,37 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     try {
       const body = await request.json();
-      const result = await ctx.runMutation(api.hardware.register, body);
+      const result = await ctx.runMutation(api.hardware.register, { chipId: body.chipId });
       return new Response(JSON.stringify(result), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
     } catch (e: any) {
-      return new Response(e.message, { status: 400 });
+      // Don't leak internal error messages
+      return new Response("Registration failed", { status: 400 });
+    }
+  }),
+});
+
+/**
+ * GET /api/config
+ * Returns system configuration (ESP-NOW secrets, debug mode) to authenticated devices
+ */
+http.route({
+  path: "/api/config",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const { chipId, token } = await getHardwareCreds(request);
+    if (!chipId || !token) return new Response("Unauthorized", { status: 401 });
+
+    try {
+      const data = await ctx.runQuery(api.hardware.getSystemConfig, { chipId, token });
+      return new Response(JSON.stringify(data), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e: any) {
+      return new Response("Unauthorized", { status: 401 });
     }
   }),
 });

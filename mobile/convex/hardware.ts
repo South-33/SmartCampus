@@ -283,6 +283,29 @@ async function checkRateLimit(ctx: MutationCtx, key: string, limit: number, wind
   return true;
 }
 
+/**
+ * Returns system configuration for authenticated devices.
+ * Devices cache this in NVS and refresh periodically.
+ */
+export const getSystemConfig = query({
+  args: { chipId: v.string(), token: v.string() },
+  handler: async (ctx, args) => {
+    await validateDevice(ctx, args.chipId, args.token);
+    
+    const config = await ctx.db.query("systemConfig").first();
+    if (!config) {
+      throw new Error("System not configured");
+    }
+    
+    return {
+      pmk: config.espNowPmk,
+      secret: config.espNowSharedSecret,
+      debug: config.debugMode,
+      version: config.updatedAt,
+    };
+  }
+});
+
 export const register = mutation({
   args: { chipId: v.string() },
   handler: async (ctx, args) => {

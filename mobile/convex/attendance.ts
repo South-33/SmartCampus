@@ -28,10 +28,12 @@ export const recordAttendance = mutation({
     const now = Date.now();
     
     // 1. Drift Protection: Ensure phone clock isn't spoofed (> 5 min drift)
-    // We only enforce this if they claim to have internet (timeSource === 'ntp')
-    if (args.antiCheat.timeSource === "ntp" && Math.abs(args.timestamp - now) > 5 * 60 * 1000) {
-      await logActivity(ctx, user, "SUSPECT_TIME", `Large clock drift detected: ${Math.round((args.timestamp - now) / 1000)}s`);
-      // We don't throw, but we use server time instead for the record
+    // Apply regardless of claimed timeSource - attackers could lie about it
+    const driftMs = Math.abs(args.timestamp - now);
+    if (driftMs > 5 * 60 * 1000) {
+      await logActivity(ctx, user, "SUSPECT_TIME", `Large clock drift detected: ${Math.round(driftMs / 1000)}s`);
+      // Use server time instead of trusting client timestamp
+      args.timestamp = now;
     }
 
     const date = new Date(args.timestamp).toISOString().split("T")[0];
@@ -97,7 +99,12 @@ export const recordAttendance = mutation({
       scanTime: args.timestamp,
       method: args.method,
       markedManually: false,
-      ...args.antiCheat,
+      // Explicitly pick antiCheat fields - don't spread untrusted data
+      deviceTime: args.antiCheat.deviceTime,
+      timeSource: args.antiCheat.timeSource,
+      hasInternet: args.antiCheat.hasInternet,
+      deviceId: args.antiCheat.deviceId,
+      gps: args.antiCheat.gps,
     });
 
     return { success: true, sessionName: (await ctx.db.get(slot.subjectId))?.name };

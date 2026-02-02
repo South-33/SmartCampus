@@ -52,6 +52,7 @@
 #define WHITELIST_SYNC_INTERVAL 3600000 // 1 hour
 #define LOG_SYNC_INTERVAL       30000   // 30 seconds
 #define HEARTBEAT_INTERVAL      60000   // 1 minute
+#define CONFIG_SYNC_INTERVAL    3600000 // 1 hour - system config refresh
 #define BEACON_INTERVAL_MS      2000    // ESP-NOW beacon interval
 #define HEARTBEAT_TIMEOUT_MS    15000   // Consider disconnected after this
 #define HTTP_TIMEOUT_MS         10000   // HTTP request timeout
@@ -62,14 +63,12 @@
 // =============================================================================
 #define MIN_VALID_EPOCH         1600000000  // Sept 2020 - sanity check for NTP
 #define MAX_LOG_FILE_SIZE       (100 * 1024) // 100KB max log file
-#define ESP_NOW_PMK             "SchoolNFC_PMK01"  // Primary Master Key (16 chars)
 
-// =============================================================================
-// ESP-NOW ENCRYPTION
-// Local Master Key for paired devices (derived from room ID + shared secret)
-// In production, this should be unique per room and stored securely
-// =============================================================================
-#define ESP_NOW_SHARED_SECRET   "SchoolNFC2024!@#"
+// ESP-NOW secrets are now fetched from Convex and stored in NVS
+// Fallback values used only until first config sync completes
+// These should be changed in production via the Convex dashboard
+#define DEFAULT_ESP_NOW_PMK     "SchoolNFC_PMK01"   // 16 chars - default PMK
+#define DEFAULT_ESP_NOW_SECRET  "SchoolNFC2024!@#"  // Default HMAC secret
 
 // =============================================================================
 // TLS CERTIFICATE

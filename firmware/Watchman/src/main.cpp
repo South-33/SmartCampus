@@ -53,6 +53,9 @@ SeqNumManager seqNumManager;
 // Local state
 unsigned long lastBeaconTime = 0;
 
+// Dynamic configuration (stored in NVS, loaded on boot)
+String espNowSharedSecret = DEFAULT_ESP_NOW_SECRET;
+
 // =============================================================================
 // THREAD-SAFE STATE ACCESS
 // =============================================================================
@@ -173,7 +176,7 @@ void OnDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
     }
     
     // Verify HMAC
-    if (!msg.verifyHMAC(ESP_NOW_SHARED_SECRET)) {
+    if (!msg.verifyHMAC(espNowSharedSecret.c_str())) {
         DEBUG_PRINTLN("[ESPNOW] HMAC verification failed");
         return;
     }
@@ -199,12 +202,15 @@ void OnDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
             ack.setRoomId(currentRoom);
             ack.msgType = MSG_PAIR_ACK;
             ack.seqNum = getNextSeqNum();
-            ack.calculateHMAC(ESP_NOW_SHARED_SECRET);
+            ack.calculateHMAC(espNowSharedSecret.c_str());
             
             esp_now_peer_info_t peerInfo = {};
             memcpy(peerInfo.peer_addr, mac, 6);
             peerInfo.channel = 0;
-            peerInfo.encrypt = false;
+            peerInfo.encrypt = true;
+            
+            // Generate LMK from room ID and shared secret for encryption
+            generateLMK(currentRoom, espNowSharedSecret.c_str(), peerInfo.lmk);
             
             if (!esp_now_is_peer_exist(mac)) {
                 esp_now_add_peer(&peerInfo);
@@ -356,13 +362,20 @@ void setup() {
         if (getIsPaired()) {
             uint8_t mac[6];
             getGatekeeperMac(mac);
+            char room[16];
+            getRoomId(room, sizeof(room));
+            
             esp_now_peer_info_t peerInfo = {};
             memcpy(peerInfo.peer_addr, mac, 6);
             peerInfo.channel = 0;
-            peerInfo.encrypt = false;
+            peerInfo.encrypt = true;
+            
+            // Generate LMK from room ID and shared secret
+            generateLMK(room, espNowSharedSecret.c_str(), peerInfo.lmk);
+            
             esp_now_add_peer(&peerInfo);
             
-            Serial.printf("[BOOT] Paired with %02X:%02X:%02X:%02X:%02X:%02X\n",
+            Serial.printf("[BOOT] Paired with %02X:%02X:%02X:%02X:%02X:%02X (encrypted)\n",
                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         } else {
             Serial.println("[BOOT] Not paired. Entering beacon mode.");
@@ -443,7 +456,7 @@ void loop() {
         beacon.setRoomId(currentRoom);
         beacon.msgType = MSG_BEACON;
         beacon.seqNum = getNextSeqNum();
-        beacon.calculateHMAC(ESP_NOW_SHARED_SECRET);
+        beacon.calculateHMAC(espNowSharedSecret.c_str());
         
         uint8_t broadcastMac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
         esp_now_peer_info_t peerInfo = {};

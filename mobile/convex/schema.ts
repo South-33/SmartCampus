@@ -260,4 +260,14 @@ export default defineSchema({
     attempts: v.number(),
     windowStart: v.number(),
   }).index("by_key", ["key"]),
+
+  // ============ SYSTEM CONFIGURATION ============
+  // Single-row table for global system settings managed from Convex dashboard
+  
+  systemConfig: defineTable({
+    espNowPmk: v.string(),           // 16 chars for ESP-NOW encryption PMK
+    espNowSharedSecret: v.string(),  // Shared secret for HMAC-SHA256
+    debugMode: v.boolean(),          // Toggle debug logging on devices
+    updatedAt: v.number(),           // Timestamp for change detection
+  }),
 });

@@ -121,4 +121,25 @@ private:
     uint32_t _lastSeqNum;
 };
 
+// =============================================================================
+// HELPER: Generate LMK from room ID and shared secret
+// =============================================================================
+inline void generateLMK(const char* roomId, const char* sharedSecret, uint8_t* lmk) {
+    // Use HMAC-SHA256 to derive a unique 16-byte LMK per room
+    uint8_t fullHash[32];
+    mbedtls_md_context_t ctx;
+    mbedtls_md_init(&ctx);
+    
+    const mbedtls_md_info_t* md_info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+    mbedtls_md_setup(&ctx, md_info, 1);
+    
+    mbedtls_md_hmac_starts(&ctx, (const unsigned char*)sharedSecret, strlen(sharedSecret));
+    mbedtls_md_hmac_update(&ctx, (const unsigned char*)roomId, strlen(roomId));
+    mbedtls_md_hmac_finish(&ctx, fullHash);
+    mbedtls_md_free(&ctx);
+    
+    // Take first 16 bytes for LMK
+    memcpy(lmk, fullHash, 16);
+}
+
 #endif // ESPNOW_PROTOCOL_H

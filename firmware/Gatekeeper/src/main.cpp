@@ -63,6 +63,13 @@ String convexUrl = "";
 unsigned long lastWhitelistSync = 0;
 unsigned long lastLogSync = 0;
 unsigned long lastHeartbeat = 0;
+unsigned long lastConfigSync = 0;
+
+// Dynamic configuration from Convex (stored in NVS)
+String espNowPmk = "";           // 16 chars for ESP-NOW PMK
+String espNowSharedSecret = "";  // Shared secret for HMAC
+bool debugModeEnabled = true;    // Can be toggled remotely
+uint32_t configVersion = 0;      // For detecting config changes
 
 // Sequence number manager for replay protection
 SeqNumManager seqNumManager;
@@ -165,7 +172,7 @@ void OnDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
     }
     
     // Verify HMAC
-    if (!msg.verifyHMAC(ESP_NOW_SHARED_SECRET)) {
+    if (!msg.verifyHMAC(espNowSharedSecret.c_str())) {
         DEBUG_PRINTLN("[ESPNOW] HMAC verification failed");
         return;
     }
@@ -182,12 +189,15 @@ void OnDataRecv(const uint8_t* mac, const uint8_t* incomingData, int len) {
         req.msgType = MSG_PAIR_REQUEST;
         req.seqNum = getNextSeqNum();
         req.timestamp = NTPSync::getEpochTime();
-        req.calculateHMAC(ESP_NOW_SHARED_SECRET);
+        req.calculateHMAC(espNowSharedSecret.c_str());
 
         esp_now_peer_info_t peerInfo = {};
         memcpy(peerInfo.peer_addr, mac, 6);
         peerInfo.channel = 0;
-        peerInfo.encrypt = false;  // TODO: Enable encryption with LMK
+        peerInfo.encrypt = true;
+        
+        // Generate LMK from room ID and shared secret for encryption
+        generateLMK(currentRoom, espNowSharedSecret.c_str(), peerInfo.lmk);
         
         if (!esp_now_is_peer_exist(mac)) {
             esp_err_t result = esp_now_add_peer(&peerInfo);
@@ -235,7 +245,7 @@ bool sendToWatchman(MessageType type) {
     msg.msgType = type;
     msg.seqNum = getNextSeqNum();
     msg.timestamp = NTPSync::getEpochTime();
-    msg.calculateHMAC(ESP_NOW_SHARED_SECRET);
+    msg.calculateHMAC(espNowSharedSecret.c_str());
     
     esp_err_t result = esp_now_send(mac, (uint8_t*)&msg, sizeof(msg));
     if (result != ESP_OK) {
@@ -341,7 +351,7 @@ void registerDevice() {
     if (code == 200) {
         JsonDocument res;
         DeserializationError err = deserializeJson(res, http.getString());
-        if (!err && res.containsKey("token")) {
+        if (!err && res["token"].is<const char*>()) {
             hardwareToken = res["token"].as<String>();
             prefs.begin("auth", false);
             prefs.putString("token", hardwareToken);
@@ -454,6 +464,65 @@ void syncWhitelist() {
     delete client;
 }
 
+/**
+ * Fetches system configuration (ESP-NOW secrets, debug mode) from Convex.
+ * Called after registration and periodically (hourly).
+ */
+void syncSystemConfig() {
+    if (hardwareToken.isEmpty() || WiFi.status() != WL_CONNECTED) return;
+    
+    WiFiClientSecure* client = createSecureClient();
+    HTTPClient http;
+    http.setTimeout(HTTP_TIMEOUT_MS);
+    
+    String url = convexUrl + "/api/config?chipId=" + WiFi.macAddress();
+    if (!http.begin(*client, url)) {
+        delete client;
+        return;
+    }
+    
+    http.addHeader("Authorization", "Bearer " + hardwareToken);
+    
+    int httpCode = http.GET();
+    if (httpCode == 200) {
+        JsonDocument res;
+        DeserializationError error = deserializeJson(res, http.getString());
+        if (!error) {
+            const char* pmk = res["pmk"];
+            const char* secret = res["secret"];
+            bool debug = res["debug"] | true;
+            uint32_t version = res["version"] | 0;
+            
+            // Only update if version changed (or first time)
+            if (version != configVersion && pmk && secret) {
+                espNowPmk = String(pmk);
+                espNowSharedSecret = String(secret);
+                debugModeEnabled = debug;
+                configVersion = version;
+                
+                // Persist to NVS
+                prefs.begin("config", false);
+                prefs.putString("pmk", espNowPmk);
+                prefs.putString("secret", espNowSharedSecret);
+                prefs.putBool("debug", debugModeEnabled);
+                prefs.putULong("version", configVersion);
+                prefs.end();
+                
+                DEBUG_PRINTLN("[CONFIG] System configuration updated from Convex");
+                
+                // Re-initialize ESP-NOW with new PMK
+                // Note: This requires ESP-NOW to be restarted with new encryption keys
+                // For simplicity, we just store it - full re-init would require more work
+            }
+        }
+    } else {
+        DEBUG_PRINTF("[CONFIG] Config sync failed: %d\n", httpCode);
+    }
+    
+    http.end();
+    delete client;
+}
+
 // =============================================================================
 // NETWORK TASK (Core 0)
 // =============================================================================
@@ -481,6 +550,9 @@ void NetworkTask(void* pvParameters) {
             if (hardwareToken.isEmpty()) {
                 registerDevice();
             }
+            
+            // Fetch system config immediately after registration
+            syncSystemConfig();
         } else if (!isConnected && wasConnected) {
             // Just disconnected
             wasConnected = false;
@@ -502,6 +574,10 @@ void NetworkTask(void* pvParameters) {
             if (now - lastHeartbeat > HEARTBEAT_INTERVAL) {
                 sendToWatchman(MSG_HEARTBEAT);
                 lastHeartbeat = now;
+            }
+            if (now - lastConfigSync > CONFIG_SYNC_INTERVAL) {
+                syncSystemConfig();
+                lastConfigSync = now;
             }
         }
         
@@ -687,6 +763,22 @@ void setup() {
     convexUrl = prefs.getString("convex", DEFAULT_CONVEX_URL);
     prefs.end();
     
+    // Load system config from NVS (fetched from Convex)
+    prefs.begin("config", true);
+    espNowPmk = prefs.getString("pmk", "");
+    espNowSharedSecret = prefs.getString("secret", "");
+    debugModeEnabled = prefs.getBool("debug", true);
+    configVersion = prefs.getULong("version", 0);
+    prefs.end();
+    
+    // Use defaults if not configured yet
+    if (espNowPmk.isEmpty()) {
+        espNowPmk = DEFAULT_ESP_NOW_PMK;  // Fallback until config is fetched
+    }
+    if (espNowSharedSecret.isEmpty()) {
+        espNowSharedSecret = DEFAULT_ESP_NOW_SECRET;  // Fallback until config is fetched
+    }
+    
     // Initialize biometrics
     if (FaceAuth::begin(FaceSerial, FACE_RX_PIN, FACE_TX_PIN)) {
         Serial.println("[BOOT] Face module OK");
@@ -718,13 +810,20 @@ void setup() {
         if (getIsPaired()) {
             uint8_t mac[6];
             getWatchmanMac(mac);
+            char room[16];
+            getRoomId(room, sizeof(room));
+            
             esp_now_peer_info_t peerInfo = {};
             memcpy(peerInfo.peer_addr, mac, 6);
             peerInfo.channel = 0;
-            peerInfo.encrypt = false;
+            peerInfo.encrypt = true;
+            
+            // Generate LMK from room ID and shared secret
+            generateLMK(room, espNowSharedSecret.c_str(), peerInfo.lmk);
+            
             esp_now_add_peer(&peerInfo);
             
-            Serial.printf("[BOOT] Paired with %02X:%02X:%02X:%02X:%02X:%02X\n",
+            Serial.printf("[BOOT] Paired with %02X:%02X:%02X:%02X:%02X:%02X (encrypted)\n",
                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         }
         Serial.println("[BOOT] ESP-NOW OK");

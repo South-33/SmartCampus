@@ -80,10 +80,14 @@ export const generateSessionsForDay = mutation({
 
 /**
  * Gets sessions for a specific date.
+ * Auth: Requires authentication. Returns empty array if not authenticated.
  */
 export const getSessionsByDate = query({
   args: { date: v.string() },
   handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return []; // Return empty for unauthenticated users
+
     const sessions = await ctx.db
       .query("dailySessions")
       .withIndex("by_date", (q) => q.eq("date", args.date))
@@ -179,10 +183,22 @@ export const getDetails = query({
 
 /**
  * Gets high-level stats for a teacher (Teaching hours, etc.)
+ * Auth: Must be authenticated. Teachers can only see their own stats, admins can see all.
  */
 export const getTeacherStats = query({
   args: { teacherId: v.id("users") },
   handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
+    
+    // Teachers can only see their own stats, admins can see anyone's
+    if (user.role === "teacher" && user._id !== args.teacherId) {
+      return null;
+    }
+    if (user.role !== "teacher" && user.role !== "admin") {
+      return null;
+    }
+
     // Return realistic data based on their schedule for the high-fidelity simulation
     const slots = await ctx.db
       .query("scheduleSlots")
@@ -199,10 +215,22 @@ export const getTeacherStats = query({
 
 /**
  * Gets the current session for a teacher based on time.
+ * Auth: Must be authenticated. Teachers can only see their own session, admins can see all.
  */
 export const getCurrentTeacherSession = query({
   args: { teacherId: v.id("users") },
   handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    if (!user) return null;
+    
+    // Teachers can only see their own session, admins can see anyone's
+    if (user.role === "teacher" && user._id !== args.teacherId) {
+      return null;
+    }
+    if (user.role !== "teacher" && user.role !== "admin") {
+      return null;
+    }
+
     const now = Date.now();
     const date = new Date(now).toISOString().split("T")[0];
     const dayOfWeek = new Date(now).getDay();

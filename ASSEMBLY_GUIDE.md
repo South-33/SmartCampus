@@ -353,7 +353,7 @@ Your **main microcontroller** - the brain of each node.
 ```
                          ESP32 WROOM-32D PINOUT
                          
-                              ANTENNA
+                             ANTENNA
                            ___________
                           |           |
               EN/RST ----o|           |o---- GPIO23
@@ -370,13 +370,13 @@ Your **main microcontroller** - the brain of each node.
              GPIO12 -----o|           |o---- GPIO4
                 GND -----o|           |o---- GPIO2   (Built-in LED)
              GPIO13 -----o|           |o---- GPIO15
-              SD2  -----o|           |o---- SD1
-              SD3  -----o|   USB-C   |o---- SD0
-              CMD  -----o|___________|o---- CLK
-                               |
-                           +---+---+
-                           | USB-C |
-                           +-------+
+               SD2  -----o|           |o---- SD1
+               SD3  -----o|   USB-C   |o---- SD0
+               CMD  -----o|___________|o---- CLK
+                                |
+                            +---+---+
+                            | USB-C |
+                            +-------+
                            
         3V3 -----o                         o----- VIN (5V input)
         GND -----o                         o----- GND
@@ -417,21 +417,20 @@ Your **main microcontroller** - the brain of each node.
 ```
                     PN532 NFC MODULE V3
                     
-    +--------------------------------------------+
-    |                                            |
-    |   +--------+     +------------------+      |
-    |   |  MCU   |     |   NFC ANTENNA    |      |
-    |   +--------+     |                  |      |
-    |                  |    (coil area)   |      |
-    |                  +------------------+      |
-    |                                            |
-    |  [LED]                                     |
-    |                                            |
-    +-----+--------------------------------------+
+    +-------------------------------------------+
+    |                                           |
+    |   +-------+     +------------------+      |
+    |   |  MCU  |     |   NFC ANTENNA    |      |
+    |   +-------+     |                  |      |
+    |                 |   (coil area)    |      |
+    |                 +------------------+      |
+    |                                           |
+    |  [LED]                                    |
+    |                                           |
+    +-----+-------------------------------------+
           |
     +-----+-----+
-    |           |
-    | DIP SW    |   <-- Mode selection switches
+    |  DIP SW   |   <-- Mode selection switches
     |  1   2    |
     +-----+-----+
           |
@@ -462,10 +461,10 @@ Your **main microcontroller** - the brain of each node.
     
     +---------------------------+---+---+---+
     |                           |COM|NC |NO |
-    |   +------+                +---+---+---+
-    |   |RELAY |                  |   |   |
-    |   |      |                  |   |   +--- Normally Open
-    |   +------+                  |   +------- Normally Closed
+    |   +-----+                 +---+---+---+
+    |   |RELAY|                   |   |   |
+    |   |     |                   |   |   +--- Normally Open
+    |   +-----+                   |   +------- Normally Closed
     |                             +----------- Common
     |   [LED] [LED]                           
     |   PWR   ACTIVE                          
@@ -495,24 +494,24 @@ Your **main microcontroller** - the brain of each node.
 ```
                 FINGER VEIN SENSOR MODULE (A)
                 
-    +------------------------------------------+
-    |                                          |
-    |   +----------------+     +-----------+   |
-    |   |    IR LEDs     |     | PROCESSOR |   |
-    |   +----------------+     +-----------+   |
-    |                                          |
-    |   +----------------+                     |
-    |   |    CAMERA      |                     |
-    |   +----------------+                     |
-    |                                          |
+    +-----------------------------------------+
+    |                                         |
+    |   +---------------+     +-----------+   |
+    |   |    IR LEDs    |     | PROCESSOR |   |
+    |   +---------------+     +-----------+   |
+    |                                         |
+    |   +---------------+                     |
+    |   |    CAMERA     |                     |
+    |   +---------------+                     |
+    |                                         |
     |   [====== FINGER SLOT ======]           |
-    |                                          |
-    +----+-----+-----+-----+----+-----+--------+
+    |                                         |
+    +----+-----+-----+-----+----+-----+-------+
          |     |     |     |    |     |
         VCC   GND   TXD   RXD  IRQ  WAKEUP
          |     |     |     |
        3.3V   GND   -->   <--
-                   to    from
+                    to    from
                   ESP32  ESP32
 ```
 
@@ -1082,6 +1081,11 @@ On the back of the PN532, find the DIP switches:
 ```
 
 **Step 4: Add Pull-Up Resistors**
+
+> **Note on resistor values:** Adafruit recommends 1.5K pull-ups for PN532. You have 4.7K resistors.
+> - **Try 4.7K first** - it often works at 100kHz I2C speed
+> - **If you get "PN532 not found" errors**, use two 4.7K in parallel (~2.35K) for a stronger pull-up
+> - To wire in parallel: connect both resistors between the same two points (3.3V and SDA, or 3.3V and SCL)
 
 The 4.7K resistors look like this:
 ```

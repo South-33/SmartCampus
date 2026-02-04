@@ -1080,14 +1080,22 @@ On the back of the PN532, find the DIP switches:
     Connection 4: PN532 SCL → ESP32 GPIO22
 ```
 
-**Step 4: Add Pull-Up Resistors**
+**Step 4: Add Pull-Up Resistors (Maybe)**
 
-> **Note on resistor values:** Adafruit recommends 1.5K pull-ups for PN532. You have 4.7K resistors.
-> - **Try 4.7K first** - it often works at 100kHz I2C speed
-> - **If you get "PN532 not found" errors**, use two 4.7K in parallel (~2.35K) for a stronger pull-up
-> - To wire in parallel: connect both resistors between the same two points (3.3V and SDA, or 3.3V and SCL)
+> **IMPORTANT: Check your specific board first!**
+> 
+> Your PN532 V3 module from AliExpress may already have built-in pull-up resistors.
+> 
+> **Before adding external pull-ups:**
+> 1. Try connecting WITHOUT any external resistors first
+> 2. Run the NFC test sketch
+> 3. If it works → you don't need external pull-ups (your board has them built-in)
+> 4. If "PN532 not found" → add 4.7K pull-ups as shown below
+> 5. Still not working? → try two 4.7K in parallel (~2.35K) for stronger pull-up
+>
+> Many generic PN532 boards have onboard pull-ups. Adding more can actually cause problems.
 
-The 4.7K resistors look like this:
+**If you need to add pull-ups**, the 4.7K resistors look like this:
 ```
     4.7K Resistor Color Code:
     

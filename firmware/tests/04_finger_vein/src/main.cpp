@@ -1,247 +1,244 @@
 /**
  * Waveshare Finger Vein Sensor Test
- * ===================================
+ * ==================================
  * 
- * PURPOSE: Verify finger vein sensor is wired correctly and responding
+ * This test uses the ACTUAL FingerVeinAuth driver from the Gatekeeper firmware.
+ * No code duplication - tests the real production code.
  * 
- * ⚠️ CRITICAL: THIS SENSOR IS 3.3V ONLY!
- *    Connecting 5V WILL DESTROY the sensor!
+ * CRITICAL: THIS SENSOR IS 3.3V ONLY!
+ * Connecting 5V WILL DESTROY the sensor!
  * 
  * WIRING:
- *   VEIN     →   ESP32
- *   ─────────────────────
- *   VCC      →   3V3 (NOT VIN/5V!)
- *   GND      →   GND
- *   TXD      →   GPIO16 (ESP32 RX)
- *   RXD      →   GPIO17 (ESP32 TX)
+ *   VEIN     ->   ESP32
+ *   VCC      ->   3V3 (NOT VIN/5V!)
+ *   GND      ->   GND
+ *   TXD      ->   GPIO16 (ESP32 RX)
+ *   RXD      ->   GPIO17 (ESP32 TX)
  * 
- * EXPECTED OUTPUT:
- *   - "Sensor responding!" with parameters
- *   - Template count (number of enrolled fingers)
- * 
- * TROUBLESHOOTING:
- *   - No response: Check TX/RX are cross-connected correctly
- *   - Still no response: VERIFY voltage is 3.3V with multimeter!
+ * COMMANDS (type in Serial Monitor):
+ *   1 = Check sensor alive (WHO_AM_I)
+ *   2 = Get template count
+ *   3 = Verify finger (identify)
+ *   4 = Enroll new finger (ID 1)
+ *   5 = Delete all templates
+ *   ? = Show menu
  */
 
 #include <Arduino.h>
+#include "FingerVeinAuth.h"  // From Gatekeeper firmware
 
-// UART2 pins
-#define VEIN_RX 16  // ESP32 receives on this pin
-#define VEIN_TX 17  // ESP32 transmits on this pin
-#define VEIN_BAUD 57600
+// ESP32 doesn't define LED_BUILTIN by default
+#ifndef LED_BUILTIN
+#define LED_BUILTIN 2
+#endif
 
 HardwareSerial VeinSerial(2);
 
-// Response buffer
-uint8_t respBuffer[64];
-size_t respLen = 0;
-
-// Send command to sensor
-bool sendCommand(const uint8_t* data, uint16_t len) {
-    uint16_t pkgLen = len + 2;  // Data + checksum
-    uint16_t checksum = 0x01 + (pkgLen >> 8) + (pkgLen & 0xFF);
-    
-    for (uint16_t i = 0; i < len; i++) {
-        checksum += data[i];
-    }
-    
-    // Header
-    VeinSerial.write(0xEF);
-    VeinSerial.write(0x01);
-    
-    // Address (4 bytes: 0xFFFFFFFF)
-    VeinSerial.write(0xFF);
-    VeinSerial.write(0xFF);
-    VeinSerial.write(0xFF);
-    VeinSerial.write(0xFF);
-    
-    // Package ID (0x01 = command packet)
-    VeinSerial.write(0x01);
-    
-    // Length
-    VeinSerial.write((uint8_t)(pkgLen >> 8));
-    VeinSerial.write((uint8_t)(pkgLen & 0xFF));
-    
-    // Data
-    VeinSerial.write(data, len);
-    
-    // Checksum
-    VeinSerial.write((uint8_t)(checksum >> 8));
-    VeinSerial.write((uint8_t)(checksum & 0xFF));
-    
-    VeinSerial.flush();
-    return true;
-}
-
-// Receive response
-bool receiveResponse(uint32_t timeout) {
-    uint32_t start = millis();
-    size_t pos = 0;
-    respLen = 0;
-    
-    while (millis() - start < timeout) {
-        while (VeinSerial.available() && pos < sizeof(respBuffer)) {
-            respBuffer[pos++] = VeinSerial.read();
-            
-            if (pos >= 9) {
-                // Check header
-                if (respBuffer[0] != 0xEF || respBuffer[1] != 0x01) {
-                    memmove(respBuffer, respBuffer + 1, pos - 1);
-                    pos--;
-                    continue;
-                }
-                
-                uint16_t expectedLen = (respBuffer[7] << 8) | respBuffer[8];
-                size_t totalExpected = 9 + expectedLen;
-                
-                if (pos >= totalExpected) {
-                    respLen = totalExpected;
-                    return true;
-                }
-            }
-        }
-        yield();
-    }
-    return false;
-}
-
-void printTroubleshooting() {
+void printMenu() {
     Serial.println();
-    Serial.println("╔════════════════════════════════════════╗");
-    Serial.println("║         TROUBLESHOOTING GUIDE          ║");
-    Serial.println("╚════════════════════════════════════════╝");
-    Serial.println();
-    Serial.println("⚠️  CRITICAL: CHECK VOLTAGE FIRST!");
-    Serial.println("   Use multimeter to verify VCC is 3.3V, NOT 5V!");
-    Serial.println("   If you connected 5V, sensor may be damaged.");
-    Serial.println();
-    Serial.println("1. CHECK WIRING:");
-    Serial.println("   VEIN VCC → ESP32 3V3 (NOT VIN!)");
-    Serial.println("   VEIN GND → ESP32 GND");
-    Serial.println("   VEIN TXD → ESP32 GPIO16 (RX2)");
-    Serial.println("   VEIN RXD → ESP32 GPIO17 (TX2)");
-    Serial.println();
-    Serial.println("2. TX/RX are CROSS-CONNECTED:");
-    Serial.println("   Sensor TX → ESP32 RX");
-    Serial.println("   Sensor RX → ESP32 TX");
-    Serial.println();
-    Serial.println("3. CHECK FOR LIFE SIGNS:");
-    Serial.println("   - Green LED should be visible inside sensor");
-    Serial.println("   - Sensor should feel slightly warm (not hot)");
+    Serial.println(F("╔════════════════════════════════════════╗"));
+    Serial.println(F("║       FINGER VEIN SENSOR COMMANDS      ║"));
+    Serial.println(F("╠════════════════════════════════════════╣"));
+    Serial.println(F("║  1 = Check sensor alive                ║"));
+    Serial.println(F("║  2 = Get template count                ║"));
+    Serial.println(F("║  3 = Verify finger (identify)          ║"));
+    Serial.println(F("║  4 = Enroll new finger (ID 1)          ║"));
+    Serial.println(F("║  5 = Delete all templates              ║"));
+    Serial.println(F("║  c = Cancel ongoing enrollment         ║"));
+    Serial.println(F("║  ? = Show this menu                    ║"));
+    Serial.println(F("╚════════════════════════════════════════╝"));
     Serial.println();
 }
+
+bool sensorReady = false;
 
 void setup() {
     Serial.begin(115200);
+    pinMode(LED_BUILTIN, OUTPUT);
     delay(1000);
     
     Serial.println();
-    Serial.println("╔════════════════════════════════════════╗");
-    Serial.println("║    FINGER VEIN SENSOR TEST v1.0        ║");
-    Serial.println("║    SmartCampus Hardware Testing        ║");
-    Serial.println("╚════════════════════════════════════════╝");
+    Serial.println(F("╔════════════════════════════════════════╗"));
+    Serial.println(F("║   FINGER VEIN SENSOR TEST              ║"));
+    Serial.println(F("║   Using Production FingerVeinAuth      ║"));
+    Serial.println(F("╚════════════════════════════════════════╝"));
     Serial.println();
     
-    Serial.println("⚠️  REMINDER: Sensor must be powered by 3.3V!");
-    Serial.println("   Using 5V will destroy the sensor!");
+    Serial.println(F("⚠️  CRITICAL: Sensor must be powered by 3.3V!"));
+    Serial.println(F("   Using 5V will DESTROY the sensor!"));
     Serial.println();
     
-    // Initialize UART2
-    Serial.println("Initializing UART2 at 57600 baud...");
-    VeinSerial.begin(VEIN_BAUD, SERIAL_8N1, VEIN_RX, VEIN_TX);
-    delay(500);
+    Serial.println(F("Initializing FingerVeinAuth module..."));
     
-    Serial.println("Sending test command (Read System Parameters)...");
-    Serial.println();
-    
-    // Test command: Read System Parameters (0x0F)
-    uint8_t cmd[] = {0x0F};
-    sendCommand(cmd, sizeof(cmd));
-    
-    if (receiveResponse(2000)) {
-        Serial.println("╔════════════════════════════════════════╗");
-        Serial.println("║   ✓ SENSOR RESPONDING!                 ║");
-        Serial.println("╚════════════════════════════════════════╝");
+    // Use the actual production driver
+    if (FingerVeinAuth::begin(VeinSerial, VEIN_RX_PIN, VEIN_TX_PIN)) {
+        sensorReady = true;
+        Serial.println(F("╔════════════════════════════════════════╗"));
+        Serial.println(F("║   ✓ SENSOR INITIALIZED!                ║"));
+        Serial.println(F("╚════════════════════════════════════════╝"));
         Serial.println();
         
-        // Print raw response
-        Serial.print("  Response (");
-        Serial.print(respLen);
-        Serial.print(" bytes): ");
-        for (size_t i = 0; i < respLen; i++) {
-            if (respBuffer[i] < 0x10) Serial.print("0");
-            Serial.print(respBuffer[i], HEX);
-            Serial.print(" ");
-        }
-        Serial.println();
-        
-        // Parse confirmation code
-        if (respLen > 9) {
-            uint8_t confirmCode = respBuffer[9];
-            Serial.print("  Confirmation Code: 0x");
-            Serial.print(confirmCode, HEX);
-            if (confirmCode == 0x00) {
-                Serial.println(" (Success)");
-            } else {
-                Serial.println(" (Error)");
-            }
+        // Get template count
+        int count = FingerVeinAuth::getTemplateCount();
+        if (count >= 0) {
+            Serial.print(F("  Enrolled templates: "));
+            Serial.println(count);
         }
         
-        Serial.println();
-        
-        // Now get template count
-        Serial.println("Checking enrolled templates...");
-        uint8_t cmdCount[] = {0x1D};
-        sendCommand(cmdCount, sizeof(cmdCount));
-        
-        if (receiveResponse(1000)) {
-            if (respLen >= 12 && respBuffer[9] == 0x00) {
-                uint16_t count = (respBuffer[10] << 8) | respBuffer[11];
-                Serial.print("  Enrolled templates: ");
-                Serial.println(count);
-            }
-        }
-        
-        Serial.println();
-        Serial.println("═══════════════════════════════════════════");
-        Serial.println();
-        Serial.println("  ✓ Finger Vein sensor is working!");
-        Serial.println();
-        Serial.println("  Next steps:");
-        Serial.println("  - Use main firmware to enroll fingers");
-        Serial.println("  - Command: ENROLL:VEIN:1");
-        Serial.println();
-        Serial.println("═══════════════════════════════════════════");
-        
+        printMenu();
     } else {
-        Serial.println("╔════════════════════════════════════════╗");
-        Serial.println("║   ❌ NO RESPONSE FROM SENSOR!          ║");
-        Serial.println("╚════════════════════════════════════════╝");
-        
-        printTroubleshooting();
-        
-        Serial.println("Will keep retrying every 5 seconds...");
+        Serial.println(F("╔════════════════════════════════════════╗"));
+        Serial.println(F("║   ❌ SENSOR NOT RESPONDING!            ║"));
+        Serial.println(F("╚════════════════════════════════════════╝"));
+        Serial.println();
+        Serial.println(F("Troubleshooting:"));
+        Serial.println(F("  1. CHECK VOLTAGE: Must be 3.3V, NOT 5V!"));
+        Serial.println(F("  2. Sensor TXD -> ESP32 GPIO16"));
+        Serial.println(F("  3. Sensor RXD -> ESP32 GPIO17"));
+        Serial.println(F("  4. Check for green LED inside sensor"));
+        Serial.println();
+        Serial.println(F("Will keep retrying every 5 seconds..."));
     }
 }
 
+bool enrolling = false;
+
 void loop() {
-    static unsigned long lastTry = 0;
+    // Heartbeat LED
+    static unsigned long lastBlink = 0;
+    if (millis() - lastBlink > 500) {
+        lastBlink = millis();
+        digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+    }
     
-    // If sensor wasn't found, keep trying
-    if (respLen == 0 && millis() - lastTry > 5000) {
-        lastTry = millis();
+    // Handle ongoing enrollment
+    if (enrolling) {
+        FingerVeinAuth::Result result = FingerVeinAuth::enroll(1);
+        switch (result) {
+            case FingerVeinAuth::SUCCESS:
+                Serial.println(F("✓ Enrollment complete!"));
+                enrolling = false;
+                break;
+            case FingerVeinAuth::STEP_COMPLETE:
+                Serial.print(F("  Step "));
+                Serial.print(FingerVeinAuth::getEnrollStep());
+                Serial.println(F("/4 complete. Place finger again..."));
+                break;
+            case FingerVeinAuth::WAITING_FOR_FINGER:
+                // Still waiting, do nothing
+                break;
+            case FingerVeinAuth::TIMEOUT:
+                Serial.println(F("✗ Enrollment timeout"));
+                enrolling = false;
+                break;
+            case FingerVeinAuth::SENSOR_ERROR:
+                Serial.println(F("✗ Sensor error during enrollment"));
+                enrolling = false;
+                break;
+            default:
+                break;
+        }
+        delay(100);
+        return;
+    }
+    
+    // Handle serial commands
+    if (Serial.available()) {
+        char cmd = Serial.read();
         
-        Serial.println("Retrying...");
-        uint8_t cmd[] = {0x0F};
-        sendCommand(cmd, sizeof(cmd));
-        
-        if (receiveResponse(2000)) {
-            Serial.println("✓ Sensor now responding! Press RESET to restart test.");
-        } else {
-            Serial.println("✗ Still no response. Check wiring.");
+        switch (cmd) {
+            case '1': {
+                Serial.println(F("\n[CMD] Checking sensor alive..."));
+                if (FingerVeinAuth::isAlive()) {
+                    Serial.println(F("✓ Sensor is responding"));
+                } else {
+                    Serial.println(F("✗ No response from sensor"));
+                }
+                break;
+            }
+            
+            case '2': {
+                Serial.println(F("\n[CMD] Getting template count..."));
+                int count = FingerVeinAuth::getTemplateCount();
+                if (count >= 0) {
+                    Serial.print(F("  Enrolled templates: "));
+                    Serial.println(count);
+                } else {
+                    Serial.println(F("✗ Failed to get count"));
+                }
+                break;
+            }
+            
+            case '3': {
+                Serial.println(F("\n[CMD] Verifying finger..."));
+                Serial.println(F("Place your finger on the sensor..."));
+                int userId = FingerVeinAuth::verify();
+                if (userId >= 0) {
+                    Serial.print(F("✓ Finger matched! User ID: "));
+                    Serial.println(userId);
+                } else {
+                    Serial.println(F("✗ Finger not recognized"));
+                }
+                break;
+            }
+            
+            case '4': {
+                Serial.println(F("\n[CMD] Starting enrollment for ID 1..."));
+                Serial.println(F("You will need to place your finger 3 times."));
+                Serial.println(F("Place finger now (1/3)..."));
+                enrolling = true;
+                break;
+            }
+            
+            case '5': {
+                Serial.println(F("\n[CMD] Deleting all templates..."));
+                if (FingerVeinAuth::clearAll()) {
+                    Serial.println(F("✓ All templates deleted"));
+                } else {
+                    Serial.println(F("✗ Delete failed"));
+                }
+                break;
+            }
+            
+            case 'c':
+            case 'C': {
+                if (enrolling) {
+                    FingerVeinAuth::cancelEnroll();
+                    enrolling = false;
+                    Serial.println(F("Enrollment cancelled"));
+                }
+                break;
+            }
+            
+            case '?':
+            case 'h':
+            case 'H':
+                printMenu();
+                break;
+                
+            case '\n':
+            case '\r':
+                break;
+                
+            default:
+                Serial.print(F("Unknown command: "));
+                Serial.println(cmd);
+                printMenu();
+                break;
         }
     }
     
-    delay(100);
+    // Retry initialization if failed
+    static unsigned long lastRetry = 0;
+    if (!sensorReady && millis() - lastRetry > 5000) {
+        lastRetry = millis();
+        Serial.println(F("\nRetrying sensor init..."));
+        if (FingerVeinAuth::begin(VeinSerial, VEIN_RX_PIN, VEIN_TX_PIN)) {
+            sensorReady = true;
+            Serial.println(F("✓ Sensor now responding!"));
+            printMenu();
+        } else {
+            Serial.println(F("✗ Still no response"));
+        }
+    }
 }

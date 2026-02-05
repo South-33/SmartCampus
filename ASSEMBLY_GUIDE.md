@@ -710,61 +710,9 @@ Your ESP32 uses a **CH340** USB-to-serial chip. Most modern systems auto-install
 
 ### Write Blink Code
 
-1. In the file explorer, open `src/main.cpp`
-2. **Delete all existing code**
-3. Paste this:
-
-```cpp
-// ESP32 Blink Test - Verifies ESP32 is working
-// The built-in LED should blink every second
-
-#include <Arduino.h>
-
-#define LED_BUILTIN 2  // Built-in LED on most ESP32 boards
-
-void setup() {
-    // Initialize serial communication
-    Serial.begin(115200);
-    delay(1000);  // Wait for serial to stabilize
-    
-    // Print boot message
-    Serial.println();
-    Serial.println("========================================");
-    Serial.println("ESP32 Blink Test");
-    Serial.println("========================================");
-    Serial.print("Chip Model: ");
-    Serial.println(ESP.getChipModel());
-    Serial.print("Chip Revision: ");
-    Serial.println(ESP.getChipRevision());
-    Serial.print("Flash Size: ");
-    Serial.print(ESP.getFlashChipSize() / 1024 / 1024);
-    Serial.println(" MB");
-    Serial.print("Free Heap: ");
-    Serial.print(ESP.getFreeHeap() / 1024);
-    Serial.println(" KB");
-    Serial.print("MAC Address: ");
-    Serial.println(WiFi.macAddress());
-    Serial.println("========================================");
-    Serial.println("LED should be blinking now...");
-    Serial.println();
-    
-    // Configure LED pin
-    pinMode(LED_BUILTIN, OUTPUT);
-}
-
-void loop() {
-    // Blink pattern: 500ms on, 500ms off
-    digitalWrite(LED_BUILTIN, HIGH);
-    Serial.println("LED: ON");
-    delay(500);
-    
-    digitalWrite(LED_BUILTIN, LOW);
-    Serial.println("LED: OFF");
-    delay(500);
-}
-```
-
-4. Save the file (Ctrl+S / Cmd+S)
+1. Open the project in `firmware/tests/01_esp32_blink` using VS Code.
+2. Review the code in `src/main.cpp`. It's designed to verify your ESP32's basic functionality and show its MAC address.
+3. Save the file if you made any changes.
 
 ### Upload the Code
 
@@ -1151,132 +1099,9 @@ Alternatively, if not using breadboard:
 
 ## Test Program
 
-### Create Test Project
-
-1. In PlatformIO, create a new project:
-   - Name: `NFC_Test`
-   - Board: `Espressif ESP32 Dev Module`
-   - Framework: Arduino
-
-2. Edit `platformio.ini`:
-
-```ini
-[env:esp32dev]
-platform = espressif32
-board = esp32dev
-framework = arduino
-monitor_speed = 115200
-lib_deps = 
-    adafruit/Adafruit PN532@^1.3.0
-```
-
-3. Replace `src/main.cpp` with:
-
-```cpp
-// PN532 NFC Reader Test
-// Reads NFC cards and prints their UID
-
-#include <Arduino.h>
-#include <Wire.h>
-#include <Adafruit_PN532.h>
-
-// I2C pins
-#define SDA_PIN 21
-#define SCL_PIN 22
-
-// Create NFC object (I2C mode, no IRQ/RST needed)
-Adafruit_PN532 nfc(SDA_PIN, SCL_PIN);
-
-void setup() {
-    Serial.begin(115200);
-    delay(1000);
-    
-    Serial.println();
-    Serial.println("========================================");
-    Serial.println("PN532 NFC Reader Test");
-    Serial.println("========================================");
-    Serial.println();
-    
-    // Initialize I2C
-    Wire.begin(SDA_PIN, SCL_PIN);
-    
-    // Initialize NFC
-    nfc.begin();
-    
-    // Get firmware version to verify connection
-    uint32_t versiondata = nfc.getFirmwareVersion();
-    
-    if (!versiondata) {
-        Serial.println("ERROR: PN532 not found!");
-        Serial.println();
-        Serial.println("Troubleshooting:");
-        Serial.println("1. Check wiring (VCC, GND, SDA, SCL)");
-        Serial.println("2. Verify DIP switches: 1=OFF, 2=ON");
-        Serial.println("3. Check pull-up resistors (4.7K to 3.3V)");
-        Serial.println("4. Try power cycling the PN532");
-        Serial.println();
-        while (1) { delay(1000); }  // Halt
-    }
-    
-    // Print firmware version
-    Serial.print("Found PN5");
-    Serial.print((versiondata >> 24) & 0xFF, HEX);
-    Serial.print(" Firmware: ");
-    Serial.print((versiondata >> 16) & 0xFF, DEC);
-    Serial.print(".");
-    Serial.println((versiondata >> 8) & 0xFF, DEC);
-    
-    // Configure for reading NFC cards
-    nfc.SAMConfig();
-    
-    Serial.println();
-    Serial.println("SUCCESS: PN532 initialized!");
-    Serial.println();
-    Serial.println("Hold an NFC card near the reader...");
-    Serial.println("========================================");
-    Serial.println();
-}
-
-void loop() {
-    uint8_t uid[7];        // Buffer for UID
-    uint8_t uidLength;     // UID length (4 or 7 bytes)
-    
-    // Check for NFC card (non-blocking, 100ms timeout)
-    if (nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &uidLength, 100)) {
-        
-        Serial.println("----------------------------------------");
-        Serial.print("Card detected! UID Length: ");
-        Serial.print(uidLength);
-        Serial.println(" bytes");
-        
-        // Print UID in hex
-        Serial.print("UID: ");
-        for (uint8_t i = 0; i < uidLength; i++) {
-            if (uid[i] < 0x10) Serial.print("0");
-            Serial.print(uid[i], HEX);
-            if (i < uidLength - 1) Serial.print(":");
-        }
-        Serial.println();
-        
-        // Print UID as decimal (for comparison)
-        Serial.print("UID (decimal): ");
-        for (uint8_t i = 0; i < uidLength; i++) {
-            Serial.print(uid[i]);
-            if (i < uidLength - 1) Serial.print(".");
-        }
-        Serial.println();
-        
-        Serial.println("----------------------------------------");
-        Serial.println();
-        
-        // Debounce - wait a bit before reading again
-        delay(1000);
-    }
-}
-```
-
-4. Save, Build, and Upload
-5. Open Serial Monitor (115200 baud)
+1. Open the project in `firmware/tests/02_nfc_reader` using VS Code.
+2. Build and Upload the code to your ESP32.
+3. Open Serial Monitor (115200 baud).
 
 ## Expected Output
 
@@ -1426,46 +1251,9 @@ Most cheap relays are "**Active LOW**" - they turn ON when the signal is LOW. Ch
 
 ## Test Program
 
-Create a new project or modify the blink test:
-
-```cpp
-// Relay Test - Clicks relay every 2 seconds
-// Listen for audible click, watch relay LED
-
-#include <Arduino.h>
-
-#define RELAY_PIN 25
-
-void setup() {
-    Serial.begin(115200);
-    delay(1000);
-    
-    Serial.println();
-    Serial.println("========================================");
-    Serial.println("Relay Module Test");
-    Serial.println("========================================");
-    Serial.println();
-    
-    pinMode(RELAY_PIN, OUTPUT);
-    digitalWrite(RELAY_PIN, LOW);  // Start with relay OFF
-    
-    Serial.println("Relay will toggle every 2 seconds.");
-    Serial.println("Listen for the CLICK sound.");
-    Serial.println("Watch the relay LED.");
-    Serial.println();
-    Serial.println("========================================");
-}
-
-void loop() {
-    Serial.println("Relay: ON");
-    digitalWrite(RELAY_PIN, HIGH);
-    delay(2000);
-    
-    Serial.println("Relay: OFF");
-    digitalWrite(RELAY_PIN, LOW);
-    delay(2000);
-}
-```
+1. Open the project in `firmware/tests/03_relay` using VS Code.
+2. Build and Upload the code to your ESP32.
+3. Open Serial Monitor (115200 baud).
 
 ## Expected Results
 
@@ -1619,178 +1407,9 @@ This is the most common source of confusion:
 
 ## Test Program
 
-Create a new PlatformIO project:
-
-```ini
-; platformio.ini
-[env:esp32dev]
-platform = espressif32
-board = esp32dev
-framework = arduino
-monitor_speed = 115200
-```
-
-```cpp
-// Finger Vein Sensor Test
-// Tests basic communication with Waveshare Finger Vein Module
-
-#include <Arduino.h>
-
-// UART2 pins
-#define VEIN_RX 16  // ESP32 receives from sensor's TX
-#define VEIN_TX 17  // ESP32 transmits to sensor's RX
-#define VEIN_BAUD 57600
-
-HardwareSerial VeinSerial(2);
-
-// Response buffer
-uint8_t respBuffer[64];
-size_t respLen = 0;
-
-// Send command to sensor
-bool sendCommand(const uint8_t* data, uint16_t len) {
-    uint16_t pkgLen = len + 2;  // Data + checksum
-    uint16_t checksum = 0x01 + (pkgLen >> 8) + (pkgLen & 0xFF);
-    
-    for (uint16_t i = 0; i < len; i++) {
-        checksum += data[i];
-    }
-    
-    // Header
-    VeinSerial.write(0xEF);
-    VeinSerial.write(0x01);
-    
-    // Address (4 bytes: 0xFFFFFFFF)
-    VeinSerial.write(0xFF);
-    VeinSerial.write(0xFF);
-    VeinSerial.write(0xFF);
-    VeinSerial.write(0xFF);
-    
-    // Package ID (0x01 = command packet)
-    VeinSerial.write(0x01);
-    
-    // Length
-    VeinSerial.write((uint8_t)(pkgLen >> 8));
-    VeinSerial.write((uint8_t)(pkgLen & 0xFF));
-    
-    // Data
-    VeinSerial.write(data, len);
-    
-    // Checksum
-    VeinSerial.write((uint8_t)(checksum >> 8));
-    VeinSerial.write((uint8_t)(checksum & 0xFF));
-    
-    VeinSerial.flush();
-    return true;
-}
-
-// Receive response
-bool receiveResponse(uint32_t timeout) {
-    uint32_t start = millis();
-    size_t pos = 0;
-    respLen = 0;
-    
-    while (millis() - start < timeout) {
-        while (VeinSerial.available() && pos < sizeof(respBuffer)) {
-            respBuffer[pos++] = VeinSerial.read();
-            
-            if (pos >= 9) {
-                // Check header
-                if (respBuffer[0] != 0xEF || respBuffer[1] != 0x01) {
-                    memmove(respBuffer, respBuffer + 1, pos - 1);
-                    pos--;
-                    continue;
-                }
-                
-                uint16_t expectedLen = (respBuffer[7] << 8) | respBuffer[8];
-                size_t totalExpected = 9 + expectedLen;
-                
-                if (pos >= totalExpected) {
-                    respLen = totalExpected;
-                    return true;
-                }
-            }
-        }
-        yield();
-    }
-    return false;
-}
-
-void setup() {
-    Serial.begin(115200);
-    delay(1000);
-    
-    Serial.println();
-    Serial.println("========================================");
-    Serial.println("Finger Vein Sensor Test");
-    Serial.println("========================================");
-    Serial.println();
-    
-    // Initialize UART2 for finger vein sensor
-    VeinSerial.begin(VEIN_BAUD, SERIAL_8N1, VEIN_RX, VEIN_TX);
-    delay(100);
-    
-    Serial.println("Testing connection to Finger Vein Sensor...");
-    Serial.println();
-    
-    // Test command: Read System Parameters (0x0F)
-    uint8_t cmd[] = {0x0F};
-    
-    Serial.print("Sending command: 0x");
-    Serial.println(cmd[0], HEX);
-    
-    sendCommand(cmd, sizeof(cmd));
-    
-    if (receiveResponse(2000)) {
-        Serial.println();
-        Serial.println("SUCCESS! Sensor responded!");
-        Serial.println();
-        Serial.print("Response (");
-        Serial.print(respLen);
-        Serial.println(" bytes):");
-        
-        for (size_t i = 0; i < respLen; i++) {
-            if (respBuffer[i] < 0x10) Serial.print("0");
-            Serial.print(respBuffer[i], HEX);
-            Serial.print(" ");
-            if ((i + 1) % 16 == 0) Serial.println();
-        }
-        Serial.println();
-        
-        // Parse confirmation code
-        if (respLen > 9) {
-            uint8_t confirmCode = respBuffer[9];
-            Serial.print("Confirmation Code: 0x");
-            Serial.print(confirmCode, HEX);
-            if (confirmCode == 0x00) {
-                Serial.println(" (Success)");
-            } else {
-                Serial.println(" (Error)");
-            }
-        }
-        
-        Serial.println();
-        Serial.println("========================================");
-        Serial.println("Finger Vein sensor is working!");
-        Serial.println("========================================");
-    } else {
-        Serial.println();
-        Serial.println("ERROR: No response from sensor!");
-        Serial.println();
-        Serial.println("Troubleshooting:");
-        Serial.println("1. Check VCC is connected to 3.3V (NOT 5V!)");
-        Serial.println("2. Check TX/RX are cross-connected correctly");
-        Serial.println("3. Check GND is connected");
-        Serial.println("4. Try power cycling the sensor");
-        Serial.println("5. Look for green LED inside sensor");
-    }
-}
-
-void loop() {
-    // Nothing to do in loop
-    delay(1000);
-}
-```
+1. Open the project in `firmware/tests/04_finger_vein` using VS Code.
+2. Build and Upload the code to your ESP32.
+3. Open Serial Monitor (115200 baud).
 
 ## Expected Output
 
@@ -1982,73 +1601,9 @@ USB-C requires **pull-down resistors** on CC1 and CC2 pins to negotiate power:
 
 ## Test Program
 
-```cpp
-// TX510 Face Recognition Test
-// Tests basic communication with HLK-TX510 module
-
-#include <Arduino.h>
-
-// UART1 pins for TX510
-#define FACE_RX 4   // ESP32 receives from TX510's TX
-#define FACE_TX 5   // ESP32 transmits to TX510's RX
-#define FACE_BAUD 115200
-
-HardwareSerial FaceSerial(1);
-
-void setup() {
-    Serial.begin(115200);
-    delay(1000);
-    
-    Serial.println();
-    Serial.println("========================================");
-    Serial.println("TX510 Face Recognition Test");
-    Serial.println("========================================");
-    Serial.println();
-    
-    // Initialize UART1 for TX510
-    FaceSerial.begin(FACE_BAUD, SERIAL_8N1, FACE_RX, FACE_TX);
-    delay(2000);  // TX510 needs time to boot
-    
-    Serial.println("Waiting for TX510 to initialize...");
-    Serial.println("(The LCD screen should show the boot screen)");
-    Serial.println();
-    
-    // Clear any startup messages
-    while (FaceSerial.available()) {
-        FaceSerial.read();
-    }
-    
-    Serial.println("Monitoring TX510 output...");
-    Serial.println("If you see data below, communication is working!");
-    Serial.println();
-    Serial.println("Try these actions:");
-    Serial.println("1. Show your face to the camera");
-    Serial.println("2. Press any buttons on the module");
-    Serial.println("3. Wave hand in front of IR sensor");
-    Serial.println();
-    Serial.println("========================================");
-}
-
-void loop() {
-    // Forward data from TX510 to Serial Monitor
-    while (FaceSerial.available()) {
-        uint8_t data = FaceSerial.read();
-        
-        // Print as hex
-        if (data < 0x10) Serial.print("0");
-        Serial.print(data, HEX);
-        Serial.print(" ");
-    }
-    
-    // Forward data from Serial Monitor to TX510 (for testing)
-    while (Serial.available()) {
-        uint8_t data = Serial.read();
-        FaceSerial.write(data);
-    }
-    
-    delay(10);
-}
-```
+1. Open the project in `firmware/tests/05_face_recognition` using VS Code.
+2. Build and Upload the code to your ESP32.
+3. Open Serial Monitor (115200 baud).
 
 ## Expected Results
 
@@ -2142,112 +1697,9 @@ By the end of this section, you will:
 
 ## Test Program
 
-Add the LD2410 library to your project:
-
-```ini
-; platformio.ini
-[env:esp32dev]
-platform = espressif32
-board = esp32dev
-framework = arduino
-monitor_speed = 115200
-lib_deps = 
-    ncmreynolds/ld2410@^1.0.7
-```
-
-```cpp
-// LD2410C Radar Test
-// Detects human presence and reports distance
-
-#include <Arduino.h>
-#include <ld2410.h>
-
-// UART2 pins
-#define RADAR_RX 16
-#define RADAR_TX 17
-#define RADAR_BAUD 256000
-
-ld2410 radar;
-HardwareSerial RadarSerial(2);
-
-void setup() {
-    Serial.begin(115200);
-    delay(1000);
-    
-    Serial.println();
-    Serial.println("========================================");
-    Serial.println("LD2410C Radar Test");
-    Serial.println("========================================");
-    Serial.println();
-    
-    // Initialize UART2 for radar
-    RadarSerial.begin(RADAR_BAUD, SERIAL_8N1, RADAR_RX, RADAR_TX);
-    delay(100);
-    
-    // Initialize radar
-    if (radar.begin(RadarSerial)) {
-        Serial.println("SUCCESS: LD2410C connected!");
-        Serial.println();
-        
-        // Print firmware version
-        Serial.print("Firmware Version: ");
-        Serial.print(radar.firmware_major_version);
-        Serial.print(".");
-        Serial.print(radar.firmware_minor_version);
-        Serial.print(".");
-        Serial.println(radar.firmware_bugfix_version, HEX);
-        
-        Serial.println();
-        Serial.println("Wave your hand or walk in front of the sensor...");
-        Serial.println("Detection range: 0-5 meters");
-        Serial.println();
-        Serial.println("========================================");
-    } else {
-        Serial.println("ERROR: LD2410C not found!");
-        Serial.println();
-        Serial.println("Troubleshooting:");
-        Serial.println("1. Check VCC is connected to 5V (NOT 3.3V!)");
-        Serial.println("2. Check TX/RX are cross-connected correctly");
-        Serial.println("3. Check GND is connected");
-        Serial.println("4. Baud rate must be 256000");
-        Serial.println();
-        while(1) delay(1000);
-    }
-}
-
-void loop() {
-    radar.read();
-    
-    static unsigned long lastPrint = 0;
-    if (millis() - lastPrint > 500) {  // Print every 500ms
-        lastPrint = millis();
-        
-        if (radar.presenceDetected()) {
-            Serial.print("PRESENCE DETECTED");
-            
-            if (radar.movingTargetDetected()) {
-                Serial.print(" | Moving: ");
-                Serial.print(radar.movingTargetDistance());
-                Serial.print("cm (");
-                Serial.print(radar.movingTargetEnergy());
-                Serial.print("%)");
-            }
-            
-            if (radar.stationaryTargetDetected()) {
-                Serial.print(" | Stationary: ");
-                Serial.print(radar.stationaryTargetDistance());
-                Serial.print("cm (");
-                Serial.print(radar.stationaryTargetEnergy());
-                Serial.print("%)");
-            }
-            
-            Serial.println();
-        } else {
-            Serial.println("No presence detected");
-        }
-    }
-}
-```
+1. Open the project in `firmware/tests/06_radar` using VS Code.
+2. Build and Upload the code to your ESP32.
+3. Open Serial Monitor (115200 baud).
 
 ## Expected Output
 
@@ -2530,6 +1982,17 @@ You'll wirelessly pair Gatekeeper (Node A) and Watchman (Node B):
     Result: Both nodes know each other's MAC address
             Communication is now encrypted
 ```
+
+## Pre-Pairing Wireless Test
+
+Before pairing the actual firmware, you can verify that both ESP32 boards can talk to each other wirelessly:
+
+1. Open `firmware/tests/07_espnow_pairing` in VS Code.
+2. Upload to **BOTH** ESP32 boards.
+3. Open two Serial Monitors (one for each board).
+4. Follow the instructions to switch one to SENDER mode and verify the other receives the messages.
+
+---
 
 ## Pairing Steps
 

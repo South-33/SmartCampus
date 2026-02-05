@@ -17,9 +17,10 @@ Each test is a complete PlatformIO project. To use:
 1. **01_esp32_blink** - Verify ESP32 works at all
 2. **02_nfc_reader** - Test PN532 NFC module
 3. **03_relay** - Test relay switching
-4. **04_finger_vein** - Test Waveshare finger vein sensor
-5. **05_radar** - Test LD2410C radar
-6. **06_espnow** - Test ESP-NOW pairing between two ESP32s
+4. **04_finger_vein** - Test Waveshare finger vein sensor (3.3V ONLY!)
+5. **05_face_recognition** - Test HLK-TX510 module communication
+6. **06_radar** - Test LD2410C radar
+7. **07_espnow_pairing** - Test ESP-NOW wireless communication between two ESP32s
 
 ## Notes
 

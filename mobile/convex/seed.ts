@@ -166,8 +166,8 @@ export const seedSystemConfig = internalMutation({
   args: {},
   handler: async (ctx) => {
     await ctx.db.insert("systemConfig", {
-      espNowPmk: "SchoolNFC_PMK01",        // 16 chars for ESP-NOW PMK
-      espNowSharedSecret: "SchoolNFC2024!@#", // Shared secret for HMAC
+      espNowPmk: "SmartCampusPMK01",        // 16 chars for ESP-NOW PMK
+      espNowSharedSecret: "SmartCampus24!@#", // Shared secret for HMAC
       debugMode: true,                     // true for dev, set false in prod
       updatedAt: Date.now(),
     });

@@ -74,7 +74,7 @@ void setup() {
     Serial.println();
     Serial.println("╔════════════════════════════════════════╗");
     Serial.println("║       PN532 NFC READER TEST v1.0       ║");
-    Serial.println("║       SchoolNFC Hardware Testing       ║");
+    Serial.println("║      SmartCampus Hardware Testing      ║");
     Serial.println("╚════════════════════════════════════════╝");
     Serial.println();
     

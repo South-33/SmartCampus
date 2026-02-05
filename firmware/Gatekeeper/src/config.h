@@ -67,8 +67,8 @@
 // ESP-NOW secrets are now fetched from Convex and stored in NVS
 // Fallback values used only until first config sync completes
 // These should be changed in production via the Convex dashboard
-#define DEFAULT_ESP_NOW_PMK     "SchoolNFC_PMK01"   // 16 chars - default PMK
-#define DEFAULT_ESP_NOW_SECRET  "SchoolNFC2024!@#"  // Default HMAC secret
+#define DEFAULT_ESP_NOW_PMK     "SmartCampusPMK01"   // 16 chars - default PMK
+#define DEFAULT_ESP_NOW_SECRET  "SmartCampus24!@#"  // Default HMAC secret
 
 // =============================================================================
 // TLS CERTIFICATE

@@ -2,7 +2,7 @@
 
 > **For Absolute Beginners** - No prior electronics experience required
 > 
-> Last Updated: February 2026 | SchoolNFC Project v2.0
+> Last Updated: February 2026 | SmartCampus Project v2.0
 
 ---
 

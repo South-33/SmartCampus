@@ -65,7 +65,7 @@ void setup() {
     Serial.println();
     Serial.println("╔════════════════════════════════════════╗");
     Serial.println("║     LD2410C RADAR SENSOR TEST v1.0     ║");
-    Serial.println("║     SchoolNFC Hardware Testing         ║");
+    Serial.println("║     SmartCampus Hardware Testing       ║");
     Serial.println("╚════════════════════════════════════════╝");
     Serial.println();
     

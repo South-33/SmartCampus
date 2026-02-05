@@ -89,7 +89,7 @@ void setup() {
     Serial.println();
     Serial.println("╔════════════════════════════════════════╗");
     Serial.println("║      ESP-NOW PAIRING TEST v1.0         ║");
-    Serial.println("║      SchoolNFC Hardware Testing        ║");
+    Serial.println("║      SmartCampus Hardware Testing      ║");
     Serial.println("╚════════════════════════════════════════╝");
     Serial.println();
     

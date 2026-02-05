@@ -37,7 +37,7 @@
 // =============================================================================
 // ESP-NOW secrets are now loaded from NVS (synced from Gatekeeper)
 // These are fallback values used only until first pairing
-#define DEFAULT_ESP_NOW_SECRET  "SchoolNFC2024!@#"
+#define DEFAULT_ESP_NOW_SECRET  "SmartCampus24!@#"
 
 // =============================================================================
 // DEBUG MODE

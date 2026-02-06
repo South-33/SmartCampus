@@ -7,11 +7,11 @@ import {
     Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import NfcManager, { NfcTech } from 'react-native-nfc-manager';
 import * as Haptics from 'expo-haptics';
 import { useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { colors, spacing, radius } from '../theme';
+import { loadNfcManager, NfcModule } from '../lib/nfc';
 import {
     HeadingLg,
     HeadingMd,
@@ -62,14 +62,31 @@ export const LinkCardScreen = ({ onBack, onSuccess }: LinkCardScreenProps) => {
     const [lastUID, setLastUID] = useState<string | null>(null);
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
     const scanLineAnim = React.useRef(new Animated.Value(0)).current;
+    const nfcRef = React.useRef<NfcModule | null>(null);
 
     const linkCard = useMutation(api.users.linkCard);
 
     // Initialize NFC
     useEffect(() => {
-        NfcManager.start();
+        let isMounted = true;
+
+        const initNfc = async () => {
+            try {
+                const module = await loadNfcManager();
+                if (!module || !isMounted) return;
+                nfcRef.current = module;
+                module.default.start().catch(err => console.warn('NFC Start Error:', err));
+            } catch (err) {
+                console.warn('NFC Init Error:', err);
+            }
+        };
+
+        initNfc();
         return () => {
-            NfcManager.cancelTechnologyRequest().catch(() => {});
+            isMounted = false;
+            if (nfcRef.current) {
+                nfcRef.current.default.cancelTechnologyRequest().catch(() => {});
+            }
         };
     }, []);
 
@@ -118,6 +135,16 @@ export const LinkCardScreen = ({ onBack, onSuccess }: LinkCardScreenProps) => {
     const handleStartScan = async () => {
         try {
             setStatus('scanning');
+            const module = nfcRef.current ?? await loadNfcManager();
+            if (!module) {
+                setStatus('ready');
+                return;
+            }
+
+            nfcRef.current = module;
+
+            const { default: NfcManager, NfcTech } = module;
+
             // Clean up any existing session
             await NfcManager.cancelTechnologyRequest().catch(() => {});
             
@@ -136,7 +163,10 @@ export const LinkCardScreen = ({ onBack, onSuccess }: LinkCardScreenProps) => {
             console.warn('NFC Error:', ex);
             setStatus('ready');
         } finally {
-            NfcManager.cancelTechnologyRequest().catch(() => {});
+            const module = nfcRef.current;
+            if (module) {
+                module.default.cancelTechnologyRequest().catch(() => {});
+            }
         }
     };
 

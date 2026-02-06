@@ -23,7 +23,16 @@ interface QueuedAttendance {
   antiCheat: AntiCheat;
 }
 
-export const useAttendance = (userId: string | undefined, deviceId: string | undefined) => {
+interface AttendanceOptions {
+  demoMode?: boolean;
+}
+
+export const useAttendance = (
+  userId: string | undefined,
+  deviceId: string | undefined,
+  options: AttendanceOptions = {}
+) => {
+  const { demoMode = false } = options;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const recordAttendanceMutation = useMutation(api.attendance.recordAttendance);
 
@@ -43,6 +52,11 @@ export const useAttendance = (userId: string | undefined, deviceId: string | und
   };
 
   const processQueue = useCallback(async () => {
+    if (demoMode) {
+      await saveQueue([]);
+      return;
+    }
+
     const queue = await getQueue();
     if (queue.length === 0) return;
 
@@ -64,7 +78,7 @@ export const useAttendance = (userId: string | undefined, deviceId: string | und
     }
 
     await saveQueue(remaining);
-  }, [recordAttendanceMutation]);
+  }, [demoMode, recordAttendanceMutation]);
 
   const submitAttendance = async (roomId: string) => {
     if (!userId || !deviceId) throw new Error("Missing user or device information");
@@ -76,6 +90,11 @@ export const useAttendance = (userId: string | undefined, deviceId: string | und
         promptMessage: 'Verify identity for attendance',
       });
       if (!auth.success) return { success: false, reason: 'biometric_failed' };
+
+      if (demoMode) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        return { success: true, mode: 'demo' };
+      }
 
       // 2. Location check
       let gps: { lat: number, lng: number } | undefined = undefined;

@@ -41,6 +41,12 @@
     },
     "plugins": [
       "expo-font",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Smart Classroom to use Face ID for attendance verification."
+        }
+      ],
       "react-native-nfc-manager",
       "expo-location"
     ]

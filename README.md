@@ -31,6 +31,12 @@ A two-node wireless system for secure gate access and intelligent energy managem
 | GPS | `expo-location` |
 | Push Notifications | `expo-notifications` |
 
+### Expo Go Limits (Testing)
+
+- Face ID is not available in Expo Go (it falls back to passcode)
+- NFC is not available in Expo Go (requires a dev client build)
+- Android dev build steps: `mobile/ANDROID_DEV_BUILD.md`
+
 ### Architecture
 
 ```

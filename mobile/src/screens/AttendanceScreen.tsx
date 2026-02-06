@@ -11,10 +11,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
-import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
+import Constants from 'expo-constants';
 import { useAppData } from '../context/AppContext';
 import { useAttendance } from '../hooks/useAttendance';
 import { colors, spacing } from '../theme';
+import { loadNfcManager, NfcModule } from '../lib/nfc';
 import {
     HeadingLg,
     HeadingMd,
@@ -36,24 +37,73 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
     const [timer, setTimer] = useState(60);
     const [status, setStatus] = useState<'waiting' | 'authenticating' | 'success' | 'offline_success' | 'error'>('waiting');
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [nfcMode, setNfcMode] = useState<'unknown' | 'real' | 'demo'>('unknown');
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
+    const nfcRef = React.useRef<NfcModule | null>(null);
 
-    const { viewer, activeSemester } = useAppData();
-    const { submitAttendance, processQueue } = useAttendance(viewer?._id, viewer?.deviceId);
+    const { viewer, activeSemester, deviceId, isDemo } = useAppData();
+    const isExpoGo = Constants.appOwnership === 'expo';
+    const isAttendanceDemo = isDemo || isExpoGo;
+    const { submitAttendance, processQueue } = useAttendance(
+        viewer?._id,
+        deviceId || viewer?.deviceId,
+        { demoMode: isAttendanceDemo }
+    );
     
     // We need to find the physical roomId for the student's current homeroom
     const homeroom = useQuery(api.homerooms.list, activeSemester ? { semesterId: activeSemester._id } : "skip");
     const myHomeroom = homeroom?.find(hr => hr._id === viewer?.currentHomeroomId);
 
-    // Initialize Services
+    const isNfcDemo = nfcMode !== 'real';
+
     useEffect(() => {
-        NfcManager.start().catch(err => console.warn('NFC Start Error:', err));
-        processQueue(); // Sync pending items on mount
+        let isMounted = true;
+
+        const checkNfc = async () => {
+            try {
+                const module = await loadNfcManager();
+                if (!module) {
+                    if (isMounted) setNfcMode('demo');
+                    return;
+                }
+
+                nfcRef.current = module;
+                const supported = await module.default.isSupported();
+                if (!supported) {
+                    if (isMounted) setNfcMode('demo');
+                    return;
+                }
+                const enabled = await module.default.isEnabled();
+                if (isMounted) setNfcMode(enabled ? 'real' : 'demo');
+            } catch (err) {
+                console.warn('NFC Check Error:', err);
+                if (isMounted) setNfcMode('demo');
+            }
+        };
+
+        checkNfc();
 
         return () => {
-            NfcManager.cancelTechnologyRequest().catch(() => {});
+            isMounted = false;
         };
+    }, []);
+
+    // Initialize Services
+    useEffect(() => {
+        processQueue(); // Sync pending items on mount
     }, [processQueue]);
+
+    useEffect(() => {
+        if (nfcMode !== 'real') return;
+
+        const module = nfcRef.current;
+        if (!module) return;
+
+        module.default.start().catch(err => console.warn('NFC Start Error:', err));
+        return () => {
+            module.default.cancelTechnologyRequest().catch(() => {});
+        };
+    }, [nfcMode]);
 
     const handleAttendance = async () => {
         if (!viewer || !myHomeroom) {
@@ -68,24 +118,35 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
             const result = await submitAttendance(myHomeroom.roomId);
             
             if (result.success) {
-                // 2. Also trigger NFC Broadcast for the Gatekeeper (Hardware path)
-                // This is redundant but ensures the physical door opens even if backend sync lags
-                await NfcManager.cancelTechnologyRequest().catch(() => {});
-                await NfcManager.requestTechnology(NfcTech.Ndef);
-                
-                const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-                const lat = location?.coords.latitude || 0;
-                const lng = location?.coords.longitude || 0;
-                const deviceId = viewer.deviceId || 'unknown';
-                
-                const payload = `ATTENDANCE|${viewer._id}|${Date.now()}|${lat}|${lng}|${deviceId}|${result.mode === 'online'}|ntp`;
-                const bytes = Ndef.encodeMessage([Ndef.textRecord(payload)]);
-                
-                if (bytes) {
-                    await NfcManager.ndefHandler.writeNdefMessage(bytes);
+                if (nfcMode === 'real') {
+                    // 2. Also trigger NFC Broadcast for the Gatekeeper (Hardware path)
+                    // This is redundant but ensures the physical door opens even if backend sync lags
+                    const module = nfcRef.current;
+                    if (!module) {
+                        setStatus(result.mode === 'online' ? 'success' : 'offline_success');
+                        return;
+                    }
+
+                    const { default: NfcManager, NfcTech, Ndef } = module;
+
+                    await NfcManager.cancelTechnologyRequest().catch(() => {});
+                    await NfcManager.requestTechnology(NfcTech.Ndef);
+                    
+                    const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                    const lat = location?.coords.latitude || 0;
+                    const lng = location?.coords.longitude || 0;
+                    const deviceId = viewer.deviceId || 'unknown';
+                    
+                    const payload = `ATTENDANCE|${viewer._id}|${Date.now()}|${lat}|${lng}|${deviceId}|${result.mode === 'online'}|ntp`;
+                    const bytes = Ndef.encodeMessage([Ndef.textRecord(payload)]);
+                    
+                    if (bytes) {
+                        await NfcManager.ndefHandler.writeNdefMessage(bytes);
+                    }
                 }
 
-                setStatus(result.mode === 'online' ? 'success' : 'offline_success');
+                const nextStatus = result.mode === 'offline' ? 'offline_success' : 'success';
+                setStatus(nextStatus);
             } else {
                 if (result.reason === 'biometric_failed') {
                     setStatus('waiting');
@@ -161,6 +222,11 @@ export const AttendanceScreen = ({ onBack }: AttendanceScreenProps) => {
 
                 {/* Biometric Area */}
                 <View style={styles.biometricArea}>
+                    {isNfcDemo && (
+                        <View style={styles.demoBadge}>
+                            <Caption style={styles.demoBadgeText}>NFC unavailable - demo mode</Caption>
+                        </View>
+                    )}
                     {(status === 'waiting' || status === 'authenticating') && (
                         <>
                             <Animated.View
@@ -289,6 +355,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: spacing.xl,
+    },
+    demoBadge: {
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.xs,
+        backgroundColor: colors.cream,
+        borderRadius: 999,
+        marginBottom: spacing.md,
+    },
+    demoBadgeText: {
+        color: colors.slate,
+        fontSize: 12,
     },
     biometricIcon: {
         width: 120,

@@ -7,11 +7,11 @@ import {
     Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import NfcManager, { NfcTech, Ndef } from 'react-native-nfc-manager';
 import * as Haptics from 'expo-haptics';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { colors, spacing } from '../theme';
+import { loadNfcManager, NfcModule } from '../lib/nfc';
 import {
     HeadingLg,
     HeadingMd,
@@ -30,27 +30,73 @@ export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
     const insets = useSafeAreaInsets();
     const [timer, setTimer] = useState(60);
     const [status, setStatus] = useState<'waiting' | 'success' | 'timeout'>('waiting');
+    const [nfcMode, setNfcMode] = useState<'unknown' | 'real' | 'demo'>('unknown');
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
     const waveAnim = React.useRef(new Animated.Value(0)).current;
+    const nfcRef = React.useRef<NfcModule | null>(null);
 
     const user = useQuery(api.users.viewer);
 
-    // Initialize NFC
+    const isDemo = nfcMode !== 'real';
+
     useEffect(() => {
-        NfcManager.start().catch(err => console.warn('NFC Start Error:', err));
+        let isMounted = true;
+
+        const checkNfc = async () => {
+            try {
+                const module = await loadNfcManager();
+                if (!module) {
+                    if (isMounted) setNfcMode('demo');
+                    return;
+                }
+
+                nfcRef.current = module;
+                const supported = await module.default.isSupported();
+                if (!supported) {
+                    if (isMounted) setNfcMode('demo');
+                    return;
+                }
+                const enabled = await module.default.isEnabled();
+                if (isMounted) setNfcMode(enabled ? 'real' : 'demo');
+            } catch (err) {
+                console.warn('NFC Check Error:', err);
+                if (isMounted) setNfcMode('demo');
+            }
+        };
+
+        checkNfc();
+
         return () => {
-            NfcManager.cancelTechnologyRequest().catch(() => {});
+            isMounted = false;
         };
     }, []);
 
+    // Initialize NFC
+    useEffect(() => {
+        if (nfcMode !== 'real') return;
+
+        const module = nfcRef.current;
+        if (!module) return;
+
+        module.default.start().catch(err => console.warn('NFC Start Error:', err));
+        return () => {
+            module.default.cancelTechnologyRequest().catch(() => {});
+        };
+    }, [nfcMode]);
+
     // NFC Writer Session
     useEffect(() => {
-        if (status !== 'waiting' || !user) return;
+        if (status !== 'waiting' || !user || nfcMode !== 'real') return;
 
         let isMounted = true;
 
         const startNfc = async () => {
             try {
+                const module = nfcRef.current;
+                if (!module) return;
+
+                const { default: NfcManager, NfcTech, Ndef } = module;
+
                 await NfcManager.cancelTechnologyRequest().catch(() => {});
                 await NfcManager.requestTechnology(NfcTech.Ndef);
                 
@@ -140,6 +186,12 @@ export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
         setStatus('waiting');
     };
 
+    const handleSimulate = () => {
+        if (status !== 'waiting') return;
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setStatus('success');
+    };
+
     const waveScale = waveAnim.interpolate({
         inputRange: [0, 1],
         outputRange: [1, 1.8],
@@ -176,6 +228,11 @@ export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
 
                 {/* NFC Prompt */}
                 <View style={styles.nfcArea}>
+                    {isDemo && (
+                        <View style={styles.demoBadge}>
+                            <Caption style={styles.demoBadgeText}>NFC unavailable - demo mode</Caption>
+                        </View>
+                    )}
                     {status === 'waiting' && (
                         <>
                             <View style={styles.nfcContainer}>
@@ -200,7 +257,9 @@ export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
                             </View>
                             <HeadingMd style={styles.promptTitle}>Ready to Scan</HeadingMd>
                             <BodySm style={styles.promptDesc}>
-                                Hold your phone near the door reader. The door will unlock automatically.
+                                {isDemo
+                                    ? 'NFC is disabled on this device. Use the button below to simulate a scan.'
+                                    : 'Hold your phone near the door reader. The door will unlock automatically.'}
                             </BodySm>
 
                             {/* Timer */}
@@ -253,7 +312,10 @@ export const OpenGateScreen = ({ onBack }: OpenGateScreenProps) => {
                     {status === 'timeout' && (
                         <Button onPress={handleRetry}>Try Again</Button>
                     )}
-                    {status === 'waiting' && (
+                    {status === 'waiting' && isDemo && (
+                        <Button onPress={handleSimulate}>Simulate Scan</Button>
+                    )}
+                    {status === 'waiting' && !isDemo && (
                         <Button variant="secondary" onPress={onBack}>Cancel</Button>
                     )}
                 </View>
@@ -303,6 +365,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: spacing.xl,
+    },
+    demoBadge: {
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.xs,
+        backgroundColor: colors.cream,
+        borderRadius: 999,
+        marginBottom: spacing.md,
+    },
+    demoBadgeText: {
+        color: colors.slate,
+        fontSize: 12,
     },
     nfcContainer: {
         position: 'relative',

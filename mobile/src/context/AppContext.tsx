@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { useQuery, useConvexAuth } from 'convex/react';
+import { useQuery, useConvexAuth, useMutation } from 'convex/react';
 import { api } from '../../convex/_generated/api';
 import { UserRole } from '../screens/LoginScreen';
 import { Doc } from '../../convex/_generated/dataModel';
 import { authCache } from '../lib/authCache';
+import { getOrCreateDeviceId } from '../lib/deviceId';
 
 export type RoomWithHomeroom = Doc<"rooms"> & { homeroomName?: string };
 
@@ -44,6 +45,9 @@ interface AppContextType {
   homeroomSchedule: any[] | undefined;
   activeSemester: any | null | undefined;
 
+  // Device
+  deviceId: string | null;
+
   // Loading State
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -61,6 +65,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [isDemo, setIsDemo] = useState(false);
   const [isOptimisticAuth, setIsOptimisticAuth] = useState(false);
   const [cachedProfile, setCachedProfile] = useState<CachedProfile | null>(null);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
+  const [hasLinkedDevice, setHasLinkedDevice] = useState(false);
+
+  const updateDeviceId = useMutation(api.users.updateDeviceId);
 
   const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : "skip");
 
@@ -109,6 +117,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const loadDeviceId = async () => {
+      try {
+        const id = await getOrCreateDeviceId();
+        if (isMounted) setDeviceId(id);
+      } catch (err) {
+        console.warn('Failed to load device id:', err);
+      }
+    };
+
+    loadDeviceId();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (isAuthenticated && viewer) {
       setIsDemo(false);
       const role = (viewer.role as UserRole) || 'student';
@@ -129,6 +155,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [isAuthenticated, viewer, authLoading]);
 
+  useEffect(() => {
+    if (!isAuthenticated || !viewer || !deviceId || hasLinkedDevice) return;
+
+    if (!viewer.deviceId) {
+      updateDeviceId({ deviceId })
+        .then(() => setHasLinkedDevice(true))
+        .catch((err) => {
+          console.warn('Failed to link device id:', err);
+          setHasLinkedDevice(true);
+        });
+    } else {
+      setHasLinkedDevice(true);
+    }
+  }, [isAuthenticated, viewer, deviceId, hasLinkedDevice, updateDeviceId]);
+
   return (
     <AppContext.Provider
       value={{
@@ -147,6 +188,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         todaySessions,
         homeroomSchedule,
         activeSemester,
+        deviceId,
         isAuthenticated,
         isLoading: authLoading,
         isOptimisticAuth,
